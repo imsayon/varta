@@ -1,0 +1,31 @@
+{
+	"compilerOptions": {
+		"paths": {
+			"@/*": ["./src/*"]
+		},
+		"rootDir": "./src",
+		"outDir": "./dist",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"target": "ES2023",
+		"lib": ["ES2023"],
+		"types": ["node"],
+		"noEmit": true,
+		"strict": true,
+		"allowImportingTsExtensions": true,
+		"sourceMap": true,
+		"allowArbitraryExtensions": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"moduleDetection": "force",
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true
+	},
+	"include": ["src/**/*"],
+	"exclude": ["dist", "node_modules", "src/generated"]
+}

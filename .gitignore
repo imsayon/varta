@@ -1,0 +1,24 @@
+.info
+node_modules
+dist
+**/dist
+.next
+**/.next
+out
+build
+coverage
+*.tsbuildinfo
+
+# Prisma generated client
+server/src/generated
+
+.env
+.env.*
+!.env.example
+
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+firebase-debug.log
+
+.DS_Store

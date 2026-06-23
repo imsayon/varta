@@ -1,0 +1,70 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 6, 14, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  font-family: var(--font-mono);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.language {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: var(--weight-semibold);
+}
+
+.copyButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+
+.copyButton:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.copyIcon, .checkIcon {
+  width: 14px;
+  height: 14px;
+}
+
+.checkIcon {
+  color: var(--color-emerald-500);
+}
+
+.pre {
+  margin: 0;
+  padding: var(--space-4);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--lh-normal);
+  color: #c9d1d9;
+}
+
+.code {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

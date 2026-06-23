@@ -1,0 +1,81 @@
+.header {
+  text-align: center;
+  margin-bottom: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.submitBtn {
+  margin-top: var(--space-2);
+  width: 100%;
+}
+
+.footer {
+  margin-top: var(--space-6);
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.link {
+  color: var(--color-primary-400);
+  text-decoration: none;
+  font-weight: var(--weight-semibold);
+  transition: color var(--transition-base);
+}
+
+.link:hover {
+  color: var(--color-primary-300);
+  text-decoration: underline;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: var(--space-6) 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.divider span {
+  padding: 0 var(--space-3);
+}
+
+.oauthProviders {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.oauthBtn {
+  flex: 1;
+}

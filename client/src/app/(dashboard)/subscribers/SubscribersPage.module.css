@@ -1,0 +1,199 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: var(--tracking-tight);
+}
+
+.subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: var(--space-1) 0 0;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.searchWrapper {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--space-3-5);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.searchInput {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2-5) var(--space-4) var(--space-2-5) var(--space-10);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.searchInput:focus {
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+}
+
+.skeletonGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.emptyContainer {
+  width: 100%;
+}
+
+.tableCard {
+  padding: var(--space-5);
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.table th {
+  background: rgba(255, 255, 255, 0.02);
+  padding: var(--space-3-5) var(--space-4);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.table td {
+  padding: var(--space-3-5) var(--space-4);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover td {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.monoId {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.contactInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.emailText {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.phoneText {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.noContact {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+}
+
+.preferences {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prefItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.prefItem svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.actionBtn {
+  background: none;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.actionBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.deleteBtn:hover {
+  background: rgba(244, 63, 94, 0.08);
+  color: var(--color-rose-400);
+}
