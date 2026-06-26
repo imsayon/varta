@@ -6,17 +6,15 @@ import type {
 } from "./template.schema.ts"
 
 export const templateRepository = {
-	async create(data: CreateTemplateInput) {
+	async create(data: CreateTemplateInput & { workspaceId: string }) {
 		return prisma.template.create({
 			data: {
 				name: data.name,
-				body: data.body,
-				channel: data.channel,
+				description: data.description ?? null,
+				channels: data.channels as any, // mapping JSON
+				digestConfig: data.digestConfig as any ?? null,
+				aiPersonalize: data.aiPersonalize ?? false,
 				workspaceId: data.workspaceId,
-
-				...(data.subject !== undefined && {
-					subject: data.subject,
-				}),
 			},
 		})
 	},
@@ -59,13 +57,7 @@ export const templateRepository = {
 							},
 						},
 						{
-							subject: {
-								contains: search,
-								mode: "insensitive",
-							},
-						},
-						{
-							body: {
+							description: {
 								contains: search,
 								mode: "insensitive",
 							},
@@ -97,13 +89,7 @@ export const templateRepository = {
 							},
 						},
 						{
-							subject: {
-								contains: search,
-								mode: "insensitive",
-							},
-						},
-						{
-							body: {
+							description: {
 								contains: search,
 								mode: "insensitive",
 							},
@@ -125,16 +111,24 @@ export const templateRepository = {
 					name: data.name,
 				}),
 
-				...(data.subject !== undefined && {
-					subject: data.subject,
+				...(data.description !== undefined && {
+					description: data.description,
 				}),
 
-				...(data.body !== undefined && {
-					body: data.body,
+				...(data.channels !== undefined && {
+					channels: data.channels as any,
 				}),
 
-				...(data.channel !== undefined && {
-					channel: data.channel,
+				...(data.digestConfig !== undefined && {
+					digestConfig: data.digestConfig as any,
+				}),
+
+				...(data.aiPersonalize !== undefined && {
+					aiPersonalize: data.aiPersonalize,
+				}),
+				
+				...(data.isActive !== undefined && {
+					isActive: data.isActive,
 				}),
 			},
 		})

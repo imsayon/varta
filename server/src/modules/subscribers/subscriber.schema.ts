@@ -6,8 +6,8 @@ export const createSubscriberSchema = z.object({
 	name: z.string().max(200).optional(),
 	timezone: z.string().default("UTC"),
 	locale: z.string().max(10).default("en"),
-	attributes: z.record(z.unknown()).default({}),
-	preferences: z.record(z.boolean()).default({}),
+	attributes: z.record(z.string(), z.unknown()).default({}),
+	preferences: z.record(z.string(), z.boolean()).default({}),
 })
 
 export const updateSubscriberSchema = z.object({
@@ -15,8 +15,8 @@ export const updateSubscriberSchema = z.object({
 	name: z.string().max(200).optional(),
 	timezone: z.string().optional(),
 	locale: z.string().max(10).optional(),
-	attributes: z.record(z.unknown()).optional(),
-	preferences: z.record(z.boolean()).optional(),
+	attributes: z.record(z.string(), z.unknown()).optional(),
+	preferences: z.record(z.string(), z.boolean()).optional(),
 })
 
 export type CreateSubscriberInput = z.infer<typeof createSubscriberSchema>

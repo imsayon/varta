@@ -7,7 +7,7 @@ export const createWorkspaceSchema = z.object({
 
 export const updateWorkspaceSchema = z.object({
 	name: z.string().min(1).max(100).optional(),
-	settings: z.record(z.unknown()).optional(),
+	settings: z.record(z.string(), z.unknown()).optional(),
 })
 
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>

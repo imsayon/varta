@@ -1,6 +1,6 @@
 import { templateRepository } from "./template.repository.ts"
 
-import { ConflictError, NotFoundError } from "@/shared/error/error.ts"
+import { ConflictError, NotFoundError } from "@/shared/errors/app-error.ts"
 
 import type {
 	CreateTemplateInput,
@@ -9,9 +9,9 @@ import type {
 } from "./template.schema.ts"
 
 export const templateService = {
-	async create(data: CreateTemplateInput) {
+	async create(workspaceId: string, data: CreateTemplateInput) {
 		const existingTemplate = await templateRepository.findByName(
-			data.workspaceId,
+			workspaceId,
 			data.name,
 		)
 
@@ -21,7 +21,7 @@ export const templateService = {
 			)
 		}
 
-		return templateRepository.create(data)
+		return templateRepository.create({ ...data, workspaceId })
 	},
 
 	async getById(id: string) {
