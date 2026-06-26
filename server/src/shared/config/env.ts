@@ -2,9 +2,10 @@ import { z } from "zod"
 
 const envSchema = z.object({
 	PORT: z.coerce.number().default(5000),
-	NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+	NODE_ENV: z
+		.enum(["development", "production", "test"])
+		.default("development"),
 	CORS_ORIGIN: z.string().default("http://localhost:3000"),
-
 	DATABASE_URL: z.string(),
 	REDIS_URL: z.string().default("redis://localhost:6379"),
 
@@ -20,7 +21,12 @@ const envSchema = z.object({
 	GOOGLE_CLIENT_SECRET: z.string().default(""),
 	GOOGLE_CALLBACK_URL: z.string().default(""),
 
+	CLIENT_URL: z.string().default("http://localhost:3000"),
 	RESEND_API_KEY: z.string().default(""),
+	EMAIL_FROM: z.string().default("Varta <onboarding@resend.dev>"),
+	PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().default(15),
+	EMAIL_VERIFY_TOKEN_TTL_HOURS: z.coerce.number().default(24),
+
 	ANTHROPIC_API_KEY: z.string().default(""),
 	ENCRYPTION_KEY: z.string().default(""),
 })

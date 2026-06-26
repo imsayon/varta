@@ -1,11 +1,11 @@
-import Redis from "ioredis"
+import { Redis } from "ioredis"
 import { env } from "../config/env.ts"
 import { logger } from "../logger/logger.ts"
 
 export const redis = new Redis(env.REDIS_URL, {
 	maxRetriesPerRequest: null,
 	enableReadyCheck: true,
-	retryStrategy(times) {
+	retryStrategy(times: number) {
 		if (times > 10) {
 			logger.error("Redis: max retry attempts reached, giving up")
 			return null
@@ -15,4 +15,4 @@ export const redis = new Redis(env.REDIS_URL, {
 })
 
 redis.on("connect", () => logger.info("Redis connected"))
-redis.on("error", (err) => logger.error({ err }, "Redis connection error"))
+redis.on("error", (err: Error) => logger.error({ err }, "Redis connection error"))

@@ -59,3 +59,27 @@ export class ValidationError extends AppError {
 		super(message, 400, "VALIDATION_ERROR")
 	}
 }
+
+export class InternalServerError extends AppError {
+	constructor(message = "Internal server error") {
+		super(message, 500, "INTERNAL_SERVER_ERROR")
+	}
+}
+
+export class ServiceUnavailableError extends AppError {
+	constructor(message = "Service unavailable") {
+		super(message, 503, "SERVICE_UNAVAILABLE")
+	}
+}
+
+export class EmailNotVerifiedError extends AppError {
+	constructor(message = "Email not verified") {
+		super(message, 403, "EMAIL_NOT_VERIFIED")
+	}
+}
+
+export class InvalidCredentialsError extends AppError {
+	constructor(message = "Invalid credentials") {
+		super(message, 401, "INVALID_CREDENTIALS")
+	}
+}
