@@ -78,7 +78,7 @@ function buildHeaders(hasBody: boolean): HeadersInit {
  * `ApiResponse` so callers never need try/catch blocks.
  *
  * @typeParam T - Expected shape of the response `data` on success.
- * @param path   - Relative URL path (e.g. `/api/workspaces`).
+ * @param path   - Relative URL path (e.g. `/api/v1/workspaces`).
  * @param init   - Standard `RequestInit` overrides.
  * @returns A promise resolving to a typed API response envelope.
  */
@@ -160,7 +160,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResp
  * import { apiClient } from '@/shared/api/api-client';
  * import type { IWorkspace } from '@/shared/types/domain';
  *
- * const res = await apiClient.get<IWorkspace[]>('/api/workspaces');
+ * const res = await apiClient.get<IWorkspace[]>('/api/v1/workspaces');
  * if (res.success && res.data) {
  *   console.log(res.data);
  * }

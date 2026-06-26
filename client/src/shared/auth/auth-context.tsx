@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
+import { createContext, useContext, useEffect, useCallback, useState, type ReactNode } from 'react';
+import { useAuthStore } from './auth-store';
+import { apiFetch } from '../api/api';
 import type { IUser } from '../types/domain';
 
 interface AuthState {
@@ -14,8 +15,8 @@ interface AuthState {
 
 interface AuthActions {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  signup: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
   setActiveWorkspace: (ws: { id: string; name: string }) => void;
   setApiKey: (key: string) => void;
 }
@@ -25,53 +26,97 @@ type AuthContextValue = AuthState & AuthActions;
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: session, status } = useSession();
-  const [workspace, setWorkspace] = useState<{ id: string; name: string } | null>(null);
+  const { user, isAuthenticated, isLoading, setAuth, clearAuth, setLoading } = useAuthStore();
+  
+  // Keep local storage synced values here for simplicity, though they could also be in Zustand
+  const [workspace, setWorkspaceState] = useState<{ id: string; name: string } | null>(null);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
 
-  // Map session user to our IUser type
-  const user: IUser | null = session?.user ? {
-    id: session.user.id || '',
-    email: session.user.email || '',
-  } : null;
-
   useEffect(() => {
+    // Check initial auth state by calling /me or /refresh
+    const verifySession = async () => {
+      try {
+        const response = await fetch('/api/v1/auth/refresh', { method: 'POST' });
+        if (response.ok) {
+          const data = await response.json();
+          // After getting token, fetch the user profile or parse from JWT
+          const meResponse = await fetch('/api/v1/auth/me', {
+            headers: { Authorization: `Bearer ${data.data.accessToken}` }
+          });
+          if (meResponse.ok) {
+            const meData = await meResponse.json();
+            setAuth(meData.data as IUser, data.data.accessToken);
+          } else {
+            clearAuth();
+          }
+        } else {
+          clearAuth();
+        }
+      } catch (err) {
+        clearAuth();
+      }
+    };
+
+    verifySession();
+
+    // Load workspace and api key preferences
     const storedWsId = localStorage.getItem('varta_ws_id');
     const storedWsName = localStorage.getItem('varta_ws_name');
     const storedApiKey = localStorage.getItem('varta_api_key');
 
     if (storedWsId && storedWsName) {
-      setWorkspace({ id: storedWsId, name: storedWsName });
+      setWorkspaceState({ id: storedWsId, name: storedWsName });
     }
     if (storedApiKey) {
       setApiKeyState(storedApiKey);
     }
-  }, []);
+  }, [setAuth, clearAuth]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await nextAuthSignIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    });
-
-    if (res?.error) {
-      return { success: false, error: 'Invalid email or password' };
-    }
-    return { success: true };
-  }, []);
-
-  const signup = useCallback(async (email: string, password: string) => {
     try {
-      const res = await fetch('/api/auth/register', {
+      const response = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        let errorMsg = data.message || 'Invalid credentials';
+        if (data.details) {
+          const firstDetail = Object.values(data.details)[0];
+          if (Array.isArray(firstDetail) && firstDetail.length > 0) {
+            errorMsg = firstDetail[0] as string;
+          }
+        }
+        return { success: false, error: errorMsg };
+      }
+
+      setAuth(data.data.user as IUser, data.data.accessToken);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: 'Network error during login' };
+    }
+  }, [setAuth]);
+
+  const signup = useCallback(async (name: string, email: string, password: string) => {
+    try {
+      const res = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
       });
       
       const data = await res.json();
       if (!res.ok) {
-        return { success: false, error: data.error || 'Signup failed' };
+        let errorMsg = data.message || 'Registration failed';
+        if (data.details) {
+          const firstDetail = Object.values(data.details)[0];
+          if (Array.isArray(firstDetail) && firstDetail.length > 0) {
+            errorMsg = firstDetail[0] as string;
+          }
+        }
+        return { success: false, error: errorMsg };
       }
       
       // Auto login after signup
@@ -81,17 +126,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [login]);
 
-  const logout = useCallback(() => {
-    nextAuthSignOut({ redirect: true, callbackUrl: '/login' });
-    setWorkspace(null);
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/v1/auth/logout', { method: 'POST' });
+    } catch (err) {
+      // Ignore network errors on logout
+    }
+    clearAuth();
+    setWorkspaceState(null);
     setApiKeyState(null);
     localStorage.removeItem('varta_ws_id');
     localStorage.removeItem('varta_ws_name');
     localStorage.removeItem('varta_api_key');
-  }, []);
+    
+    // Hard reload or push to login
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  }, [clearAuth]);
 
   const setActiveWorkspace = useCallback((ws: { id: string; name: string }) => {
-    setWorkspace(ws);
+    setWorkspaceState(ws);
     localStorage.setItem('varta_ws_id', ws.id);
     localStorage.setItem('varta_ws_name', ws.name);
   }, []);
@@ -105,8 +160,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     workspace,
     apiKey,
-    isAuthenticated: status === 'authenticated',
-    isLoading: status === 'loading',
+    isAuthenticated,
+    isLoading,
     login,
     signup,
     logout,
