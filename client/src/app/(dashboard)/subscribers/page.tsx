@@ -35,7 +35,7 @@ export default function SubscribersPage() {
   const fetchSubscribers = async () => {
     if (!workspace) return;
     setLoading(true);
-    const res = await apiClient.get<ISubscriber[]>(`/api/workspaces/${workspace.id}/subscribers`);
+    const res = await apiClient.get<ISubscriber[]>(`/api/v1/workspaces/${workspace.id}/subscribers`);
     if (res.success && res.data) {
       setSubscribers(res.data);
     } else {
@@ -52,7 +52,7 @@ export default function SubscribersPage() {
     if (!workspace) return;
 
     const res = await apiClient.post<ISubscriber>(
-      `/api/workspaces/${workspace.id}/subscribers`,
+      `/api/v1/workspaces/${workspace.id}/subscribers`,
       formData
     );
     if (res.success) {
@@ -71,7 +71,7 @@ export default function SubscribersPage() {
   const handleDelete = async (id: string, externalId: string) => {
     if (!workspace || !confirm(`Delete subscriber "${externalId}"? All delivery data will remain, but preferences will be lost.`)) return;
 
-    const res = await apiClient.del(`/api/workspaces/${workspace.id}/subscribers/${id}`);
+    const res = await apiClient.del(`/api/v1/workspaces/${workspace.id}/subscribers/${id}`);
     if (res.success) {
       toast.success(`Subscriber "${externalId}" deleted.`);
       setSubscribers(prev => prev.filter(s => s.id !== id));

@@ -14,6 +14,7 @@ import styles from './SignupPage.module.css';
 export default function SignupPage() {
   const router = useRouter();
   const { signup } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -22,10 +23,16 @@ export default function SignupPage() {
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
+    if (!name || name.trim().length < 2) nextErrors.name = 'Name must be at least 2 characters';
     if (!email) nextErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(email)) nextErrors.email = 'Invalid email address';
-    if (!password) nextErrors.password = 'Password is required';
-    else if (password.length < 6) nextErrors.password = 'Password must be at least 6 characters';
+    if (!password) {
+      nextErrors.password = 'Password is required';
+    } else if (password.length < 8) {
+      nextErrors.password = 'Password must be at least 8 characters';
+    } else if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+      nextErrors.password = 'Password must contain uppercase, lowercase, and number';
+    }
     if (password !== confirmPassword) nextErrors.confirmPassword = 'Passwords do not match';
 
     setErrors(nextErrors);
@@ -37,7 +44,7 @@ export default function SignupPage() {
     if (!validate()) return;
 
     setIsSubmitting(true);
-    const res = await signup(email, password);
+    const res = await signup(name, email, password);
     setIsSubmitting(false);
 
     if (res.success) {
@@ -56,6 +63,17 @@ export default function SignupPage() {
       </div>
 
       <form onSubmit={handleSubmit} className={styles.form}>
+        <Input
+          type="text"
+          label="Full Name"
+          placeholder="Jane Doe"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          error={errors.name}
+          disabled={isSubmitting}
+          required
+        />
+
         <Input
           type="email"
           label="Email Address"
@@ -100,6 +118,7 @@ export default function SignupPage() {
         </Button>
       </form>
 
+      {/* OAuth deferred
       <div className={styles.divider}>
         <span>Or continue with</span>
       </div>
@@ -120,6 +139,7 @@ export default function SignupPage() {
           GitHub
         </Button>
       </div>
+      */}
 
       <div className={styles.footer}>
         <span>Already have an account?</span>{' '}

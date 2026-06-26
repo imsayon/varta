@@ -34,7 +34,7 @@ export default function TemplatesPage() {
   const fetchTemplates = async () => {
     if (!workspace) return;
     setLoading(true);
-    const res = await apiClient.get<ITemplate[]>(`/api/workspaces/${workspace.id}/templates`);
+    const res = await apiClient.get<ITemplate[]>(`/api/v1/workspaces/${workspace.id}/templates`);
     if (res.success && res.data) {
       setTemplates(res.data);
     } else {
@@ -53,7 +53,7 @@ export default function TemplatesPage() {
     if (editingTemplate) {
       // Update
       const res = await apiClient.put<ITemplate>(
-        `/api/workspaces/${workspace.id}/templates/${editingTemplate._id}`,
+        `/api/v1/workspaces/${workspace.id}/templates/${editingTemplate._id}`,
         formData
       );
       if (res.success) {
@@ -66,7 +66,7 @@ export default function TemplatesPage() {
     } else {
       // Create
       const res = await apiClient.post<ITemplate>(
-        `/api/workspaces/${workspace.id}/templates`,
+        `/api/v1/workspaces/${workspace.id}/templates`,
         formData
       );
       if (res.success) {
@@ -82,7 +82,7 @@ export default function TemplatesPage() {
   const handleDelete = async (id: string, name: string) => {
     if (!workspace || !confirm(`Are you sure you want to delete template "${name}"?`)) return;
 
-    const res = await apiClient.del(`/api/workspaces/${workspace.id}/templates/${id}`);
+    const res = await apiClient.del(`/api/v1/workspaces/${workspace.id}/templates/${id}`);
     if (res.success) {
       toast.success(`Template "${name}" deleted.`);
       setTemplates(prev => prev.filter(t => t._id !== id));

@@ -71,7 +71,7 @@ export function AnalyticsDashboard() {
       setLoading(true);
       setError(null);
       const res = await apiClient.get<AnalyticsData>(
-        `/api/workspaces/${workspace?.id}/notifications/analytics`
+        `/api/v1/workspaces/${workspace?.id}/notifications/analytics`
       );
       if (res.success && res.data) {
         setData(res.data);

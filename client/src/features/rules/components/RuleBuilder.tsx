@@ -40,7 +40,7 @@ export function RuleBuilder() {
   const fetchRules = async () => {
     if (!workspace) return;
     setLoading(true);
-    const res = await apiClient.get<IRoutingRule[]>(`/api/workspaces/${workspace.id}/rules`);
+    const res = await apiClient.get<IRoutingRule[]>(`/api/v1/workspaces/${workspace.id}/rules`);
     if (res.success && res.data) {
       setRules(res.data);
     } else {
@@ -59,7 +59,7 @@ export function RuleBuilder() {
 
     setCompiling(true);
     const res = await apiClient.post<IRoutingRule>(
-      `/api/workspaces/${workspace.id}/rules`,
+      `/api/v1/workspaces/${workspace.id}/rules`,
       { name, naturalLanguage, priority, active }
     );
     setCompiling(false);
@@ -79,7 +79,7 @@ export function RuleBuilder() {
   const handleDelete = async (id: string, ruleName: string) => {
     if (!workspace || !confirm(`Are you sure you want to delete rule "${ruleName}"?`)) return;
 
-    const res = await apiClient.del(`/api/workspaces/${workspace.id}/rules/${id}`);
+    const res = await apiClient.del(`/api/v1/workspaces/${workspace.id}/rules/${id}`);
     if (res.success) {
       toast.success(`Rule "${ruleName}" deleted.`);
       setRules(prev => prev.filter(r => r.id !== id));

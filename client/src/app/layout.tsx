@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Space_Grotesk, Inter, JetBrains_Mono } from 'next/font/google';
 import { AuthProvider } from '@/shared/auth/auth-context';
-import { SessionProvider } from 'next-auth/react';
+
 import { Toaster } from 'sonner';
 import '@/styles/variables.css';
 import '@/styles/globals.css';
@@ -38,23 +38,21 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
       <body>
-        <SessionProvider>
-          <AuthProvider>
-            {children}
-            <Toaster 
-              theme="dark" 
-              position="top-right" 
-              toastOptions={{
-                style: {
-                  background: 'rgba(15, 20, 35, 0.9)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  color: '#f1f5f9',
-                  backdropFilter: 'blur(16px)',
-                }
-              }}
-            />
-          </AuthProvider>
-        </SessionProvider>
+        <AuthProvider>
+          {children}
+          <Toaster 
+            theme="dark" 
+            position="top-right" 
+            toastOptions={{
+              style: {
+                background: 'rgba(15, 20, 35, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: '#f1f5f9',
+                backdropFilter: 'blur(16px)',
+              }
+            }}
+          />
+        </AuthProvider>
       </body>
     </html>
   );

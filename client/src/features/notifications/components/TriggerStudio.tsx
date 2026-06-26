@@ -58,8 +58,8 @@ export function TriggerStudio() {
     const loadData = async () => {
       setLoading(true);
       const [templatesRes, subscribersRes] = await Promise.all([
-        apiClient.get<ITemplate[]>(`/api/workspaces/${workspace.id}/templates`),
-        apiClient.get<ISubscriber[]>(`/api/workspaces/${workspace.id}/subscribers`)
+        apiClient.get<ITemplate[]>(`/api/v1/workspaces/${workspace.id}/templates`),
+        apiClient.get<ISubscriber[]>(`/api/v1/workspaces/${workspace.id}/subscribers`)
       ]);
 
       if (templatesRes.success && templatesRes.data) {
@@ -103,7 +103,7 @@ export function TriggerStudio() {
     addLog('info', `Firing trigger: template="${selectedTemplate}" recipient="${selectedSubscriber}"...`);
 
     const res = await apiClient.post<any>(
-      `/api/workspaces/${workspace.id}/notifications/trigger`,
+      `/api/v1/workspaces/${workspace.id}/notifications/trigger`,
       {
         templateName: selectedTemplate,
         subscriberId: selectedSubscriber,

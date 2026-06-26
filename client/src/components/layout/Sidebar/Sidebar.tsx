@@ -42,7 +42,7 @@ export function Sidebar() {
   // Fetch workspaces list
   useEffect(() => {
     async function loadWorkspaces() {
-      const res = await apiClient.get<IWorkspace[]>('/api/workspaces');
+      const res = await apiClient.get<IWorkspace[]>('/api/v1/workspaces');
       if (res.success && res.data) {
         setWorkspaces(res.data);
         // If no active workspace is selected, but workspaces exist, select the first one
@@ -58,7 +58,7 @@ export function Sidebar() {
     e.preventDefault();
     if (!newWsName.trim()) return;
 
-    const res = await apiClient.post<IWorkspace>('/api/workspaces', { name: newWsName });
+    const res = await apiClient.post<IWorkspace>('/api/v1/workspaces', { name: newWsName });
     if (res.success && res.data) {
       setWorkspaces(prev => [...prev, res.data!]);
       setActiveWorkspace({ id: res.data._id, name: res.data.name });

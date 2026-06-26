@@ -61,7 +61,7 @@ export function WorkspaceSettings() {
   const fetchWorkspace = async () => {
     if (!workspace) return;
     setLoading(true);
-    const res = await apiClient.get<IWorkspace>(`/api/workspaces/${workspace.id}`);
+    const res = await apiClient.get<IWorkspace>(`/api/v1/workspaces/${workspace.id}`);
     if (res.success && res.data) {
       setWsData(res.data);
       setName(res.data.name);
@@ -118,7 +118,7 @@ export function WorkspaceSettings() {
     };
 
     const res = await apiClient.put<IWorkspace>(
-      `/api/workspaces/${workspace.id}`,
+      `/api/v1/workspaces/${workspace.id}`,
       payload
     );
 
@@ -138,7 +138,7 @@ export function WorkspaceSettings() {
 
     setGeneratingKey(true);
     const res = await apiClient.post<{ rawKey: string; label: string }>(
-      `/api/workspaces/${workspace.id}/api-keys`,
+      `/api/v1/workspaces/${workspace.id}/api-keys`,
       { label: keyLabel }
     );
     setGeneratingKey(false);

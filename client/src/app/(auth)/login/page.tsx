@@ -87,6 +87,7 @@ export default function LoginPage() {
         </Button>
       </form>
 
+      {/* OAuth deferred
       <div className={styles.divider}>
         <span>Or continue with</span>
       </div>
@@ -107,6 +108,7 @@ export default function LoginPage() {
           GitHub
         </Button>
       </div>
+      */}
 
       <div className={styles.footer}>
         <span>New to Varta?</span>{' '}
