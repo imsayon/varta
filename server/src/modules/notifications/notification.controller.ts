@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express"
 import type { TriggerNotificationRequest } from "./notification.schema.ts"
 import { notificationOrchestrator } from "./notification.orchestrator.ts"
 import { notificationRepository } from "./notification.repository.ts"
+import { NotFoundError, BadRequestError } from "@/common/errors/app-error.ts"
 
 export const trigger = async (
 	req: Request,
@@ -126,6 +127,39 @@ export const getById = async (
 			success: true,
 			data: notification,
 		})
+	} catch (err) {
+		next(err)
+	}
+}
+
+// Re-enqueues a FAILED notification through the full orchestrator pipeline.
+// Uses a fresh idempotency key so the retry is treated as a new delivery attempt.
+export const retry = async (
+	req: Request,
+	res: Response,
+	next: NextFunction,
+): Promise<void> => {
+	try {
+		const workspaceId = req.params.workspaceId as string
+		const notificationId = req.params.notificationId as string
+
+		const notification = await notificationRepository.findById(workspaceId, notificationId)
+		if (!notification) throw new NotFoundError("Notification not found")
+		if (notification.status !== "FAILED") {
+			throw new BadRequestError("Only FAILED notifications can be retried")
+		}
+
+		const result = await notificationOrchestrator.triggerNotification(
+			workspaceId!,
+			crypto.randomUUID(), // fresh key — bypasses idempotency for explicit retry
+			{
+				templateId: notification.templateId,
+				subscriberExternalId: notification.subscriber.externalId,
+				payload: (notification.triggerPayload as Record<string, unknown>) ?? {},
+			},
+		)
+
+		res.status(202).json({ success: true, data: result })
 	} catch (err) {
 		next(err)
 	}

@@ -65,7 +65,7 @@ export const notificationOrchestrator = {
 			throw new Error("Email provider not configured.")
 		}
 
-		const config = decryptConfig(provider.config) as {
+		const config = decryptConfig(provider.config as Record<string, unknown>) as {
 			apiKey: string
 			fromAddress: string
 		}

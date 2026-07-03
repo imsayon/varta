@@ -65,9 +65,21 @@ export function decrypt(encryptedText: string): string {
 	return decrypted
 }
 
-export function encryptConfig(config: any): any {
-	return config // In a real app, encrypt deeply here
+// Encrypts a provider config object. Each string value is encrypted individually
+// so the shape of the object is preserved for partial reads.
+export function encryptConfig(config: Record<string, unknown>): Record<string, unknown> {
+        const result: Record<string, unknown> = {}
+        for (const [key, value] of Object.entries(config)) {
+                result[key] = typeof value === "string" ? encrypt(value) : value
+        }
+        return result
 }
-export function decryptConfig(config: any): any {
-	return config // In a real app, decrypt deeply here
+
+// Decrypts a previously encrypted config object produced by encryptConfig.
+export function decryptConfig(config: Record<string, unknown>): Record<string, unknown> {
+        const result: Record<string, unknown> = {}
+        for (const [key, value] of Object.entries(config)) {
+                result[key] = typeof value === "string" ? decrypt(value) : value
+        }
+        return result
 }
