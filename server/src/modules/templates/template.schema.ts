@@ -1,46 +1,24 @@
 import { z } from "zod"
 
-const channelContentSchema = z.object({
-	email: z.object({
-		subject: z.string(),
-		htmlBody: z.string(),
-		textBody: z.string().optional(),
-	}).optional(),
-	inapp: z.object({
-		title: z.string(),
-		body: z.string(),
-		actionUrl: z.string().optional(),
-		avatarUrl: z.string().optional(),
-	}).optional(),
-	webhook: z.object({
-		eventType: z.string(),
-		payload: z.record(z.string(), z.unknown()).optional(),
-	}).optional(),
-})
-
 export const createTemplateSchema = z.object({
-	name: z.string().min(1).max(100),
-	description: z.string().max(500).optional(),
-	channels: channelContentSchema,
-	digestConfig: z.record(z.string(), z.unknown()).nullable().optional(),
-	aiPersonalize: z.boolean().default(false),
-})
-
-export const updateTemplateSchema = z.object({
-	name: z.string().min(1).max(100).optional(),
-	description: z.string().max(500).optional(),
-	channels: channelContentSchema.optional(),
-	digestConfig: z.record(z.string(), z.unknown()).nullable().optional(),
+	name: z.string().min(1).max(255),
+	description: z.string().optional(),
+	channels: z.record(z.string(), z.any()),
+	digestConfig: z.record(z.string(), z.any()).optional().nullable(),
 	aiPersonalize: z.boolean().optional(),
 	isActive: z.boolean().optional(),
 })
 
-export const templateQuerySchema = z.object({
-	page: z.coerce.number().min(1).optional(),
-	limit: z.coerce.number().min(1).max(100).optional(),
-	search: z.string().optional(),
+export const updateTemplateSchema = z.object({
+	name: z.string().min(1).max(255).optional(),
+	description: z.string().optional(),
+	channels: z.record(z.string(), z.any()).optional(),
+	digestConfig: z.record(z.string(), z.any()).optional().nullable(),
+	aiPersonalize: z.boolean().optional(),
+	isActive: z.boolean().optional(),
 })
 
-export type CreateTemplateInput = z.infer<typeof createTemplateSchema>
-export type UpdateTemplateInput = z.infer<typeof updateTemplateSchema>
-export type TemplateQuery = z.infer<typeof templateQuerySchema>
+export const previewTemplateSchema = z.object({
+	content: z.string(),
+	payload: z.record(z.string(), z.any()),
+})

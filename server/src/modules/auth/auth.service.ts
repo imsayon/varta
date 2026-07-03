@@ -1,25 +1,25 @@
 import slugify from "slugify"
 import { authRepository } from "./auth.repository.ts"
-import { hashPassword, verifyPassword } from "@/shared/utils/auth/password.ts"
-import { env } from "@/shared/config/env.ts"
-import { resend } from "@/shared/providers/resend.ts"
-import { buildVerificationEmail } from "@/shared/templates/verification-email.ts"
-import { buildResetPasswordEmail } from "@/shared/templates/reset-password-email.ts"
+import { hashPassword, verifyPassword } from "@/common/utils/auth/password.ts"
+import { env } from "@/common/config/env.ts"
+import { resend } from "@/common/providers/resend.ts"
+import { buildVerificationEmail } from "@/common/templates/verification-email.ts"
+import { buildResetPasswordEmail } from "@/common/templates/reset-password-email.ts"
 import {
 	generateAccessToken,
 	generateRefreshToken,
 	verifyRefreshToken,
-} from "@/shared/utils/auth/jwt.ts"
+} from "@/common/utils/auth/jwt.ts"
 import {
 	generateEmailToken,
 	hashEmailToken,
-} from "@/shared/utils/auth/email-token.ts"
+} from "@/common/utils/auth/email-token.ts"
 
 import {
 	ConflictError,
 	UnauthorizedError,
 	BadRequestError,
-} from "@/shared/errors/app-error.ts"
+} from "@/common/errors/app-error.ts"
 
 import type { RegisterInput, LoginInput } from "./auth.schema.ts"
 
@@ -45,8 +45,7 @@ function buildPublicUser(user: {
 }
 
 export const authService = {
-	// ─── Register ──────────────────────────────────────
-
+	// Register
 	async register(data: RegisterInput) {
 		const { name, email, password } = data
 
@@ -117,8 +116,7 @@ export const authService = {
 		}
 	},
 
-	// ─── OAuth ─────────────────────────────────────────
-
+	// OAuth
 	async handleOAuthLogin(data: {
 		provider: string
 		providerUid: string
@@ -169,7 +167,6 @@ export const authService = {
 				name: workspaceName,
 				slug: `${baseSlug}-${randomSuffix}`,
 			})
-
 			await authRepository.createWorkspaceMember({
 				userId: user.id,
 				workspaceId: workspace.id,
@@ -186,12 +183,10 @@ export const authService = {
 			accessToken,
 			...(refreshToken !== undefined && { refreshToken }),
 		})
-
 		return user
 	},
 
-	// ─── Login ─────────────────────────────────────────
-
+	// Login
 	async login(
 		data: LoginInput & {
 			userAgent?: string
@@ -249,8 +244,7 @@ export const authService = {
 		}
 	},
 
-	// ─── Refresh ───────────────────────────────────────
-
+	// Refresh
 	async refresh(refreshToken: string) {
 		let payload: any
 		try {
@@ -315,8 +309,7 @@ export const authService = {
 		}
 	},
 
-	// ─── Logout ────────────────────────────────────────
-
+	// Logout
 	async logout(refreshToken: string) {
 		const { payload } = await verifyRefreshToken(refreshToken)
 		const sessionId = payload.sessionId as string
@@ -325,14 +318,13 @@ export const authService = {
 		await authRepository.revokeAllRefreshTokens(sessionId)
 	},
 
-	// kill all sessions for the user (panic button)
+	// Panic Button: kill all sessions for the user
 	async logoutAll(userId: string) {
 		await authRepository.revokeAllSessionsForUser(userId)
 		await authRepository.revokeAllRefreshTokensForUser(userId)
 	},
 
-	// ─── Email Verification ────────────────────────────
-
+	// Email Verification
 	async verifyEmail(token: string) {
 		const tokenHash = hashEmailToken(token)
 		const verification =
@@ -379,8 +371,7 @@ export const authService = {
 		}
 	},
 
-	// ─── Forgot Password ───────────────────────────────
-
+	// Forgot Password
 	async forgotPassword(email: string) {
 		const user = await authRepository.findUserByEmail(email)
 
@@ -414,8 +405,7 @@ export const authService = {
 		}
 	},
 
-	// ─── Reset Password ────────────────────────────────
-
+	// Reset Password
 	async resetPassword(token: string, newPassword: string) {
 		const tokenHash = hashEmailToken(token)
 		const resetToken =
@@ -434,8 +424,7 @@ export const authService = {
 		await authRepository.revokeAllSessionsForUser(resetToken.userId)
 	},
 
-	// ─── Session Management ────────────────────────────
-
+	// Session Management
 	async getSessions(userId: string) {
 		return authRepository.getUserSessions(userId)
 	},

@@ -1,2 +1,0 @@
-allowBuilds:
-  '@prisma/engines': set this to true or false

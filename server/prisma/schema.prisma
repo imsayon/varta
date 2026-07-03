@@ -103,19 +103,19 @@ enum WorkspaceRole {
 }
 
 model Workspace {
-  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String
-  slug             String            @unique
-  settings         Json?             @default("{}")
-  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  members          WorkspaceMember[]
-  apiKeys          ApiKey[]
-  providerConfigs  ProviderConfig[]
-  subscribers      Subscriber[]
-  templates        Template[]
-  routingRules     RoutingRule[]
-  notifications    Notification[]
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  slug            String            @unique
+  settings        Json?             @default("{}")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  members         WorkspaceMember[]
+  apiKeys         ApiKey[]
+  providerConfigs ProviderConfig[]
+  subscribers     Subscriber[]
+  templates       Template[]
+  routingRules    RoutingRule[]
+  notifications   Notification[]
 
   @@map("workspaces")
 }
@@ -167,18 +167,18 @@ model ProviderConfig {
 }
 
 model Subscriber {
-  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workspaceId   String             @map("workspace_id") @db.Uuid
-  externalId    String             @map("external_id")
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String            @map("workspace_id") @db.Uuid
+  externalId    String            @map("external_id")
   email         String?
   name          String?
-  timezone      String?            @default("UTC")
-  locale        String?            @default("en")
-  attributes    Json?              @default("{}")
-  preferences   Json?              @default("{}")
-  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  timezone      String?           @default("UTC")
+  locale        String?           @default("en")
+  attributes    Json?             @default("{}")
+  preferences   Json?             @default("{}")
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   notifications Notification[]
   engagements   EngagementEvent[]
   pendingInApp  PendingInApp[]
@@ -190,18 +190,18 @@ model Subscriber {
 }
 
 model Template {
-  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workspaceId    String         @map("workspace_id") @db.Uuid
-  name           String
-  description    String?
-  channels       Json
-  digestConfig   Json?          @map("digest_config")
-  aiPersonalize  Boolean?       @default(false) @map("ai_personalize")
-  isActive       Boolean?       @default(true) @map("is_active")
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  notifications  Notification[]
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String         @map("workspace_id") @db.Uuid
+  name          String
+  description   String?
+  channels      Json
+  digestConfig  Json?          @map("digest_config")
+  aiPersonalize Boolean?       @default(false) @map("ai_personalize")
+  isActive      Boolean?       @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  notifications Notification[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -244,22 +244,29 @@ enum DeliveryStatus {
   @@map("delivery_status")
 }
 
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
 model Notification {
-  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workspaceId          String             @map("workspace_id") @db.Uuid
-  templateId           String             @map("template_id") @db.Uuid
-  subscriberId         String             @map("subscriber_id") @db.Uuid
-  idempotencyKey       String             @map("idempotency_key")
-  triggerPayload       Json?              @default("{}") @map("trigger_payload")
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId          String               @map("workspace_id") @db.Uuid
+  templateId           String               @map("template_id") @db.Uuid
+  subscriberId         String               @map("subscriber_id") @db.Uuid
+  idempotencyKey       String               @map("idempotency_key")
+  triggerPayload       Json?                @default("{}") @map("trigger_payload")
   channels             String[]
-  status               NotificationStatus? @default(PENDING)
-  smartTimingRequested Boolean?           @default(false) @map("smart_timing_requested")
-  scheduledAt          DateTime?          @map("scheduled_at") @db.Timestamptz
-  triggeredAt          DateTime?          @default(now()) @map("triggered_at") @db.Timestamptz
-  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  workspace            Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  template             Template           @relation(fields: [templateId], references: [id])
-  subscriber           Subscriber         @relation(fields: [subscriberId], references: [id])
+  status               NotificationStatus?  @default(PENDING)
+  priority             NotificationPriority @default(NORMAL)
+  smartTimingRequested Boolean?             @default(false) @map("smart_timing_requested")
+  scheduledAt          DateTime?            @map("scheduled_at") @db.Timestamptz
+  triggeredAt          DateTime?            @default(now()) @map("triggered_at") @db.Timestamptz
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  workspace            Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  template             Template             @relation(fields: [templateId], references: [id])
+  subscriber           Subscriber           @relation(fields: [subscriberId], references: [id])
   deliveryAttempts     DeliveryAttempt[]
   engagements          EngagementEvent[]
 
@@ -271,21 +278,21 @@ model Notification {
 }
 
 model DeliveryAttempt {
-  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  notificationId     String          @map("notification_id") @db.Uuid
-  channel            String
-  attemptNumber      Int             @map("attempt_number")
-  status             DeliveryStatus? @default(PENDING)
-  provider           String?
-  providerMessageId  String?         @map("provider_message_id")
-  renderedContent    Json?           @map("rendered_content")
-  providerResponse   Json?           @map("provider_response")
-  errorMessage       String?         @map("error_message")
-  enqueuedAt         DateTime?       @map("enqueued_at") @db.Timestamptz
-  startedAt          DateTime?       @map("started_at") @db.Timestamptz
-  finishedAt         DateTime?       @map("finished_at") @db.Timestamptz
-  durationMs         Int?            @map("duration_ms")
-  notification       Notification    @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId    String          @map("notification_id") @db.Uuid
+  channel           String
+  attemptNumber     Int             @map("attempt_number")
+  status            DeliveryStatus? @default(PENDING)
+  provider          String?
+  providerMessageId String?         @map("provider_message_id")
+  renderedContent   Json?           @map("rendered_content")
+  providerResponse  Json?           @map("provider_response")
+  errorMessage      String?         @map("error_message")
+  enqueuedAt        DateTime?       @map("enqueued_at") @db.Timestamptz
+  startedAt         DateTime?       @map("started_at") @db.Timestamptz
+  finishedAt        DateTime?       @map("finished_at") @db.Timestamptz
+  durationMs        Int?            @map("duration_ms")
+  notification      Notification    @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 
   @@unique([notificationId, channel, attemptNumber])
   @@index([notificationId])
@@ -294,13 +301,13 @@ model DeliveryAttempt {
 }
 
 model PendingInApp {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  workspaceId    String    @map("workspace_id") @db.Uuid
-  subscriberId   String    @map("subscriber_id") @db.Uuid
-  notificationId String    @map("notification_id") @db.Uuid
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String     @map("workspace_id") @db.Uuid
+  subscriberId   String     @map("subscriber_id") @db.Uuid
+  notificationId String     @map("notification_id") @db.Uuid
   content        Json
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  deliveredAt    DateTime? @map("delivered_at") @db.Timestamptz
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  deliveredAt    DateTime?  @map("delivered_at") @db.Timestamptz
   subscriber     Subscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
 
   @@index([subscriberId])

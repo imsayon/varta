@@ -1,98 +1,35 @@
 import { templateRepository } from "./template.repository.ts"
-
-import { ConflictError, NotFoundError } from "@/shared/errors/app-error.ts"
-
-import type {
-	CreateTemplateInput,
-	UpdateTemplateInput,
-	TemplateQuery,
-} from "./template.schema.ts"
+import { Prisma } from "@prisma/client"
+import { templateRendererService } from "@/common/template-engine/template-renderer.service.ts"
 
 export const templateService = {
-	async create(workspaceId: string, data: CreateTemplateInput) {
-		const existingTemplate = await templateRepository.findByName(
-			workspaceId,
-			data.name,
+	async create(data: Prisma.TemplateUncheckedCreateInput) {
+		return templateRepository.create(data)
+	},
+
+	async update(
+		workspaceId: string,
+		id: string,
+		data: Prisma.TemplateUncheckedUpdateInput,
+	) {
+		return templateRepository.update(workspaceId, id, data)
+	},
+
+	async delete(workspaceId: string, id: string) {
+		return templateRepository.delete(workspaceId, id)
+	},
+
+	async search(workspaceId: string, skip: number, take: number) {
+		return templateRepository.findMany(workspaceId, skip, take)
+	},
+	async findById(workspaceId: string, id: string) {
+		return templateRepository.findById(workspaceId, id)
+	},
+
+	preview(templateString: string, payload: any): string {
+		return templateRendererService.renderAndSanitize(
+			templateString,
+			payload,
 		)
-
-		if (existingTemplate) {
-			throw new ConflictError(
-				`Template '${data.name}' already exists in this workspace`,
-			)
-		}
-
-		return templateRepository.create({ ...data, workspaceId })
-	},
-
-	async getById(id: string) {
-		const template = await templateRepository.findById(id)
-
-		if (!template) {
-			throw new NotFoundError("Template not found")
-		}
-
-		return template
-	},
-
-	async getAll(workspaceId: string, query: TemplateQuery) {
-		const page = query.page ?? 1
-		const limit = query.limit ?? 10
-		const search = query.search
-
-		const skip = (page - 1) * limit
-
-		const [templates, total] = await Promise.all([
-			templateRepository.findMany(workspaceId, skip, limit, search),
-			templateRepository.count(workspaceId, search),
-		])
-
-		return {
-			data: templates,
-
-			pagination: {
-				page,
-				limit,
-				total,
-				totalPages: Math.ceil(total / limit),
-			},
-		}
-	},
-
-	async update(id: string, data: UpdateTemplateInput) {
-		const existingTemplate = await templateRepository.findById(id)
-
-		if (!existingTemplate) {
-			throw new NotFoundError("Template not found")
-		}
-
-		if (data.name && data.name !== existingTemplate.name) {
-			const duplicateTemplate = await templateRepository.findByName(
-				existingTemplate.workspaceId,
-				data.name,
-			)
-
-			if (duplicateTemplate) {
-				throw new ConflictError(
-					`Template '${data.name}' already exists in this workspace`,
-				)
-			}
-		}
-
-		return templateRepository.update(id, data)
-	},
-
-	async delete(id: string) {
-		const existingTemplate = await templateRepository.findById(id)
-
-		if (!existingTemplate) {
-			throw new NotFoundError("Template not found")
-		}
-
-		await templateRepository.delete(id)
-
-		return {
-			success: true,
-			message: "Template deleted successfully",
-		}
 	},
 }

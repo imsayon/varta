@@ -1,7 +1,7 @@
 import passport from "passport"
 import { Strategy as GoogleStrategy } from "passport-google-oauth20"
 import { Strategy as GitHubStrategy } from "passport-github2"
-import { env } from "@/shared/config/env.ts"
+import { env } from "@/common/config/env.ts"
 import { authService } from "./auth.service.ts"
 
 if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
@@ -40,14 +40,25 @@ if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
 				callbackURL: env.GITHUB_CALLBACK_URL,
 				scope: ["user:email"],
 			},
-			async (accessToken: string, refreshToken: string, profile: any, done: any) => {
+			async (
+				accessToken: string,
+				refreshToken: string,
+				profile: any,
+				done: any,
+			) => {
 				try {
-					const email = profile.emails?.find((e: any) => e.primary)?.value || profile.emails?.[0]?.value || ""
+					const email =
+						profile.emails?.find((e: any) => e.primary)?.value ||
+						profile.emails?.[0]?.value ||
+						""
 					const user = await authService.handleOAuthLogin({
 						provider: "github",
 						providerUid: profile.id,
 						email,
-						name: profile.displayName || profile.username || "GitHub User",
+						name:
+							profile.displayName ||
+							profile.username ||
+							"GitHub User",
 						accessToken,
 						refreshToken,
 					})

@@ -1,7 +1,7 @@
-import { prisma } from "@/shared/database/prisma.ts"
+import { prisma } from "@/infra/database/prisma.ts"
 
 export const authRepository = {
-	// ─── Users ─────────────────────────────────────────
+	// Users
 
 	async findUserByEmail(email: string) {
 		return prisma.user.findUnique({
@@ -37,7 +37,7 @@ export const authRepository = {
 		})
 	},
 
-	// ─── OAuth Accounts ────────────────────────────────
+	// OAuth Accounts
 
 	async createOauthAccount(data: {
 		userId: string
@@ -64,16 +64,13 @@ export const authRepository = {
 		})
 	},
 
-	// ─── Workspaces ────────────────────────────────────
+	// Workspaces
 
 	async createWorkspace(data: { name: string; slug: string }) {
 		return prisma.workspace.create({ data })
 	},
 
-	async createWorkspaceMember(data: {
-		userId: string
-		workspaceId: string
-	}) {
+	async createWorkspaceMember(data: { userId: string; workspaceId: string }) {
 		return prisma.workspaceMember.create({
 			data: { ...data, role: "OWNER" },
 		})
@@ -87,7 +84,7 @@ export const authRepository = {
 		})
 	},
 
-	// ─── Sessions ──────────────────────────────────────
+	// Sessiona
 
 	async createSession(data: {
 		userId: string
@@ -139,7 +136,7 @@ export const authRepository = {
 		})
 	},
 
-	// ─── Refresh Tokens ────────────────────────────────
+	// Refresh Tokens
 
 	async createRefreshToken(data: {
 		sessionId: string
@@ -174,7 +171,7 @@ export const authRepository = {
 		})
 	},
 
-	// ─── Email Verification ────────────────────────────
+	// Email Verification
 
 	async createEmailVerification(data: {
 		userId: string
@@ -201,7 +198,7 @@ export const authRepository = {
 		})
 	},
 
-	// ─── Password Reset ────────────────────────────────
+	// Password Reset
 
 	async createPasswordResetToken(data: {
 		userId: string

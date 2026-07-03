@@ -1,9 +1,12 @@
 import type { Request, Response, NextFunction } from "express"
-import { env } from "@/shared/config/env.ts"
+import { env } from "@/common/config/env.ts"
 import { authService } from "./auth.service.ts"
 import { authRepository } from "./auth.repository.ts"
-import { setRefreshTokenCookie, clearRefreshTokenCookie } from "@/shared/utils/auth/cookies.ts"
-import { verifyRefreshToken } from "@/shared/utils/auth/jwt.ts"
+import {
+	setRefreshTokenCookie,
+	clearRefreshTokenCookie,
+} from "@/common/utils/auth/cookies.ts"
+import { verifyRefreshToken } from "@/common/utils/auth/jwt.ts"
 
 export const authController = {
 	async register(req: Request, res: Response) {
@@ -38,7 +41,10 @@ export const authController = {
 	async refresh(req: Request, res: Response) {
 		const refreshToken = req.cookies.refreshToken
 		if (!refreshToken) {
-			res.status(401).json({ success: false, message: "No refresh token" })
+			res.status(401).json({
+				success: false,
+				message: "No refresh token",
+			})
 			return
 		}
 
@@ -51,7 +57,10 @@ export const authController = {
 			})
 		} catch (error) {
 			clearRefreshTokenCookie(res)
-			res.status(401).json({ success: false, message: "Invalid refresh token" })
+			res.status(401).json({
+				success: false,
+				message: "Invalid refresh token",
+			})
 		}
 	},
 
@@ -65,19 +74,30 @@ export const authController = {
 
 	async logoutAll(req: Request, res: Response) {
 		if (!req.cookies.refreshToken) {
-			res.status(401).json({ success: false, message: "No refresh token" })
+			res.status(401).json({
+				success: false,
+				message: "No refresh token",
+			})
 			return
 		}
-		
+
 		try {
-			const { payload } = await verifyRefreshToken(req.cookies.refreshToken)
+			const { payload } = await verifyRefreshToken(
+				req.cookies.refreshToken,
+			)
 			await authService.logoutAll(payload.sub as string)
 
 			clearRefreshTokenCookie(res)
-			res.status(200).json({ success: true, message: "Logged out of all devices" })
+			res.status(200).json({
+				success: true,
+				message: "Logged out of all devices",
+			})
 		} catch (error) {
 			clearRefreshTokenCookie(res)
-			res.status(401).json({ success: false, message: "Invalid refresh token" })
+			res.status(401).json({
+				success: false,
+				message: "Invalid refresh token",
+			})
 		}
 	},
 
@@ -99,7 +119,8 @@ export const authController = {
 		await authService.forgotPassword(req.body.email)
 		res.status(200).json({
 			success: true,
-			message: "If an account with that email exists, we sent a password reset link",
+			message:
+				"If an account with that email exists, we sent a password reset link",
 		})
 	},
 
@@ -120,7 +141,10 @@ export const authController = {
 	},
 
 	async revokeSession(req: Request, res: Response) {
-		await authService.revokeSession((req.user as any).id, req.params.id as string)
+		await authService.revokeSession(
+			(req.user as any).id,
+			req.params.id as string,
+		)
 		res.status(200).json({
 			success: true,
 			message: "Session revoked successfully",
@@ -133,7 +157,7 @@ export const authController = {
 			res.status(404).json({ success: false, message: "User not found" })
 			return
 		}
-		
+
 		res.status(200).json({
 			success: true,
 			data: {
@@ -144,5 +168,5 @@ export const authController = {
 				createdAt: user.createdAt,
 			},
 		})
-	}
+	},
 }

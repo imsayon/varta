@@ -1,17 +1,18 @@
 import type { Request, Response } from "express"
-import { generateAccessToken, generateRefreshToken } from "@/shared/utils/auth/jwt.ts"
-import { hashPassword } from "@/shared/utils/auth/password.ts"
+import {
+	generateAccessToken,
+	generateRefreshToken,
+} from "@/common/utils/auth/jwt.ts"
+import { hashPassword } from "@/common/utils/auth/password.ts"
 import { authRepository } from "./auth.repository.ts"
 
-/**
- * Handles the final step of the OAuth flow.
- * Creates a new session, generates tokens, and redirects the user to the dashboard.
- */
 export const authOauth = {
 	async handleOAuthCallback(req: Request, res: Response) {
 		const user = req.user as any
 		if (!user) {
-			return res.redirect(`${process.env.CLIENT_URL}/login?error=oauth_failed`)
+			return res.redirect(
+				`${process.env.CLIENT_URL}/login?error=oauth_failed`,
+			)
 		}
 
 		const userAgent = req.headers["user-agent"] as string | undefined
@@ -23,11 +24,15 @@ export const authOauth = {
 			...(ipAddress !== undefined && { ipAddress }),
 		})
 
-		const membership = await authRepository.findPrimaryWorkspaceForUser(user.id)
+		const membership = await authRepository.findPrimaryWorkspaceForUser(
+			user.id,
+		)
 		if (!membership) {
-			return res.redirect(`${process.env.CLIENT_URL}/login?error=no_workspace`)
+			return res.redirect(
+				`${process.env.CLIENT_URL}/login?error=no_workspace`,
+			)
 		}
-		
+
 		// Create access & refresh tokens
 		const accessToken = await generateAccessToken({
 			sub: user.id,
@@ -58,5 +63,5 @@ export const authOauth = {
 		// We could pass the access token in a short-lived cookie, or the client can fetch it via /refresh
 		// Since our client relies on /refresh, we just redirect.
 		res.redirect(`${process.env.CLIENT_URL}/dashboard`)
-	}
+	},
 }

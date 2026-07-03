@@ -1,17 +1,27 @@
 import { Router } from "express"
-import * as ctrl from "./subscriber.controller.ts"
-import { validate } from "../../shared/middleware/validate.middleware.ts"
+import * as subscriberController from "./subscriber.controller.ts"
+import { validate } from "@/common/middleware/validate.middleware.ts"
 import {
 	createSubscriberSchema,
 	updateSubscriberSchema,
 } from "./subscriber.schema.ts"
+import { authenticate } from "@/common/middleware/auth.middleware.ts"
 
 const router = Router({ mergeParams: true })
+router.use(authenticate)
 
-router.get("/", ctrl.list)
-router.post("/", validate(createSubscriberSchema), ctrl.create)
-router.get("/:subscriberId", ctrl.getById)
-router.patch("/:subscriberId", validate(updateSubscriberSchema), ctrl.update)
-router.delete("/:subscriberId", ctrl.remove)
+router.post(
+	"/",
+	validate(createSubscriberSchema),
+	subscriberController.createOrUpdate,
+)
+router.get("/", subscriberController.list)
+router.get("/:subscriberId", subscriberController.getById)
+router.patch(
+	"/:subscriberId",
+	validate(updateSubscriberSchema),
+	subscriberController.update,
+)
+router.delete("/:subscriberId", subscriberController.remove)
 
 export { router as subscriberRouter }
