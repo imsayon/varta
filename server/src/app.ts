@@ -4,12 +4,13 @@ import cookieParser from "cookie-parser"
 import cors from "cors"
 import helmet from "helmet"
 import pinoHttp from "pino-http"
-import { env } from "./shared/config/env.ts"
-import { logger } from "./shared/logger/logger.ts"
-import { errorHandler } from "./shared/middleware/error.middleware.ts"
-import { notFoundHandler } from "./shared/middleware/not-found.middleware.ts"
+import { env } from "./common/config/env.ts"
+import { logger } from "@/infra/logger/logger.ts"
+import { errorHandler } from "./common/middleware/error.middleware.ts"
+import { notFoundHandler } from "./common/middleware/not-found.middleware.ts"
+import { passport } from "@/modules/auth/auth.passport.ts"
 
-// Module routes
+// Module Routes
 import { healthRouter } from "./modules/health/health.routes.ts"
 import { authRouter } from "./modules/auth/auth.routes.ts"
 import { workspaceRouter } from "./modules/workspaces/workspace.routes.ts"
@@ -23,9 +24,7 @@ import { providerRouter } from "./modules/providers/provider.routes.ts"
 
 const app = express()
 
-import { passport } from "@/modules/auth/auth.passport.ts"
-
-// GLOBAL MIDDLEWARES
+// Global Middleware
 app.disable("x-powered-by")
 app.use((pinoHttp as any)({ logger }))
 app.use(helmet())
@@ -36,7 +35,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
 app.use(passport.initialize())
 
-// ROUTES
+// Route Mounting
 app.use("/api/health", healthRouter)
 app.use("/api/v1/auth", authRouter)
 app.use("/api/v1/workspaces", workspaceRouter)
@@ -48,7 +47,7 @@ app.use("/api/v1/workspaces/:workspaceId/routing-rules", routingRuleRouter)
 app.use("/api/v1/workspaces/:workspaceId/analytics", analyticsRouter)
 app.use("/api/v1/workspaces/:workspaceId/providers", providerRouter)
 
-// ERROR HANDLING
+// Error Handling
 app.use(notFoundHandler)
 app.use(errorHandler)
 
