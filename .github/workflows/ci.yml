@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  lint-and-typecheck:
+  typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,18 +22,24 @@ jobs:
         with:
           version: 9
 
-      - name: Install Client Dependencies
+      - name: Install client dependencies
         working-directory: ./client
         run: pnpm install --frozen-lockfile
 
-      - name: Install Server Dependencies
+      - name: Install server dependencies
         working-directory: ./server
         run: pnpm install --frozen-lockfile
 
-      - name: Client Typecheck
+      # Prisma generates the TypeScript client from schema.prisma.
+      # Must run before typechecking since modules import from @prisma/client.
+      - name: Generate Prisma client
+        working-directory: ./server
+        run: pnpm exec prisma generate
+
+      - name: Typecheck client
         working-directory: ./client
         run: pnpm tsc --noEmit
 
-      - name: Server Typecheck
+      - name: Typecheck server
         working-directory: ./server
         run: pnpm typecheck
