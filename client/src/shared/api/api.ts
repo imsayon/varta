@@ -1,4 +1,5 @@
 import { useAuthStore } from '../auth/auth-store';
+import type { ApiResponse } from '../types/domain';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data?: any) {
@@ -17,13 +18,11 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
 
   const headers = new Headers(options.headers);
   
-  // 1. Inject Token
   const token = getAccessToken();
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  // Ensure JSON by default if we are sending data
   if (options.body && !headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
@@ -33,13 +32,10 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
     headers,
   };
 
-  // 2. Initial Request
   let response = await fetch(url, fetchOptions);
 
-  // 3. Handle 401 Unauthorized (Token Expiration)
   if (response.status === 401) {
     try {
-      // Attempt to refresh the token using the HttpOnly cookie
       const refreshResponse = await fetch('/api/v1/auth/refresh', {
         method: 'POST',
       });
@@ -50,26 +46,19 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
         const currentUser = useAuthStore.getState().user;
 
         if (newAccessToken && currentUser) {
-          // Update store with new token
           setAuth(currentUser, newAccessToken);
-
-          // Retry original request with new token
           headers.set('Authorization', `Bearer ${newAccessToken}`);
           response = await fetch(url, { ...options, headers });
         } else {
           throw new Error('Refresh response missing token');
         }
       } else {
-        // Refresh failed (e.g. cookie expired or invalid)
         clearAuth();
-        // Since we are running in the browser, we might want to let the middleware handle
-        // redirects, or we can manually push to /login.
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
       }
     } catch (err) {
-      // Refresh network error
       clearAuth();
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
@@ -80,22 +69,57 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
   return response;
 }
 
-/**
- * Convenience method for getting JSON data directly.
- */
-export async function apiFetch<T = any>(url: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetchWithAuth(url, options);
-  
-  let data;
+async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResponse<T>> {
   try {
-    data = await response.json();
-  } catch (e) {
-    data = null;
-  }
+    const response = await fetchWithAuth(path, init);
 
-  if (!response.ok) {
-    throw new ApiError(response.status, data?.error?.message || data?.message || 'API Error', data);
-  }
+    let body: ApiResponse<T>;
+    const contentType = response.headers.get('content-type');
 
-  return data;
+    if (contentType?.includes('application/json')) {
+      body = (await response.json()) as ApiResponse<T>;
+    } else if (response.status === 204) {
+      body = { success: true } as ApiResponse<T>;
+    } else {
+      const text = await response.text();
+      body = { success: response.ok, message: text } as ApiResponse<T>;
+    }
+
+    if (!response.ok && !body.error) {
+      body.success = false;
+      body.error = {
+        message: body.message ?? `Request failed with status ${response.status}`,
+        status: response.status,
+      };
+    }
+
+    return body;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'An unexpected network error occurred';
+    return {
+      success: false,
+      error: { message, status: 0 },
+    };
+  }
 }
+
+export const apiClient = {
+  get<T>(path: string): Promise<ApiResponse<T>> {
+    return request<T>(path, { method: 'GET' });
+  },
+  post<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return request<T>(path, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  },
+  put<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return request<T>(path, {
+      method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  },
+  del<T>(path: string): Promise<ApiResponse<T>> {
+    return request<T>(path, { method: 'DELETE' });
+  },
+} as const;

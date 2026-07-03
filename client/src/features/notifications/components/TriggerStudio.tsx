@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/shared/auth/auth-context';
-import { apiClient } from '@/shared/api/api-client';
+import { apiClient } from '@/shared/api/api';
 import { Card } from '@/components/ui/Card/Card';
 import { Button } from '@/components/ui/Button/Button';
 import { TextArea } from '@/components/ui/Input/Input';

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/shared/auth/auth-context';
-import { apiClient } from '@/shared/api/api-client';
+import { apiClient } from '@/shared/api/api';
 import { StatCard } from '@/components/ui/StatCard/StatCard';
 import { Card } from '@/components/ui/Card/Card';
 import { Skeleton } from '@/components/ui/Skeleton/Skeleton';

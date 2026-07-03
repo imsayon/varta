@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useCallback, useState, type ReactNode } from 'react';
 import { useAuthStore } from './auth-store';
-import { apiFetch } from '../api/api';
+
 import type { IUser } from '../types/domain';
 
 interface AuthState {

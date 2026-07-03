@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/shared/auth/auth-context';
 import { useState, useEffect } from 'react';
-import { apiClient } from '@/shared/api/api-client';
+import { apiClient } from '@/shared/api/api';
 import type { IWorkspace } from '@/shared/types/domain';
 import styles from './Sidebar.module.css';
 
