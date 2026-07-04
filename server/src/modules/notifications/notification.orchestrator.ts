@@ -8,6 +8,7 @@ import { queueService } from "@/common/services/queue.service.ts"
 import { templateRendererService } from "@/common/template-engine/template-renderer.service.ts"
 import { Prisma } from "@prisma/client"
 import { decryptConfig } from "@/common/crypto.util.ts"
+import { NotFoundError, BadRequestError } from "@/common/errors/app-error.ts"
 
 export const notificationOrchestrator = {
 	async triggerNotification(
@@ -25,116 +26,128 @@ export const notificationOrchestrator = {
 		)
 
 		if (!locked) {
+			const existing = await notificationRepository.findByIdempotencyKey(
+				workspaceId,
+				idempotencyKey,
+			)
 			return {
 				success: true,
 				accepted: true,
 				message: "Duplicate request ignored.",
+				notificationId: existing?.id,
+				status: existing?.status,
 			}
 		}
 
-		// 2. Resolve Template
+		try {
+			// 2. Resolve Template
 
-		const template = await templateRepository.findById(
-			workspaceId,
-			templateId,
-		)
+			const template = await templateRepository.findById(
+				workspaceId,
+				templateId,
+			)
 
-		if (!template) {
-			throw new Error("Template not found.")
-		}
+			if (!template) {
+				throw new NotFoundError("Template not found.")
+			}
 
-		// 3. Resolve Subscriber
+			// 3. Resolve Subscriber
 
-		const subscriber = await subscriberRepository.findByExternalId(
-			workspaceId,
-			subscriberExternalId,
-		)
+			const subscriber = await subscriberRepository.findByExternalId(
+				workspaceId,
+				subscriberExternalId,
+			)
 
-		if (!subscriber) {
-			throw new Error("Subscriber not found.")
-		}
+			if (!subscriber) {
+				throw new NotFoundError("Subscriber not found.")
+			}
 
-		// 4. Resolve Provider
+			// 4. Resolve Provider
 
-		const provider = await providerService.getProviderConfig(
-			workspaceId,
-			"email",
-		)
+			const provider = await providerService.getProviderConfig(
+				workspaceId,
+				"email",
+			)
 
-		if (!provider?.config) {
-			throw new Error("Email provider not configured.")
-		}
+			if (!provider?.config) {
+				throw new BadRequestError("Email provider not configured.")
+			}
 
-		const config = decryptConfig(provider.config as Record<string, unknown>) as {
-			apiKey: string
-			fromAddress: string
-		}
+			const config = decryptConfig(provider.config as Record<string, unknown>) as {
+				apiKey: string
+				fromAddress: string
+			}
 
-		// 5. Render Template
+			// 5. Render Template
 
-		const emailTemplate = (template.channels as any)?.email
+			const emailTemplate = (template.channels as any)?.email
 
-		if (!emailTemplate) {
-			throw new Error("Email channel missing.")
-		}
+			if (!emailTemplate) {
+				throw new BadRequestError("Email channel missing in template.")
+			}
 
-		const renderContext = {
-			...payload,
-			subscriber,
-		}
+			const renderContext = {
+				...payload,
+				subscriber,
+			}
 
-		const renderedContent = {
-			subject: templateRendererService.renderAndSanitize(
-				emailTemplate.subject,
-				renderContext,
-			),
+			const renderedContent = {
+				subject: templateRendererService.renderAndSanitize(
+					emailTemplate.subject,
+					renderContext,
+				),
 
-			html: templateRendererService.renderAndSanitize(
-				emailTemplate.htmlBody,
-				renderContext,
-			),
+				html: templateRendererService.renderAndSanitize(
+					emailTemplate.htmlBody,
+					renderContext,
+				),
 
-			textBody: templateRendererService.renderAndSanitize(
-				emailTemplate.textBody,
-				renderContext,
-			),
-		}
+				textBody: templateRendererService.renderAndSanitize(
+					emailTemplate.textBody,
+					renderContext,
+				),
+			}
 
-		// 6. Persist Notification
+			// 6. Persist Notification
 
-		const notification = await notificationRepository.create({
-			workspaceId,
-			templateId: template.id,
-			subscriberId: subscriber.id,
-			idempotencyKey,
-			triggerPayload: payload as Prisma.InputJsonValue,
-			channels: options?.channels ?? ["EMAIL"],
-			status: "ENQUEUED",
-			scheduledAt: options?.scheduledAt
-				? new Date(options.scheduledAt)
-				: null,
-			priority: options?.priority ?? "NORMAL",
-		})
+			const notification = await notificationRepository.create({
+				workspaceId,
+				templateId: template.id,
+				subscriberId: subscriber.id,
+				idempotencyKey,
+				triggerPayload: payload as Prisma.InputJsonValue,
+				channels: options?.channels ?? ["EMAIL"],
+				status: "ENQUEUED",
+				scheduledAt: options?.scheduledAt
+					? new Date(options.scheduledAt)
+					: null,
+				priority: options?.priority ?? "NORMAL",
+			})
 
-		// 7. Queue Job
+			// 7. Queue Job
 
-		await queueService.enqueueEmail({
-			notificationId: notification.id,
-			workspaceId,
-			subscriberEmail: subscriber.email ?? "",
-			renderedContent,
-			providerConfig: {
-				apiKey: config.apiKey,
-				fromAddress: config.fromAddress,
-				providerName: provider.provider,
-			},
-		})
+			await queueService.enqueueEmail({
+				notificationId: notification.id,
+				workspaceId,
+				subscriberEmail: subscriber.email ?? "",
+				renderedContent,
+				providerConfig: {
+					apiKey: config.apiKey,
+					fromAddress: config.fromAddress,
+					providerName: provider.provider,
+				},
+			})
 
-		return {
-			notificationId: notification.id,
-			status: "ENQUEUED",
-			channels: options?.channels ?? ["EMAIL"],
-			scheduledAt: options?.scheduledAt ?? null,
+			return {
+				notificationId: notification.id,
+				status: "ENQUEUED",
+				channels: options?.channels ?? ["EMAIL"],
+				scheduledAt: options?.scheduledAt ?? null,
+			}
+		} catch (error) {
+			// If anything fails before enqueue, release the lock so the tenant can retry
+			await idempotencyService.releaseLock(workspaceId, idempotencyKey)
+			throw error
 		}
 	},
 }

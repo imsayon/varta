@@ -28,7 +28,10 @@ const envSchema = z.object({
 	EMAIL_VERIFY_TOKEN_TTL_HOURS: z.coerce.number().default(24),
 
 	ANTHROPIC_API_KEY: z.string().default(""),
-	ENCRYPTION_KEY: z.string().default(""),
+	ENCRYPTION_KEY:
+		process.env.NODE_ENV === "production"
+			? z.string().min(32, "ENCRYPTION_KEY must be at least 32 characters in production")
+			: z.string().default("0123456789abcdef0123456789abcdef"),
 })
 
 const parsed = envSchema.safeParse(process.env)

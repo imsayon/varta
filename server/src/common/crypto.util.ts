@@ -1,10 +1,9 @@
 import crypto from "node:crypto"
 import { env } from "@/common/config/env.ts"
 
-// AES-256-GCM requires a 32-byte key. We assume env.ENCRYPTION_KEY is a 64-character hex string or 32-character raw string.
-// For robust development, we fallback to a hardcoded dev key if env doesn't have it (though env.ts should enforce it).
+// AES-256-GCM requires a 32-byte key.
 const getEncryptionKey = (): Buffer => {
-	const keyStr = env.ENCRYPTION_KEY || "0123456789abcdef0123456789abcdef"
+	const keyStr = env.ENCRYPTION_KEY
 	if (keyStr.length === 64) {
 		return Buffer.from(keyStr, "hex")
 	}
