@@ -13,7 +13,6 @@ import {
   Settings,
   MessageSquare,
   Globe,
-  Server,
   ArrowRight,
   ChevronRight,
   Bell,
@@ -427,7 +426,7 @@ export default defineConfig({
           <section className={styles.pricing} id="pricing">
             <div className={styles.sectionHead}>
               <h2>Simple, Transparent Pricing</h2>
-              <p>Start free. Scale when you're ready. No surprises.</p>
+              <p>Start free. Scale when you&apos;re ready. No surprises.</p>
             </div>
             <div className={styles.pricingGrid}>
               {plans.map((p, i) => (

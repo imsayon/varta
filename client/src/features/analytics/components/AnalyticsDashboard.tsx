@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card/Card';
 import { Skeleton } from '@/components/ui/Skeleton/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState/EmptyState';
 import { Badge } from '@/components/ui/Badge/Badge';
+import type { BadgeVariant } from '@/components/ui/Badge/Badge';
 import { 
   Send, 
   CheckCircle2, 
@@ -43,9 +44,9 @@ interface AnalyticsData {
     inapp: number;
     webhook: number;
   };
-  trend: Array<{ _id: string; count: number }>;
+  trend: Array<{ id: string; count: number }>;
   recent: Array<{
-    _id: string;
+    id: string;
     subscriberId: string;
     channels: string[];
     status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -58,16 +59,11 @@ export function AnalyticsDashboard() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!workspace) return;
 
-    async function fetchAnalytics() {
+    void (async () => {
       setLoading(true);
       setError(null);
       const res = await apiClient.get<AnalyticsData>(
@@ -79,9 +75,7 @@ export function AnalyticsDashboard() {
         setError(res.error?.message || 'Failed to fetch analytics');
       }
       setLoading(false);
-    }
-
-    fetchAnalytics();
+    })();
   }, [workspace]);
 
   if (!workspace) {
@@ -124,7 +118,7 @@ export function AnalyticsDashboard() {
 
   // Pre-process trend data for chart
   const chartData = data.trend.map(item => ({
-    name: new Date(item._id).toLocaleDateString([], { month: 'short', day: 'numeric' }),
+    name: new Date(item.id).toLocaleDateString([], { month: 'short', day: 'numeric' }),
     count: item.count
   }));
 
@@ -184,8 +178,7 @@ export function AnalyticsDashboard() {
       </div>
 
       {/* Charts section */}
-      {isMounted && (
-        <div className={styles.chartsRow}>
+      <div className={styles.chartsRow}>
           {/* Trend Area Chart */}
           <Card className={styles.chartCard}>
             <h3 className={styles.chartTitle}>Delivery Volume Trends (Last 7 Days)</h3>
@@ -269,8 +262,7 @@ export function AnalyticsDashboard() {
               </ResponsiveContainer>
             </div>
           </Card>
-        </div>
-      )}
+      </div>
 
       {/* Recent Activity Feed */}
       <Card className={styles.tableCard}>
@@ -294,13 +286,13 @@ export function AnalyticsDashboard() {
               </thead>
               <tbody>
                 {data.recent.map(notif => (
-                  <tr key={notif._id}>
-                    <td className={styles.monoId}>{notif._id}</td>
+                  <tr key={notif.id}>
+                    <td className={styles.monoId}>{notif.id}</td>
                     <td className={styles.monoId}>{notif.subscriberId}</td>
                     <td>
                       <div className={styles.badgeList}>
                         {notif.channels.map(ch => (
-                          <Badge key={ch} variant={ch as any} size="sm">
+                          <Badge key={ch} variant={ch as BadgeVariant} size="sm">
                             {ch}
                           </Badge>
                         ))}

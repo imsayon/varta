@@ -4,6 +4,7 @@ import styles from './Badge.module.css';
 import { Mail, Bell, Smartphone, Webhook } from 'lucide-react';
 
 type BadgeVariant = 'email' | 'inapp' | 'push' | 'webhook' | 'default' | 'success' | 'error' | 'warning';
+export type { BadgeVariant };
 
 interface BadgeProps {
   variant?: BadgeVariant;

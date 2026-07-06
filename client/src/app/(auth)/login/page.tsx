@@ -8,7 +8,6 @@ import { useAuth } from '@/shared/auth/auth-context';
 import { Card } from '@/components/ui/Card/Card';
 import { Input } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button/Button';
-import { Mail, Lock } from 'lucide-react';
 import styles from './LoginPage.module.css';
 
 export default function LoginPage() {

@@ -12,12 +12,18 @@ import {
   Trash2, 
   Sparkles, 
   Info,
-  CheckCircle2,
-  XCircle,
   Play
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ITemplate, ISubscriber } from '@/shared/types/domain';
+import type {
+  INotificationTriggerResponse,
+  ISubscriber,
+  ISubscriberListData,
+  ITemplate,
+  ITemplateListData,
+  TriggerNotificationInput,
+} from '@/shared/types/domain';
+import type { JsonObject } from '@/shared/types/json';
 import styles from './TriggerStudio.module.css';
 
 interface LogEntry {
@@ -58,17 +64,21 @@ export function TriggerStudio() {
     const loadData = async () => {
       setLoading(true);
       const [templatesRes, subscribersRes] = await Promise.all([
-        apiClient.get<ITemplate[]>(`/api/v1/workspaces/${workspace.id}/templates`),
-        apiClient.get<ISubscriber[]>(`/api/v1/workspaces/${workspace.id}/subscribers`)
+        apiClient.get<ITemplateListData>(`/api/v1/workspaces/${workspace.id}/templates`),
+        apiClient.get<ISubscriberListData>(`/api/v1/workspaces/${workspace.id}/subscribers`)
       ]);
 
       if (templatesRes.success && templatesRes.data) {
-        setTemplates(templatesRes.data);
-        if (templatesRes.data.length > 0) setSelectedTemplate(templatesRes.data[0].name);
+        setTemplates(templatesRes.data.templates);
+        if (templatesRes.data.templates.length > 0) {
+          setSelectedTemplate(templatesRes.data.templates[0].id);
+        }
       }
       if (subscribersRes.success && subscribersRes.data) {
-        setSubscribers(subscribersRes.data);
-        if (subscribersRes.data.length > 0) setSelectedSubscriber(subscribersRes.data[0].externalId);
+        setSubscribers(subscribersRes.data.subscribers);
+        if (subscribersRes.data.subscribers.length > 0) {
+          setSelectedSubscriber(subscribersRes.data.subscribers[0].externalId);
+        }
       }
       setLoading(false);
     };
@@ -88,7 +98,7 @@ export function TriggerStudio() {
       return;
     }
 
-    let payload = {};
+    let payload: JsonObject = {};
     try {
       if (payloadStr.trim()) {
         payload = JSON.parse(payloadStr);
@@ -100,18 +110,23 @@ export function TriggerStudio() {
     }
 
     setTriggering(true);
-    addLog('info', `Firing trigger: template="${selectedTemplate}" recipient="${selectedSubscriber}"...`);
+    const templateName =
+      templates.find((template) => template.id === selectedTemplate)?.name ??
+      selectedTemplate;
+    addLog('info', `Firing trigger: template="${templateName}" recipient="${selectedSubscriber}"...`);
 
-    const res = await apiClient.post<any>(
+    const requestBody: TriggerNotificationInput = {
+      templateId: selectedTemplate,
+      subscriberExternalId: selectedSubscriber,
+      payload,
+      options: {
+        smartTiming,
+      },
+    };
+
+    const res = await apiClient.post<INotificationTriggerResponse>(
       `/api/v1/workspaces/${workspace.id}/notifications/trigger`,
-      {
-        templateName: selectedTemplate,
-        subscriberId: selectedSubscriber,
-        payload,
-        options: {
-          smartTiming
-        }
-      }
+      requestBody
     );
 
     setTriggering(false);
@@ -164,7 +179,7 @@ export function TriggerStudio() {
                 className={styles.select}
               >
                 {templates.map(t => (
-                  <option key={t._id} value={t.name}>{t.name}</option>
+                  <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
                 {templates.length === 0 && <option value="">No templates found</option>}
               </select>
@@ -209,7 +224,7 @@ export function TriggerStudio() {
               <div className={styles.infoTooltip}>
                 <Info size={12} />
                 <span className={styles.tooltipText}>
-                  Queries pgvector for the subscriber's historical interaction trends to determine their optimal notification open times.
+                  Queries pgvector for the subscriber&apos;s historical interaction trends to determine their optimal notification open times.
                 </span>
               </div>
             </div>
@@ -247,7 +262,7 @@ export function TriggerStudio() {
             {logs.length === 0 ? (
               <div className={styles.emptyTerminal}>
                 <Play size={24} className={styles.playIcon} />
-                <p>Configure trigger parameters and click "Trigger Notification" to inspect the delivery lifecycle logs.</p>
+                <p>Configure trigger parameters and click &quot;Trigger Notification&quot; to inspect the delivery lifecycle logs.</p>
               </div>
             ) : (
               <div className={styles.logList}>

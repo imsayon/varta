@@ -26,11 +26,19 @@ type AuthContextValue = AuthState & AuthActions;
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated, isLoading, setAuth, clearAuth, setLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading, setAuth, clearAuth } = useAuthStore();
   
   // Keep local storage synced values here for simplicity, though they could also be in Zustand
-  const [workspace, setWorkspaceState] = useState<{ id: string; name: string } | null>(null);
-  const [apiKey, setApiKeyState] = useState<string | null>(null);
+  const [workspace, setWorkspaceState] = useState<{ id: string; name: string } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const storedWsId = localStorage.getItem('varta_ws_id');
+    const storedWsName = localStorage.getItem('varta_ws_name');
+    return storedWsId && storedWsName ? { id: storedWsId, name: storedWsName } : null;
+  });
+  const [apiKey, setApiKeyState] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('varta_api_key');
+  });
 
   useEffect(() => {
     // Check initial auth state by calling /me or /refresh
@@ -52,24 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           clearAuth();
         }
-      } catch (err) {
+      } catch {
         clearAuth();
       }
     };
 
     verifySession();
-
-    // Load workspace and api key preferences
-    const storedWsId = localStorage.getItem('varta_ws_id');
-    const storedWsName = localStorage.getItem('varta_ws_name');
-    const storedApiKey = localStorage.getItem('varta_api_key');
-
-    if (storedWsId && storedWsName) {
-      setWorkspaceState({ id: storedWsId, name: storedWsName });
-    }
-    if (storedApiKey) {
-      setApiKeyState(storedApiKey);
-    }
   }, [setAuth, clearAuth]);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -94,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAuth(data.data.user as IUser, data.data.accessToken);
       return { success: true };
-    } catch (err) {
+    } catch {
       return { success: false, error: 'Network error during login' };
     }
   }, [setAuth]);
@@ -121,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Auto login after signup
       return login(email, password);
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Network error during signup' };
     }
   }, [login]);
@@ -129,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await fetch('/api/v1/auth/logout', { method: 'POST' });
-    } catch (err) {
+    } catch {
       // Ignore network errors on logout
     }
     clearAuth();

@@ -13,10 +13,7 @@ import {
   GitBranch, 
   Sparkles, 
   Trash2, 
-  Code, 
-  ChevronDown, 
-  ChevronUp,
-  AlertCircle 
+  Code
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { IRoutingRule } from '@/shared/types/domain';
@@ -37,20 +34,19 @@ export function RuleBuilder() {
   // Expanded AST Accordion state
   const [expandedRuleIds, setExpandedRuleIds] = useState<Record<string, boolean>>({});
 
-  const fetchRules = async () => {
-    if (!workspace) return;
-    setLoading(true);
-    const res = await apiClient.get<IRoutingRule[]>(`/api/v1/workspaces/${workspace.id}/rules`);
-    if (res.success && res.data) {
-      setRules(res.data);
-    } else {
-      toast.error(res.error?.message || 'Failed to fetch routing rules');
-    }
-    setLoading(false);
-  };
-
   useEffect(() => {
-    fetchRules();
+    if (!workspace) return;
+
+    void (async () => {
+      setLoading(true);
+      const res = await apiClient.get<IRoutingRule[]>(`/api/v1/workspaces/${workspace.id}/rules`);
+      if (res.success && res.data) {
+        setRules(res.data);
+      } else {
+        toast.error(res.error?.message || 'Failed to fetch routing rules');
+      }
+      setLoading(false);
+    })();
   }, [workspace]);
 
   const handleCompileAndSave = async (e: React.FormEvent) => {
@@ -70,7 +66,11 @@ export function RuleBuilder() {
       setNaturalLanguage('');
       setPriority(0);
       setActive(true);
-      fetchRules();
+      if (!workspace) return;
+      const refreshRes = await apiClient.get<IRoutingRule[]>(`/api/v1/workspaces/${workspace.id}/rules`);
+      if (refreshRes.success && refreshRes.data) {
+        setRules(refreshRes.data);
+      }
     } else {
       toast.error(res.error?.message || 'AI compilation failed. Please verify your English syntax.');
     }
@@ -189,7 +189,7 @@ export function RuleBuilder() {
                           <h4 className={styles.ruleName}>{rule.name}</h4>
                           <span className={styles.priorityBadge}>P{rule.priority}</span>
                         </div>
-                        <span className={`${styles.statusDot} ${rule.active ? styles.active : ''}`} />
+                        <span className={`${styles.statusDot} ${rule.isActive ? styles.isActive : ''}`} />
                       </div>
                       <div className={styles.ruleActions}>
                         <button

@@ -15,13 +15,16 @@ import {
   Search, 
   Edit2, 
   Trash2, 
-  Check, 
-  X,
   Clock,
   Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ISubscriber } from '@/shared/types/domain';
+import type {
+  ISubscriber,
+  ISubscriberListData,
+  SubscriberPreferences,
+  SubscriberUpsertInput,
+} from '@/shared/types/domain';
 import styles from './SubscribersPage.module.css';
 
 export default function SubscribersPage() {
@@ -32,23 +35,22 @@ export default function SubscribersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSubscriber, setEditingSubscriber] = useState<ISubscriber | null>(null);
 
-  const fetchSubscribers = async () => {
-    if (!workspace) return;
-    setLoading(true);
-    const res = await apiClient.get<ISubscriber[]>(`/api/v1/workspaces/${workspace.id}/subscribers`);
-    if (res.success && res.data) {
-      setSubscribers(res.data);
-    } else {
-      toast.error(res.error?.message || 'Failed to fetch subscribers');
-    }
-    setLoading(false);
-  };
-
   useEffect(() => {
-    fetchSubscribers();
+    if (!workspace) return;
+
+    void (async () => {
+      setLoading(true);
+      const res = await apiClient.get<ISubscriberListData>(`/api/v1/workspaces/${workspace.id}/subscribers`);
+      if (res.success && res.data) {
+        setSubscribers(res.data.subscribers);
+      } else {
+        toast.error(res.error?.message || 'Failed to fetch subscribers');
+      }
+      setLoading(false);
+    })();
   }, [workspace]);
 
-  const handleCreateOrUpdate = async (formData: any) => {
+  const handleCreateOrUpdate = async (formData: SubscriberUpsertInput) => {
     if (!workspace) return;
 
     const res = await apiClient.post<ISubscriber>(
@@ -61,7 +63,10 @@ export default function SubscribersPage() {
           ? `Subscriber "${formData.externalId}" updated.` 
           : `Subscriber "${formData.externalId}" added successfully.`
       );
-      fetchSubscribers();
+      const refreshRes = await apiClient.get<ISubscriberListData>(`/api/v1/workspaces/${workspace.id}/subscribers`);
+      if (refreshRes.success && refreshRes.data) {
+        setSubscribers(refreshRes.data.subscribers);
+      }
     } else {
       toast.error(res.error?.message || 'Failed to save subscriber');
       throw new Error();
@@ -153,7 +158,7 @@ export default function SubscribersPage() {
               </thead>
               <tbody>
                 {filteredSubscribers.map(sub => {
-                  const prefs = sub.channelPreferences || {};
+                  const prefs: SubscriberPreferences = sub.preferences;
 
                   return (
                     <tr key={sub.id}>
@@ -161,8 +166,8 @@ export default function SubscribersPage() {
                       <td>
                         <div className={styles.contactInfo}>
                           {sub.email && <span className={styles.emailText}>{sub.email}</span>}
-                          {sub.phone && <span className={styles.phoneText}>{sub.phone}</span>}
-                          {!sub.email && !sub.phone && <span className={styles.noContact}>No email/phone</span>}
+                          {sub.name && <span className={styles.phoneText}>{sub.name}</span>}
+                          {!sub.email && !sub.name && <span className={styles.noContact}>No contact info</span>}
                         </div>
                       </td>
                       <td>
@@ -215,15 +220,18 @@ export default function SubscribersPage() {
         </Card>
       )}
 
-      <SubscriberForm
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingSubscriber(null);
-        }}
-        onSubmit={handleCreateOrUpdate}
-        initialData={editingSubscriber}
-      />
+      {isModalOpen && (
+        <SubscriberForm
+          key={editingSubscriber?.id ?? 'create-subscriber'}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingSubscriber(null);
+          }}
+          onSubmit={handleCreateOrUpdate}
+          initialData={editingSubscriber}
+        />
+      )}
     </div>
   );
 }

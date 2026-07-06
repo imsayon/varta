@@ -1,8 +1,8 @@
 import { useAuthStore } from '../auth/auth-store';
-import type { ApiResponse } from '../types/domain';
+import type { ApiResponse, IUser } from '../types/domain';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public data?: any) {
+  constructor(public status: number, message: string, public data?: unknown) {
     super(message);
     this.name = 'ApiError';
   }
@@ -14,7 +14,7 @@ export class ApiError extends Error {
 export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   const getAccessToken = () => useAuthStore.getState().accessToken;
   const clearAuth = () => useAuthStore.getState().clearAuth();
-  const setAuth = (user: any, token: string) => useAuthStore.getState().setAuth(user, token);
+  const setAuth = (user: IUser, token: string) => useAuthStore.getState().setAuth(user, token);
 
   const headers = new Headers(options.headers);
   
@@ -58,7 +58,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
           window.location.href = '/login';
         }
       }
-    } catch (err) {
+    } catch {
       clearAuth();
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
@@ -116,6 +116,12 @@ export const apiClient = {
   put<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
     return request<T>(path, {
       method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  },
+  patch<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
+    return request<T>(path, {
+      method: 'PATCH',
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   },

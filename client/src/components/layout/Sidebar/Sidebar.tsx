@@ -47,7 +47,7 @@ export function Sidebar() {
         setWorkspaces(res.data);
         // If no active workspace is selected, but workspaces exist, select the first one
         if (!workspace && res.data.length > 0) {
-          setActiveWorkspace({ id: res.data[0]._id, name: res.data[0].name });
+          setActiveWorkspace({ id: res.data[0].id, name: res.data[0].name });
         }
       }
     }
@@ -61,7 +61,7 @@ export function Sidebar() {
     const res = await apiClient.post<IWorkspace>('/api/v1/workspaces', { name: newWsName });
     if (res.success && res.data) {
       setWorkspaces(prev => [...prev, res.data!]);
-      setActiveWorkspace({ id: res.data._id, name: res.data.name });
+      setActiveWorkspace({ id: res.data.id, name: res.data.name });
       setNewWsName('');
       setIsCreatingWs(false);
       setIsDropdownOpen(false);
@@ -100,10 +100,10 @@ export function Sidebar() {
             <div className={styles.dropdownList}>
               {workspaces.map(ws => (
                 <button
-                  key={ws._id}
-                  className={`${styles.dropdownItem} ${workspace?.id === ws._id ? styles.dropdownItemActive : ''}`}
+                  key={ws.id}
+                  className={`${styles.dropdownItem} ${workspace?.id === ws.id ? styles.dropdownItemActive : ''}`}
                   onClick={() => {
-                    setActiveWorkspace({ id: ws._id, name: ws.name });
+                    setActiveWorkspace({ id: ws.id, name: ws.name });
                     setIsDropdownOpen(false);
                     // Force refresh or redirect to reset state for new workspace context
                     router.push('/analytics');

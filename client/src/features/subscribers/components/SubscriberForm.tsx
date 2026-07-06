@@ -1,73 +1,60 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal/Modal';
 import { Input, TextArea } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button/Button';
 import { toast } from 'sonner';
-import type { ISubscriber } from '@/shared/types/domain';
+import type { ISubscriber, SubscriberPreferences, SubscriberUpsertInput } from '@/shared/types/domain';
+import type { JsonObject } from '@/shared/types/json';
 import styles from './SubscriberForm.module.css';
 
 interface SubscriberFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: SubscriberUpsertInput) => Promise<void>;
   initialData?: ISubscriber | null;
 }
 
+function getInitialSubscriberFormState(initialData?: ISubscriber | null) {
+  const preferences = initialData?.preferences;
+
+  return {
+    externalId: initialData?.externalId ?? '',
+    email: initialData?.email ?? '',
+    name: initialData?.name ?? '',
+    timezone: initialData?.timezone ?? 'UTC',
+    locale: initialData?.locale ?? 'en-US',
+    attributesStr: JSON.stringify(initialData?.attributes ?? { name: 'Jane Doe', plan: 'premium' }, null, 2),
+    prefEmail: preferences?.email !== false,
+    prefPush: preferences?.push !== false,
+    prefInApp: preferences?.inapp !== false,
+    prefWebhook: preferences?.webhook !== false,
+  };
+}
+
 export function SubscriberForm({ isOpen, onClose, onSubmit, initialData }: SubscriberFormProps) {
-  const [externalId, setExternalId] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [pushToken, setPushToken] = useState('');
-  const [timezone, setTimezone] = useState('UTC');
-  const [locale, setLocale] = useState('en-US');
-  const [attributesStr, setAttributesStr] = useState('{\n  "name": "Jane Doe",\n  "plan": "premium"\n}');
+  const initialState = getInitialSubscriberFormState(initialData);
+  const [externalId, setExternalId] = useState(initialState.externalId);
+  const [email, setEmail] = useState(initialState.email);
+  const [name, setName] = useState(initialState.name);
+  const [timezone, setTimezone] = useState(initialState.timezone);
+  const [locale, setLocale] = useState(initialState.locale);
+  const [attributesStr, setAttributesStr] = useState(initialState.attributesStr);
   
   // Preferences
-  const [prefEmail, setPrefEmail] = useState(true);
-  const [prefPush, setPrefPush] = useState(true);
-  const [prefInApp, setPrefInApp] = useState(true);
-  const [prefWebhook, setPrefWebhook] = useState(true);
+  const [prefEmail, setPrefEmail] = useState(initialState.prefEmail);
+  const [prefPush, setPrefPush] = useState(initialState.prefPush);
+  const [prefInApp, setPrefInApp] = useState(initialState.prefInApp);
+  const [prefWebhook, setPrefWebhook] = useState(initialState.prefWebhook);
 
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (initialData) {
-      setExternalId(initialData.externalId);
-      setEmail(initialData.email || '');
-      setPhone(initialData.phone || '');
-      setPushToken(initialData.pushToken || '');
-      setTimezone(initialData.timezone || 'UTC');
-      setLocale(initialData.locale || 'en-US');
-      setAttributesStr(JSON.stringify(initialData.attributes || {}, null, 2));
-
-      // Channels
-      const prefs = initialData.channelPreferences || {};
-      setPrefEmail(prefs.email !== false);
-      setPrefPush(prefs.push !== false);
-      setPrefInApp(prefs.inapp !== false);
-      setPrefWebhook(prefs.webhook !== false);
-    } else {
-      setExternalId('');
-      setEmail('');
-      setPhone('');
-      setPushToken('');
-      setTimezone('UTC');
-      setLocale('en-US');
-      setAttributesStr('{\n  "name": "Jane Doe",\n  "plan": "premium"\n}');
-      setPrefEmail(true);
-      setPrefPush(true);
-      setPrefInApp(true);
-      setPrefWebhook(true);
-    }
-  }, [initialData, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!externalId.trim()) return;
 
-    let attributes = {};
+    let attributes: JsonObject = {};
     try {
       if (attributesStr.trim()) {
         attributes = JSON.parse(attributesStr);
@@ -79,20 +66,21 @@ export function SubscriberForm({ isOpen, onClose, onSubmit, initialData }: Subsc
 
     setLoading(true);
 
-    const payload = {
+    const preferences: SubscriberPreferences = {
+      email: prefEmail,
+      push: prefPush,
+      inapp: prefInApp,
+      webhook: prefWebhook,
+    };
+
+    const payload: SubscriberUpsertInput = {
       externalId,
       email: email || undefined,
-      phone: phone || undefined,
-      pushToken: pushToken || undefined,
+      name: name || undefined,
       timezone,
       locale,
       attributes,
-      channelPreferences: {
-        email: prefEmail,
-        push: prefPush,
-        inapp: prefInApp,
-        webhook: prefWebhook,
-      }
+      preferences,
     };
 
     try {
@@ -132,17 +120,10 @@ export function SubscriberForm({ isOpen, onClose, onSubmit, initialData }: Subsc
 
         <div className={styles.row}>
           <Input
-            label="Phone Number"
-            placeholder="+1234567890"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            disabled={loading}
-          />
-          <Input
-            label="Push Token"
-            placeholder="FCM token or device identifier"
-            value={pushToken}
-            onChange={e => setPushToken(e.target.value)}
+            label="Name"
+            placeholder="Jane Doe"
+            value={name}
+            onChange={e => setName(e.target.value)}
             disabled={loading}
           />
         </div>

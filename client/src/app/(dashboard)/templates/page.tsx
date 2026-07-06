@@ -15,12 +15,11 @@ import {
   Search, 
   Sparkles, 
   Edit2, 
-  Trash2, 
-  AlertCircle,
-  Eye
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ITemplate } from '@/shared/types/domain';
+import type { BadgeVariant } from '@/components/ui/Badge/Badge';
+import type { ITemplate, ITemplateListData, TemplateUpsertInput } from '@/shared/types/domain';
 import styles from './TemplatesPage.module.css';
 
 export default function TemplatesPage() {
@@ -31,34 +30,36 @@ export default function TemplatesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ITemplate | null>(null);
 
-  const fetchTemplates = async () => {
-    if (!workspace) return;
-    setLoading(true);
-    const res = await apiClient.get<ITemplate[]>(`/api/v1/workspaces/${workspace.id}/templates`);
-    if (res.success && res.data) {
-      setTemplates(res.data);
-    } else {
-      toast.error(res.error?.message || 'Failed to fetch templates');
-    }
-    setLoading(false);
-  };
-
   useEffect(() => {
-    fetchTemplates();
+    if (!workspace) return;
+
+    void (async () => {
+      setLoading(true);
+      const res = await apiClient.get<ITemplateListData>(`/api/v1/workspaces/${workspace.id}/templates`);
+      if (res.success && res.data) {
+        setTemplates(res.data.templates);
+      } else {
+        toast.error(res.error?.message || 'Failed to fetch templates');
+      }
+      setLoading(false);
+    })();
   }, [workspace]);
 
-  const handleCreateOrUpdate = async (formData: any) => {
+  const handleCreateOrUpdate = async (formData: TemplateUpsertInput) => {
     if (!workspace) return;
 
     if (editingTemplate) {
       // Update
-      const res = await apiClient.put<ITemplate>(
-        `/api/v1/workspaces/${workspace.id}/templates/${editingTemplate._id}`,
+      const res = await apiClient.patch<ITemplate>(
+        `/api/v1/workspaces/${workspace.id}/templates/${editingTemplate.id}`,
         formData
       );
       if (res.success) {
         toast.success(`Template "${formData.name}" updated successfully!`);
-        fetchTemplates();
+        const refreshRes = await apiClient.get<ITemplateListData>(`/api/v1/workspaces/${workspace.id}/templates`);
+        if (refreshRes.success && refreshRes.data) {
+          setTemplates(refreshRes.data.templates);
+        }
       } else {
         toast.error(res.error?.message || 'Failed to update template');
         throw new Error();
@@ -71,7 +72,10 @@ export default function TemplatesPage() {
       );
       if (res.success) {
         toast.success(`Template "${formData.name}" created successfully!`);
-        fetchTemplates();
+        const refreshRes = await apiClient.get<ITemplateListData>(`/api/v1/workspaces/${workspace.id}/templates`);
+        if (refreshRes.success && refreshRes.data) {
+          setTemplates(refreshRes.data.templates);
+        }
       } else {
         toast.error(res.error?.message || 'Failed to create template');
         throw new Error();
@@ -85,7 +89,7 @@ export default function TemplatesPage() {
     const res = await apiClient.del(`/api/v1/workspaces/${workspace.id}/templates/${id}`);
     if (res.success) {
       toast.success(`Template "${name}" deleted.`);
-      setTemplates(prev => prev.filter(t => t._id !== id));
+      setTemplates(prev => prev.filter(t => t.id !== id));
     } else {
       toast.error(res.error?.message || 'Failed to delete template');
     }
@@ -154,7 +158,7 @@ export default function TemplatesPage() {
             const channelNames = Object.keys(template.channels);
 
             return (
-              <Card key={template._id} className={styles.card} hover>
+              <Card key={template.id} className={styles.card} hover>
                 <div className={styles.cardHeader}>
                   <div className={styles.nameArea}>
                     <h3 className={styles.templateName}>{template.name}</h3>
@@ -165,14 +169,14 @@ export default function TemplatesPage() {
                       </span>
                     )}
                   </div>
-                  <span className={`${styles.statusDot} ${template.active ? styles.active : ''}`} />
+                  <span className={`${styles.statusDot} ${template.isActive ? styles.isActive : ''}`} />
                 </div>
 
                 <div className={styles.channelsArea}>
                   <span className={styles.label}>Configured Channels:</span>
                   <div className={styles.badgesGrid}>
                     {channelNames.map(ch => (
-                      <Badge key={ch} variant={ch as any} size="sm">
+                      <Badge key={ch} variant={ch as BadgeVariant} size="sm">
                         {ch}
                       </Badge>
                     ))}
@@ -198,7 +202,7 @@ export default function TemplatesPage() {
                       <Edit2 size={16} />
                     </button>
                     <button
-                      onClick={() => handleDelete(template._id, template.name)}
+                      onClick={() => handleDelete(template.id, template.name)}
                       className={`${styles.actionBtn} ${styles.deleteBtn}`}
                       title="Delete template"
                     >
@@ -212,15 +216,18 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      <TemplateForm
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingTemplate(null);
-        }}
-        onSubmit={handleCreateOrUpdate}
-        initialData={editingTemplate}
-      />
+      {isModalOpen && (
+        <TemplateForm
+          key={editingTemplate?.id ?? 'create-template'}
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingTemplate(null);
+          }}
+          onSubmit={handleCreateOrUpdate}
+          initialData={editingTemplate}
+        />
+      )}
     </div>
   );
 }

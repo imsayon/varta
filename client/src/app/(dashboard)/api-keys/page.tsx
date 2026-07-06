@@ -8,34 +8,37 @@ import { Button } from '@/components/ui/Button/Button';
 import { EmptyState } from '@/components/ui/EmptyState/EmptyState';
 import { Key, Plus, Trash2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import type { IApiKey, IApiKeyCreateResponse } from '@/shared/types/domain';
 import styles from './ApiKeysPage.module.css';
 
 export default function ApiKeysPage() {
   const { workspace } = useAuth();
-  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [apiKeys, setApiKeys] = useState<IApiKey[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [generatedKey, setGeneratedKey] = useState('');
 
-  const fetchApiKeys = async () => {
-    if (!workspace) return;
-    const res = await apiClient.get<any[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
-    if (res.success && res.data) {
-      setApiKeys(res.data);
-    }
-  };
-
   useEffect(() => {
-    fetchApiKeys();
+    if (!workspace) return;
+
+    void (async () => {
+      const res = await apiClient.get<IApiKey[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
+      if (res.success && res.data) {
+        setApiKeys(res.data);
+      }
+    })();
   }, [workspace]);
 
   const handleCreate = async () => {
     if (!workspace || !newKeyName) return;
-    const res = await apiClient.post<any>(`/api/v1/workspaces/${workspace.id}/api-keys`, { name: newKeyName });
+    const res = await apiClient.post<IApiKeyCreateResponse>(`/api/v1/workspaces/${workspace.id}/api-keys`, { name: newKeyName });
     if (res.success && res.data) {
       toast.success('API Key created');
       setGeneratedKey(res.data.fullKey);
-      fetchApiKeys();
+      const refreshRes = await apiClient.get<IApiKey[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
+      if (refreshRes.success && refreshRes.data) {
+        setApiKeys(refreshRes.data);
+      }
     } else {
       toast.error(res.error?.message || 'Failed to create key');
     }
@@ -43,10 +46,13 @@ export default function ApiKeysPage() {
 
   const handleDelete = async (id: string, name: string) => {
     if (!workspace || !confirm(`Revoke key "${name}"? This cannot be undone.`)) return;
-    const res = await apiClient.get(`/api/v1/workspaces/${workspace.id}/api-keys/${id}`);
+    const res = await apiClient.del(`/api/v1/workspaces/${workspace.id}/api-keys/${id}`);
     if (res.success) {
       toast.success('API Key revoked');
-      fetchApiKeys();
+      const refreshRes = await apiClient.get<IApiKey[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
+      if (refreshRes.success && refreshRes.data) {
+        setApiKeys(refreshRes.data);
+      }
     }
   };
 

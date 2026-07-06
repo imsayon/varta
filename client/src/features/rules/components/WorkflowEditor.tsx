@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -23,7 +23,24 @@ import { toast } from 'sonner';
 
 // ─── Custom Node Components ───
 
-const TriggerNode = ({ data }: { data: any }) => {
+type TriggerNodeData = Record<string, unknown> & {
+  label: string;
+  event: string;
+};
+
+type ActionNodeData = Record<string, unknown> & {
+  label: string;
+  type: 'email' | 'sms';
+  description: string;
+};
+
+type LogicNodeData = Record<string, unknown> & {
+  label: string;
+  type: 'delay' | 'digest';
+  description: string;
+};
+
+const TriggerNode = ({ data }: { data: TriggerNodeData }) => {
   return (
     <div className={`${styles.node} ${styles.triggerNode}`}>
       <div className={styles.nodeHeader}>
@@ -40,7 +57,7 @@ const TriggerNode = ({ data }: { data: any }) => {
   );
 };
 
-const ActionNode = ({ data }: { data: any }) => {
+const ActionNode = ({ data }: { data: ActionNodeData }) => {
   const Icon = data.type === 'email' ? Mail : MessageSquare;
   const color = data.type === 'email' ? '#10b981' : '#3b82f6';
   
@@ -61,7 +78,7 @@ const ActionNode = ({ data }: { data: any }) => {
   );
 };
 
-const LogicNode = ({ data }: { data: any }) => {
+const LogicNode = ({ data }: { data: LogicNodeData }) => {
   const Icon = data.type === 'delay' ? Clock : Server;
   const color = data.type === 'delay' ? '#eab308' : '#a855f7';
 
@@ -90,7 +107,7 @@ const nodeTypes = {
 
 // ─── Initial Data ───
 
-const initialNodes: Node[] = [
+const initialNodes: Array<Node<TriggerNodeData | ActionNodeData | LogicNodeData>> = [
   {
     id: 'trigger-1',
     type: 'trigger',
@@ -119,7 +136,7 @@ const initialEdges: Edge[] = [
 // ─── Main Editor Component ───
 
 export function WorkflowEditor() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   const onConnect = useCallback(

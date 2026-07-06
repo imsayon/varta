@@ -11,7 +11,8 @@ interface Notification {
 }
 
 // Placeholder until Phase 2 WebSocket implementation
-export function useWebSocket(_subscriberId: string | null) {
+export function useWebSocket(subscriberId: string | null) {
+  void subscriberId;
   const [notifications] = useState<Notification[]>([]);
   
   const markAllRead = useCallback(() => {

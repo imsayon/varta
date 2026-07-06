@@ -10,7 +10,7 @@ import { useWebSocket } from '@/shared/realtime/websocket';
 import { Skeleton } from '@/components/ui/Skeleton/Skeleton';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, user, workspace } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 

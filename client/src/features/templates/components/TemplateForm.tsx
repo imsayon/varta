@@ -1,79 +1,55 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal/Modal';
 import { Input, TextArea } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button/Button';
-import { Badge } from '@/components/ui/Badge/Badge';
 import { Sparkles } from 'lucide-react';
-import type { ITemplate } from '@/shared/types/domain';
+import type { ITemplate, ITemplateChannels, TemplateUpsertInput } from '@/shared/types/domain';
 import styles from './TemplateForm.module.css';
 
 interface TemplateFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: TemplateUpsertInput) => Promise<void>;
   initialData?: ITemplate | null;
 }
 
-type ChannelTab = 'email' | 'inapp' | 'push' | 'webhook';
+type ChannelTab = 'email' | 'inapp' | 'webhook';
+
+function getInitialTemplateFormState(initialData?: ITemplate | null) {
+  return {
+    name: initialData?.name ?? '',
+    active: initialData?.isActive ?? true,
+    aiPersonalize: initialData?.aiPersonalize ?? false,
+    emailSubject: initialData?.channels.email?.subject ?? '',
+    emailBody: initialData?.channels.email?.htmlBody ?? '',
+    inAppTitle: initialData?.channels.inapp?.title ?? '',
+    inAppBody: initialData?.channels.inapp?.body ?? '',
+    inAppActionUrl: initialData?.channels.inapp?.actionUrl ?? '',
+    webhookPayload: initialData?.channels.webhook?.payload ?? '{\n  "event": "{{event}}",\n  "userId": "{{subscriber.id}}"\n}',
+  };
+}
 
 export function TemplateForm({ isOpen, onClose, onSubmit, initialData }: TemplateFormProps) {
-  const [name, setName] = useState('');
-  const [active, setActive] = useState(true);
-  const [aiPersonalize, setAiPersonalize] = useState(false);
+  const initialState = getInitialTemplateFormState(initialData);
+  const [name, setName] = useState(initialState.name);
+  const [active, setActive] = useState(initialState.active);
+  const [aiPersonalize, setAiPersonalize] = useState(initialState.aiPersonalize);
   const [activeTab, setActiveTab] = useState<ChannelTab>('email');
   const [loading, setLoading] = useState(false);
 
   // Email Config
-  const [emailSubject, setEmailSubject] = useState('');
-  const [emailBody, setEmailBody] = useState('');
+  const [emailSubject, setEmailSubject] = useState(initialState.emailSubject);
+  const [emailBody, setEmailBody] = useState(initialState.emailBody);
 
   // In-App Config
-  const [inAppTitle, setInAppTitle] = useState('');
-  const [inAppBody, setInAppBody] = useState('');
-  const [inAppActionUrl, setInAppActionUrl] = useState('');
-
-  // Push Config
-  const [pushTitle, setPushTitle] = useState('');
-  const [pushBody, setPushBody] = useState('');
+  const [inAppTitle, setInAppTitle] = useState(initialState.inAppTitle);
+  const [inAppBody, setInAppBody] = useState(initialState.inAppBody);
+  const [inAppActionUrl, setInAppActionUrl] = useState(initialState.inAppActionUrl);
 
   // Webhook Config
-  const [webhookPayload, setWebhookPayload] = useState('{\n  "event": "{{event}}",\n  "userId": "{{subscriber.id}}"\n}');
-
-  // Populated fields when editing
-  useEffect(() => {
-    if (initialData) {
-      setName(initialData.name);
-      setActive(initialData.active);
-      setAiPersonalize(initialData.aiPersonalize || false);
-
-      setEmailSubject(initialData.channels.email?.subject || '');
-      setEmailBody(initialData.channels.email?.htmlBody || '');
-
-      setInAppTitle(initialData.channels.inapp?.title || '');
-      setInAppBody(initialData.channels.inapp?.body || '');
-      setInAppActionUrl(initialData.channels.inapp?.actionUrl || '');
-
-      setPushTitle(initialData.channels.push?.title || '');
-      setPushBody(initialData.channels.push?.body || '');
-
-      setWebhookPayload(initialData.channels.webhook?.payload || '{\n  "event": "{{event}}",\n  "userId": "{{subscriber.id}}"\n}');
-    } else {
-      // Reset form on create mode
-      setName('');
-      setActive(true);
-      setAiPersonalize(false);
-      setEmailSubject('');
-      setEmailBody('');
-      setInAppTitle('');
-      setInAppBody('');
-      setInAppActionUrl('');
-      setPushTitle('');
-      setPushBody('');
-      setWebhookPayload('{\n  "event": "{{event}}",\n  "userId": "{{subscriber.id}}"\n}');
-    }
-  }, [initialData, isOpen]);
+  const [webhookPayload, setWebhookPayload] = useState(initialState.webhookPayload);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,23 +57,21 @@ export function TemplateForm({ isOpen, onClose, onSubmit, initialData }: Templat
 
     setLoading(true);
 
-    const channels: any = {};
+    const channels: ITemplateChannels = {};
     if (emailSubject || emailBody) {
       channels.email = { subject: emailSubject, htmlBody: emailBody };
     }
     if (inAppTitle || inAppBody) {
       channels.inapp = { title: inAppTitle, body: inAppBody, actionUrl: inAppActionUrl };
     }
-    if (pushTitle || pushBody) {
-      channels.push = { title: pushTitle, body: pushBody };
-    }
+
     if (webhookPayload) {
       channels.webhook = { payload: webhookPayload };
     }
 
-    const payload = {
+    const payload: TemplateUpsertInput = {
       name,
-      active,
+      isActive: active,
       aiPersonalize,
       channels,
     };
@@ -115,7 +89,7 @@ export function TemplateForm({ isOpen, onClose, onSubmit, initialData }: Templat
   const tabs: { value: ChannelTab; label: string }[] = [
     { value: 'email', label: 'Email' },
     { value: 'inapp', label: 'In-App' },
-    { value: 'push', label: 'Mobile Push' },
+
     { value: 'webhook', label: 'Webhook' },
   ];
 
@@ -167,7 +141,7 @@ export function TemplateForm({ isOpen, onClose, onSubmit, initialData }: Templat
             const hasConfig = 
               (tab.value === 'email' && (emailSubject || emailBody)) ||
               (tab.value === 'inapp' && (inAppTitle || inAppBody)) ||
-              (tab.value === 'push' && (pushTitle || pushBody)) ||
+
               (tab.value === 'webhook' && webhookPayload && webhookPayload.length > 5);
 
             return (
@@ -234,25 +208,7 @@ export function TemplateForm({ isOpen, onClose, onSubmit, initialData }: Templat
             </div>
           )}
 
-          {activeTab === 'push' && (
-            <div className={styles.pane}>
-              <Input
-                label="Alert Title"
-                placeholder="Notification"
-                value={pushTitle}
-                onChange={e => setPushTitle(e.target.value)}
-                disabled={loading}
-              />
-              <TextArea
-                label="Alert Body (160 chars recommended)"
-                placeholder="Hi {{subscriber.attributes.name}}, your order has shipped!"
-                value={pushBody}
-                onChange={e => setPushBody(e.target.value)}
-                rows={4}
-                disabled={loading}
-              />
-            </div>
-          )}
+
 
           {activeTab === 'webhook' && (
             <div className={styles.pane}>

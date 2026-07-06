@@ -6,26 +6,25 @@ import { apiClient } from '@/shared/api/api';
 import { Card } from '@/components/ui/Card/Card';
 import { EmptyState } from '@/components/ui/EmptyState/EmptyState';
 import { List, CheckCircle, Clock, XCircle, Loader } from 'lucide-react';
+import type { INotification, INotificationListData } from '@/shared/types/domain';
 import styles from './NotificationsPage.module.css';
 
 export default function NotificationsPage() {
   const { workspace } = useAuth();
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<INotification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchNotifications = async () => {
-    if (!workspace) return;
-    setLoading(true);
-    const res = await apiClient.get<any>(`/api/v1/workspaces/${workspace.id}/notifications`);
-    if (res.success && res.data) {
-      setNotifications(res.data.notifications);
-    }
-    setLoading(false);
-  };
-
   useEffect(() => {
-    fetchNotifications();
-    // In a real app we'd poll or use websocket here
+    if (!workspace) return;
+
+    void (async () => {
+      setLoading(true);
+      const res = await apiClient.get<INotificationListData>(`/api/v1/workspaces/${workspace.id}/notifications`);
+      if (res.success && res.data) {
+        setNotifications(res.data.notifications);
+      }
+      setLoading(false);
+    })();
   }, [workspace]);
 
   const getStatusBadge = (status: string) => {
