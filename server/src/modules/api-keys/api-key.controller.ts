@@ -8,7 +8,7 @@ export const create = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertAdmin(workspaceId, userId)
 		const apiKey = await apiKeyService.create(
@@ -28,7 +28,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 		const keys = await apiKeyService.list(workspaceId)
@@ -44,7 +44,7 @@ export const remove = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertAdmin(workspaceId, userId)
 		await apiKeyService.revoke(workspaceId, req.params.keyId as string)

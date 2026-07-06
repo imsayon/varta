@@ -55,10 +55,11 @@ export const emailWorker = new Worker(
 			} else {
 				throw new Error(result.error || "Provider delivery failed")
 			}
-		} catch (error: any) {
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : "Unknown delivery error"
 			await deliveryAttemptRepository.update(attempt.id, {
 				status: "FAILED",
-				errorMessage: error.message,
+				errorMessage,
 			})
 
 			// If last attempt, mark notification as FAILED

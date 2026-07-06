@@ -8,6 +8,7 @@ import { buildResetPasswordEmail } from "@/common/templates/reset-password-email
 import {
 	generateAccessToken,
 	generateRefreshToken,
+	type RefreshTokenPayload,
 	verifyRefreshToken,
 } from "@/common/utils/auth/jwt.ts"
 import {
@@ -246,10 +247,10 @@ export const authService = {
 
 	// Refresh
 	async refresh(refreshToken: string) {
-		let payload: any
+		let payload: RefreshTokenPayload
 		try {
 			const decoded = await verifyRefreshToken(refreshToken)
-			payload = decoded.payload
+			payload = decoded.payload as RefreshTokenPayload
 		} catch {
 			throw new UnauthorizedError("Invalid refresh token")
 		}

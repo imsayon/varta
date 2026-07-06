@@ -26,7 +26,8 @@ const app = express()
 
 // Global Middleware
 app.disable("x-powered-by")
-app.use((pinoHttp as any)({ logger }))
+// pino-http CJS interop: types lack call signature under verbatimModuleSyntax
+app.use((pinoHttp as unknown as (opts: { logger: typeof logger }) => express.RequestHandler)({ logger }))
 app.use(helmet())
 app.use(compression())
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))

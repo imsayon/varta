@@ -7,7 +7,7 @@ export const create = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspace = await workspaceService.create(req.body.name, userId)
 		res.status(201).json({ success: true, data: workspace })
 	} catch (err) {
@@ -21,7 +21,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaces = await workspaceService.listByUser(userId)
 		res.status(200).json({ success: true, data: workspaces })
 	} catch (err) {
@@ -35,7 +35,7 @@ export const getById = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 		const workspace = await workspaceService.findById(workspaceId)
@@ -51,7 +51,7 @@ export const update = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertAdmin(workspaceId, userId)
 		const workspace = await workspaceService.update(workspaceId, req.body)
@@ -67,7 +67,7 @@ export const remove = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		const member = await workspaceService.assertMembership(
 			workspaceId,
@@ -93,7 +93,7 @@ export const listMembers = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 		const members = await workspaceService.listMembers(workspaceId)

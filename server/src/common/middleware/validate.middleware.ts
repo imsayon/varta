@@ -16,7 +16,7 @@ export function validate(schema: ZodType, target: ValidationTarget = "body") {
 			})
 			return
 		}
-		;(req as any)[target] = result.data
+		;(req as unknown as Record<string, unknown>)[target] = result.data
 		next()
 	}
 }

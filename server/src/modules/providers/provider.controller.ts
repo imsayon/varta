@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express"
 import { providerService } from "./provider.service.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
 import { Resend } from "resend"
+import { decryptConfig } from "@/common/crypto.util.ts"
 
 export const upsert = async (
 	req: Request,
@@ -9,7 +10,7 @@ export const upsert = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 
 		// Step 1: Only admins can configure providers
@@ -23,7 +24,7 @@ export const upsert = async (
 			channel,
 			provider,
 			config,
-			isActive,
+			isActive ?? true,
 		)
 		res.status(200).json({ success: true, data: result })
 	} catch (err) {
@@ -37,7 +38,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertAdmin(workspaceId, userId)
 
@@ -46,7 +47,13 @@ export const list = async (
 			workspaceId,
 			"email",
 		)
-		res.status(200).json({ success: true, data: result })
+		const data = result
+			? {
+					...result,
+					config: decryptConfig(result.config as Record<string, unknown>),
+				}
+			: null
+		res.status(200).json({ success: true, data })
 	} catch (err) {
 		next(err)
 	}
@@ -58,7 +65,7 @@ export const testConnection = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		const channel = req.params.channel as string
 		await workspaceService.assertAdmin(workspaceId, userId)
@@ -77,7 +84,10 @@ export const testConnection = async (
 
 		// Step 1: Test Resend connectivity by listing API keys
 		if (providerRecord.provider === "resend") {
-			const apiKey = (providerRecord.config as any).apiKey
+			const configData = decryptConfig(
+				providerRecord.config as Record<string, unknown>,
+			)
+			const apiKey = typeof configData.apiKey === "string" ? configData.apiKey : undefined
 			if (!apiKey) {
 				res.status(400).json({
 					success: false,

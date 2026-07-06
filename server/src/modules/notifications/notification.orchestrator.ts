@@ -80,7 +80,8 @@ export const notificationOrchestrator = {
 
 			// 5. Render Template
 
-			const emailTemplate = (template.channels as any)?.email
+			const channels = template.channels as Record<string, { subject: string; htmlBody: string; textBody?: string }> | null
+			const emailTemplate = channels?.email
 
 			if (!emailTemplate) {
 				throw new BadRequestError("Email channel missing in template.")
@@ -102,10 +103,12 @@ export const notificationOrchestrator = {
 					renderContext,
 				),
 
-				textBody: templateRendererService.renderAndSanitize(
-					emailTemplate.textBody,
-					renderContext,
-				),
+				textBody: emailTemplate.textBody
+					? templateRendererService.renderAndSanitize(
+						emailTemplate.textBody,
+						renderContext,
+					)
+					: "",
 			}
 
 			// 6. Persist Notification

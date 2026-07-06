@@ -1,5 +1,5 @@
 import { prisma } from "@/infra/database/prisma.ts"
-import { Prisma } from "@prisma/client"
+import { Prisma, NotificationStatus } from "@prisma/client"
 
 export const notificationRepository = {
 	async create(data: Prisma.NotificationUncheckedCreateInput) {
@@ -7,8 +7,8 @@ export const notificationRepository = {
 	},
 
 	async findById(workspaceId: string, id: string) {
-		return prisma.notification.findUnique({
-			where: { id },
+		return prisma.notification.findFirst({
+			where: { id, workspaceId },
 			include: {
 				template: { select: { name: true } },
 				subscriber: {
@@ -44,7 +44,7 @@ export const notificationRepository = {
 		])
 	},
 
-	async updateStatus(id: string, status: any) {
+	async updateStatus(id: string, status: NotificationStatus) {
 		return prisma.notification.update({
 			where: { id },
 			data: { status },

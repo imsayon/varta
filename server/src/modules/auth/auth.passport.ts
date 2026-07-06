@@ -1,8 +1,16 @@
 import passport from "passport"
 import { Strategy as GoogleStrategy } from "passport-google-oauth20"
 import { Strategy as GitHubStrategy } from "passport-github2"
+import type { Profile as PassportProfile } from "passport"
 import { env } from "@/common/config/env.ts"
 import { authService } from "./auth.service.ts"
+
+type VerifyDone = (error: Error | null, user?: Express.User | false) => void
+
+interface PrimaryEmailProfile extends PassportProfile {
+	emails?: Array<{ value: string; primary?: boolean }>
+	username?: string
+}
 
 if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
 	passport.use(
@@ -24,7 +32,7 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
 					})
 					done(null, user)
 				} catch (err) {
-					done(err)
+					done(err instanceof Error ? err : new Error("OAuth login failed"))
 				}
 			},
 		),
@@ -43,12 +51,13 @@ if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
 			async (
 				accessToken: string,
 				refreshToken: string,
-				profile: any,
-				done: any,
+				profile: PrimaryEmailProfile,
+				done: VerifyDone,
 			) => {
 				try {
 					const email =
-						profile.emails?.find((e: any) => e.primary)?.value ||
+						profile.emails?.find((emailRecord) => emailRecord.primary)
+							?.value ||
 						profile.emails?.[0]?.value ||
 						""
 					const user = await authService.handleOAuthLogin({
@@ -64,7 +73,7 @@ if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
 					})
 					done(null, user)
 				} catch (err) {
-					done(err)
+					done(err instanceof Error ? err : new Error("OAuth login failed"))
 				}
 			},
 		),

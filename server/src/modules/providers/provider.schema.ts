@@ -1,7 +1,8 @@
-import { z } from "zod";
+import { z } from "zod"
+import { jsonObjectSchema } from "@/common/types/json.ts"
 
 export const upsertProviderConfigSchema = z.object({
 	provider: z.string().min(1),
-	config: z.record(z.string(), z.any()),
-	isActive: z.boolean().optional()
-});
+	config: jsonObjectSchema,
+	isActive: z.boolean().optional().default(true),
+})

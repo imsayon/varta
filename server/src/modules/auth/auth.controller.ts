@@ -133,7 +133,7 @@ export const authController = {
 	},
 
 	async getSessions(req: Request, res: Response) {
-		const sessions = await authService.getSessions((req.user as any).id)
+		const sessions = await authService.getSessions(req.user!.id)
 		res.status(200).json({
 			success: true,
 			data: sessions,
@@ -142,7 +142,7 @@ export const authController = {
 
 	async revokeSession(req: Request, res: Response) {
 		await authService.revokeSession(
-			(req.user as any).id,
+			req.user!.id,
 			req.params.id as string,
 		)
 		res.status(200).json({
@@ -152,7 +152,7 @@ export const authController = {
 	},
 
 	async me(req: Request, res: Response) {
-		const user = await authRepository.findUserById((req.user as any).id)
+		const user = await authRepository.findUserById(req.user!.id)
 		if (!user) {
 			res.status(404).json({ success: false, message: "User not found" })
 			return

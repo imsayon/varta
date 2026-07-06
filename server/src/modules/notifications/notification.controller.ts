@@ -2,7 +2,18 @@ import type { Request, Response, NextFunction } from "express"
 import type { TriggerNotificationRequest } from "./notification.schema.ts"
 import { notificationOrchestrator } from "./notification.orchestrator.ts"
 import { notificationRepository } from "./notification.repository.ts"
-import { NotFoundError, BadRequestError } from "@/common/errors/app-error.ts"
+import {
+	NotFoundError,
+	BadRequestError,
+	ForbiddenError,
+} from "@/common/errors/app-error.ts"
+import { workspaceService } from "../workspaces/workspace.service.ts"
+
+function assertApiKeyWorkspace(req: Request, workspaceId: string) {
+	if (req.apiKey?.workspaceId !== workspaceId) {
+		throw new ForbiddenError("API key does not belong to this workspace")
+	}
+}
 
 export const trigger = async (
 	req: Request,
@@ -22,6 +33,7 @@ export const trigger = async (
 			})
 			return
 		}
+		assertApiKeyWorkspace(req, workspaceId)
 
 		const idempotencyKey =
 			req.header("Idempotency-Key") ?? crypto.randomUUID()
@@ -50,6 +62,7 @@ export const list = async (
 ): Promise<void> => {
 	try {
 		const workspaceId = req.params.workspaceId
+		const userId = req.user!.id
 
 		if (typeof workspaceId !== "string") {
 			throw new Error("Invalid workspace id.")
@@ -61,6 +74,7 @@ export const list = async (
 			})
 			return
 		}
+		await workspaceService.assertMembership(workspaceId, userId)
 
 		const page = Number(req.query.page ?? 1)
 		const limit = Number(req.query.limit ?? 20)
@@ -93,6 +107,7 @@ export const getById = async (
 ): Promise<void> => {
 	try {
 		const workspaceId = req.params.workspaceId
+		const userId = req.user!.id
 
 		if (typeof workspaceId !== "string") {
 			throw new Error("Invalid workspace id.")
@@ -109,6 +124,7 @@ export const getById = async (
 			})
 			return
 		}
+		await workspaceService.assertMembership(workspaceId, userId)
 
 		const notification = await notificationRepository.findById(
 			workspaceId,
@@ -142,6 +158,7 @@ export const retry = async (
 	try {
 		const workspaceId = req.params.workspaceId as string
 		const notificationId = req.params.notificationId as string
+		assertApiKeyWorkspace(req, workspaceId)
 
 		const notification = await notificationRepository.findById(workspaceId, notificationId)
 		if (!notification) throw new NotFoundError("Notification not found")

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { jsonObjectSchema } from "@/common/types/json.ts"
 
 export const createSubscriberSchema = z.object({
 	externalId: z.string().min(1).max(255),
@@ -6,8 +7,8 @@ export const createSubscriberSchema = z.object({
 	name: z.string().max(100).optional(),
 	timezone: z.string().max(50).optional(),
 	locale: z.string().max(10).optional(),
-	attributes: z.record(z.string(), z.any()).optional(),
-	preferences: z.record(z.string(), z.any()).optional(),
+	attributes: jsonObjectSchema.optional(),
+	preferences: jsonObjectSchema.optional(),
 })
 
 export const updateSubscriberSchema = z.object({
@@ -15,8 +16,8 @@ export const updateSubscriberSchema = z.object({
 	name: z.string().max(100).optional(),
 	timezone: z.string().max(50).optional(),
 	locale: z.string().max(10).optional(),
-	attributes: z.record(z.string(), z.any()).optional(),
-	preferences: z.record(z.string(), z.any()).optional(),
+	attributes: jsonObjectSchema.optional(),
+	preferences: jsonObjectSchema.optional(),
 })
 
 export const listSubscribersQuerySchema = z.object({

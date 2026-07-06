@@ -21,7 +21,7 @@ export async function apiKeyAuth(
 			throw new UnauthorizedError("Invalid or revoked API key")
 		}
 
-		;(req as any).apiKey = {
+		req.apiKey = {
 			id: keyRecord.id,
 			workspaceId: keyRecord.workspaceId,
 		}

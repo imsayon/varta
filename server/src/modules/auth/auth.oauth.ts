@@ -8,7 +8,7 @@ import { authRepository } from "./auth.repository.ts"
 
 export const authOauth = {
 	async handleOAuthCallback(req: Request, res: Response) {
-		const user = req.user as any
+		const user = req.user
 		if (!user) {
 			return res.redirect(
 				`${process.env.CLIENT_URL}/login?error=oauth_failed`,

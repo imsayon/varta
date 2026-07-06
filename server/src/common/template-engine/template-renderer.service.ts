@@ -6,7 +6,10 @@ export const templateRendererService = {
 		return Handlebars.compile(templateString || "", { strict: true })
 	},
 
-	render(compiledTemplate: HandlebarsTemplateDelegate, payload: any): string {
+	render(
+		compiledTemplate: HandlebarsTemplateDelegate,
+		payload: Record<string, unknown>,
+	): string {
 		return compiledTemplate(payload)
 	},
 
@@ -14,7 +17,10 @@ export const templateRendererService = {
 		return DOMPurify.sanitize(html)
 	},
 
-	renderAndSanitize(templateString: string, payload: any): string {
+	renderAndSanitize(
+		templateString: string,
+		payload: Record<string, unknown>,
+	): string {
 		const compiled = this.compile(templateString)
 		const rendered = this.render(compiled, payload)
 		return this.sanitize(rendered)

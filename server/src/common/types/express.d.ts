@@ -1,9 +1,14 @@
 declare global {
 	namespace Express {
+		/** Augmented by Passport (id only) and JWT middleware (id + sessionId + workspaceId). */
+		interface User {
+			id: string
+			sessionId?: string
+			workspaceId?: string
+		}
 		interface Request {
-			user?: {
+			apiKey?: {
 				id: string
-				sessionId: string
 				workspaceId: string
 			}
 		}

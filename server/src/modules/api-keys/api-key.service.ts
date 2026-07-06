@@ -1,16 +1,23 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import argon2 from "argon2"
 import crypto from "node:crypto"
+import type { JsonObject } from "@/common/types/json.ts"
 
 export const apiKeyService = {
-	async create(workspaceId: string, name: string, permissions?: any) {
+	async create(workspaceId: string, name: string, permissions?: JsonObject) {
 		const rawKey = crypto.randomBytes(32).toString("hex")
 		const prefix = "vt_live_" + crypto.randomBytes(4).toString("hex")
 		const fullKey = prefix + "_" + rawKey
 		const keyHash = await argon2.hash(fullKey)
 
 		const apiKey = await prisma.apiKey.create({
-			data: { workspaceId, name, prefix, keyHash, permissions },
+			data: {
+				workspaceId,
+				name,
+				prefix,
+				keyHash,
+				...(permissions ? { permissions } : {}),
+			},
 		})
 
 		return { ...apiKey, fullKey }

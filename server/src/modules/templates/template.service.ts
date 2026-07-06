@@ -26,7 +26,7 @@ export const templateService = {
 		return templateRepository.findById(workspaceId, id)
 	},
 
-	preview(templateString: string, payload: any): string {
+	preview(templateString: string, payload: Record<string, unknown>): string {
 		return templateRendererService.renderAndSanitize(
 			templateString,
 			payload,

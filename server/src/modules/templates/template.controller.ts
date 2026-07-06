@@ -10,7 +10,7 @@ export const create = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -30,7 +30,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -61,7 +61,7 @@ export const getById = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -89,7 +89,7 @@ export const update = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -122,7 +122,7 @@ export const remove = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -154,7 +154,7 @@ export const preview = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -168,11 +168,13 @@ export const preview = async (
 		const sanitizedHtml = DOMPurify.sanitize(rawHtml)
 
 		res.status(200).json({ success: true, data: { html: sanitizedHtml } })
-	} catch (err: any) {
+	} catch (err: unknown) {
+		const message =
+			err instanceof Error ? err.message : "Template preview failed"
 		res.status(400).json({
 			success: false,
 			message: "Failed to preview template",
-			error: err.message,
+			error: message,
 		})
 	}
 }

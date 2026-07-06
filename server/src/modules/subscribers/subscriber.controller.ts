@@ -8,7 +8,7 @@ export const createOrUpdate = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -32,7 +32,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -63,7 +63,7 @@ export const getById = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -91,7 +91,7 @@ export const update = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -124,7 +124,7 @@ export const remove = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = (req.user as any).id
+		const userId = req.user!.id
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
