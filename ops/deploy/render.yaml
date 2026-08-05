@@ -1,0 +1,8 @@
+# Locked hosted deployment target. This remains an intentionally invalid-for-
+# launch placeholder until the audited free-demo topology (static client if
+# export-compatible plus one combined API/worker web service), secrets, Supabase
+# migration gate, Upstash/BullMQ quota checks, and rollback path are implemented.
+# Keep independent API/worker entrypoints for Compose and the later paid split.
+# Keep Render-specific configuration here; retain Compose as the portable local,
+# CI, self-hosting, and study topology.
+services: []

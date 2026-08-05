@@ -102,9 +102,17 @@ export const authController = {
 	},
 
 	async verifyEmail(req: Request, res: Response) {
-		const token = req.query.token as string
+		const token = (req.query.token || req.body?.token) as string
+		if (!token) {
+			res.status(400).json({ success: false, message: "Token is required" })
+			return
+		}
 		await authService.verifyEmail(token)
-		res.redirect(`${env.CLIENT_URL}/login?verified=true`)
+		if (req.headers.accept?.includes("application/json") || req.body?.token) {
+			res.status(200).json({ success: true, message: "Email verified successfully" })
+		} else {
+			res.redirect(`${env.CLIENT_URL}/login?verified=true`)
+		}
 	},
 
 	async resendVerification(req: Request, res: Response) {
@@ -125,7 +133,8 @@ export const authController = {
 	},
 
 	async resetPassword(req: Request, res: Response) {
-		await authService.resetPassword(req.body.token, req.body.password)
+		const pass = req.body.newPassword || req.body.password
+		await authService.resetPassword(req.body.token, pass)
 		res.status(200).json({
 			success: true,
 			message: "Password has been reset successfully",

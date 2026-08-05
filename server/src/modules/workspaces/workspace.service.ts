@@ -2,6 +2,8 @@ import { workspaceRepository } from "./workspace.repository.ts"
 import { NotFoundError, ForbiddenError } from "@/common/errors/app-error.ts"
 import type { Prisma } from "@prisma/client"
 
+import crypto from "node:crypto"
+
 function slugify(name: string): string {
 	return name
 		.toLowerCase()
@@ -11,8 +13,9 @@ function slugify(name: string): string {
 
 export const workspaceService = {
 	async create(name: string, ownerId: string) {
-		// Append random suffix to avoid slug collisions without a DB round-trip
-		const slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 6)}`
+		// Append cryptographically random suffix to avoid slug collisions
+		const randomSuffix = crypto.randomBytes(4).toString("hex")
+		const slug = `${slugify(name)}-${randomSuffix}`
 		return workspaceRepository.create({ name, slug, ownerId })
 	},
 

@@ -12,6 +12,13 @@ export const providerRepository = {
 		})
 	},
 
+	async findManyByWorkspace(workspaceId: string) {
+		return prisma.providerConfig.findMany({
+			where: { workspaceId },
+			orderBy: { channel: "asc" },
+		})
+	},
+
 	async update(workspaceId: string, channel: string, data: Prisma.ProviderConfigUncheckedUpdateInput) {
 		return prisma.providerConfig.update({
 			where: { workspaceId_channel: { workspaceId, channel } },

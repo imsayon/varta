@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'Varta Dashboards'
+    orgId: 1
+    folder: 'Varta'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

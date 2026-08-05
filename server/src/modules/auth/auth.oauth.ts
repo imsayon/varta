@@ -1,8 +1,10 @@
 import type { Request, Response } from "express"
+import { env } from "@/common/config/env.ts"
 import {
 	generateAccessToken,
 	generateRefreshToken,
 } from "@/common/utils/auth/jwt.ts"
+import { setRefreshTokenCookie } from "@/common/utils/auth/cookies.ts"
 import { hashPassword } from "@/common/utils/auth/password.ts"
 import { authRepository } from "./auth.repository.ts"
 
@@ -11,7 +13,7 @@ export const authOauth = {
 		const user = req.user
 		if (!user) {
 			return res.redirect(
-				`${process.env.CLIENT_URL}/login?error=oauth_failed`,
+				`${env.CLIENT_URL}/login?error=oauth_failed`,
 			)
 		}
 
@@ -29,7 +31,7 @@ export const authOauth = {
 		)
 		if (!membership) {
 			return res.redirect(
-				`${process.env.CLIENT_URL}/login?error=no_workspace`,
+				`${env.CLIENT_URL}/login?error=no_workspace`,
 			)
 		}
 
@@ -51,17 +53,9 @@ export const authOauth = {
 			expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
 		})
 
-		// Set cookie
-		res.cookie("refreshToken", refreshToken, {
-			httpOnly: true,
-			secure: process.env.NODE_ENV === "production",
-			sameSite: "strict",
-			path: "/",
-			maxAge: 30 * 24 * 60 * 60 * 1000,
-		})
+		// Set cookie using shared utility for consistent SameSite behavior
+		setRefreshTokenCookie(res, refreshToken)
 
-		// We could pass the access token in a short-lived cookie, or the client can fetch it via /refresh
-		// Since our client relies on /refresh, we just redirect.
-		res.redirect(`${process.env.CLIENT_URL}/dashboard`)
+		res.redirect(`${env.CLIENT_URL}/dashboard`)
 	},
 }

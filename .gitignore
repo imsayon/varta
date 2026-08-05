@@ -1,5 +1,6 @@
 .info/
 node_modules
+.pnpm-store/
 dist
 **/dist
 .next
@@ -15,6 +16,7 @@ server/src/generated
 .env
 .env.*
 !.env.example
+ops/env/local.metrics.token
 
 npm-debug.log*
 yarn-debug.log*
@@ -23,3 +25,6 @@ firebase-debug.log
 
 .DS_Store
 .vscode/
+
+# Project policy: Markdown is local working material and is never committed.
+*.md

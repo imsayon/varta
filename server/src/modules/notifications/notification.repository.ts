@@ -1,5 +1,6 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import { Prisma, NotificationStatus } from "@prisma/client"
+import { NotFoundError } from "@/common/errors/app-error.ts"
 
 export const notificationRepository = {
 	async create(data: Prisma.NotificationUncheckedCreateInput) {
@@ -44,10 +45,35 @@ export const notificationRepository = {
 		])
 	},
 
-	async updateStatus(id: string, status: NotificationStatus) {
+	async updateStatus(
+		workspaceId: string,
+		id: string,
+		status: NotificationStatus,
+	) {
+		const notification = await prisma.notification.findFirst({
+			where: { id, workspaceId },
+			select: { id: true },
+		})
+
+		if (!notification) {
+			throw new NotFoundError("Notification not found")
+		}
+
 		return prisma.notification.update({
 			where: { id },
 			data: { status },
+		})
+	},
+
+	async markRead(workspaceId: string, id: string) {
+		const notification = await prisma.notification.findFirst({
+			where: { id, workspaceId },
+			select: { id: true },
+		})
+		if (!notification) throw new NotFoundError("Notification not found")
+		return prisma.notification.update({
+			where: { id: notification.id },
+			data: { readAt: new Date() },
 		})
 	},
 }

@@ -1,21 +1,31 @@
-import type { NextConfig } from "next";
+import path from "node:path"
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
-  output: "standalone",
-  async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+	output: "standalone",
+	experimental: {
+		useTypeScriptCli: true,
+	},
+	turbopack: {
+		// pnpm's shared lockfile and virtual store live at the workspace root.
+		// Turbopack must use that same boundary or it cannot resolve Next.js.
+		root: path.resolve(__dirname, ".."),
+	},
+	async rewrites() {
+		const apiUrl =
+			process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5000"
 
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${apiUrl}/api/v1/:path*`,
-      },
-      {
-        source: "/api/health",
-        destination: `${apiUrl}/api/health`,
-      },
-    ];
-  },
-};
+		return [
+			{
+				source: "/api/v1/:path*",
+				destination: `${apiUrl}/api/v1/:path*`,
+			},
+			{
+				source: "/api/health",
+				destination: `${apiUrl}/api/health`,
+			},
+		]
+	},
+}
 
-export default nextConfig;
+export default nextConfig

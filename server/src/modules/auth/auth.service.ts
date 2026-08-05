@@ -1,6 +1,8 @@
+import crypto from "node:crypto"
 import slugify from "slugify"
 import { authRepository } from "./auth.repository.ts"
 import { hashPassword, verifyPassword } from "@/common/utils/auth/password.ts"
+import { hashToken, verifyToken } from "@/common/utils/auth/token-hash.ts"
 import { env } from "@/common/config/env.ts"
 import { resend } from "@/common/providers/resend.ts"
 import { buildVerificationEmail } from "@/common/templates/verification-email.ts"
@@ -70,7 +72,7 @@ export const authService = {
 			strict: true,
 			trim: true,
 		})
-		const randomSuffix = Math.random().toString(36).substring(2, 8)
+		const randomSuffix = crypto.randomBytes(4).toString("hex")
 
 		const workspace = await authRepository.createWorkspace({
 			name: workspaceName,
@@ -162,7 +164,7 @@ export const authService = {
 				strict: true,
 				trim: true,
 			})
-			const randomSuffix = Math.random().toString(36).substring(2, 8)
+			const randomSuffix = crypto.randomBytes(4).toString("hex")
 
 			const workspace = await authRepository.createWorkspace({
 				name: workspaceName,
@@ -234,7 +236,7 @@ export const authService = {
 		// store hashed refresh token in DB for rotation
 		await authRepository.createRefreshToken({
 			sessionId: session.id,
-			tokenHash: await hashPassword(refreshToken),
+			tokenHash: hashToken(refreshToken),
 			expiresAt: new Date(Date.now() + THIRTY_DAYS_IN_MS),
 		})
 
@@ -269,8 +271,11 @@ export const authService = {
 			throw new UnauthorizedError("Refresh token invalid")
 		}
 
-		// verify the refresh token matches what we stored
-		const valid = await verifyPassword(storedToken.tokenHash, refreshToken)
+		// verify the refresh token matches what we stored (support both argon2 legacy and HMAC)
+		const valid =
+			verifyToken(refreshToken, storedToken.tokenHash) ||
+			(await verifyPassword(storedToken.tokenHash, refreshToken).catch(() => false))
+
 		if (!valid) {
 			throw new UnauthorizedError("Refresh token invalid")
 		}
@@ -298,7 +303,7 @@ export const authService = {
 
 		await authRepository.createRefreshToken({
 			sessionId: session.id,
-			tokenHash: await hashPassword(newRefreshToken),
+			tokenHash: hashToken(newRefreshToken),
 			expiresAt: new Date(Date.now() + THIRTY_DAYS_IN_MS),
 		})
 

@@ -21,18 +21,7 @@ export const trigger = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const workspaceId = req.params.workspaceId
-
-		if (typeof workspaceId !== "string") {
-			throw new Error("Invalid workspace id.")
-		}
-		if (!workspaceId) {
-			res.status(400).json({
-				success: false,
-				message: "Workspace id is required.",
-			})
-			return
-		}
+		const workspaceId = req.params.workspaceId as string
 		assertApiKeyWorkspace(req, workspaceId)
 
 		const idempotencyKey =
@@ -61,19 +50,8 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const workspaceId = req.params.workspaceId
+		const workspaceId = req.params.workspaceId as string
 		const userId = req.user!.id
-
-		if (typeof workspaceId !== "string") {
-			throw new Error("Invalid workspace id.")
-		}
-		if (!workspaceId) {
-			res.status(400).json({
-				success: false,
-				message: "Workspace id is required.",
-			})
-			return
-		}
 		await workspaceService.assertMembership(workspaceId, userId)
 
 		const page = Number(req.query.page ?? 1)
@@ -106,24 +84,9 @@ export const getById = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const workspaceId = req.params.workspaceId
+		const workspaceId = req.params.workspaceId as string
+		const notificationId = req.params.notificationId as string
 		const userId = req.user!.id
-
-		if (typeof workspaceId !== "string") {
-			throw new Error("Invalid workspace id.")
-		}
-		const notificationId = req.params.notificationId
-
-		if (typeof notificationId !== "string") {
-			throw new Error("Invalid workspace id.")
-		}
-		if (!workspaceId || !notificationId) {
-			res.status(400).json({
-				success: false,
-				message: "Workspace id and notification id are required.",
-			})
-			return
-		}
 		await workspaceService.assertMembership(workspaceId, userId)
 
 		const notification = await notificationRepository.findById(
@@ -148,8 +111,22 @@ export const getById = async (
 	}
 }
 
-// Re-enqueues a FAILED notification through the full orchestrator pipeline.
-// Uses a fresh idempotency key so the retry is treated as a new delivery attempt.
+export const markRead = async (
+	req: Request,
+	res: Response,
+	next: NextFunction,
+): Promise<void> => {
+	try {
+		const workspaceId = req.params.workspaceId as string
+		const notificationId = req.params.notificationId as string
+		await workspaceService.assertMembership(workspaceId, req.user!.id)
+		const notification = await notificationRepository.markRead(workspaceId, notificationId)
+		res.status(200).json({ success: true, data: notification })
+	} catch (error) {
+		next(error)
+	}
+}
+
 export const retry = async (
 	req: Request,
 	res: Response,
@@ -167,8 +144,8 @@ export const retry = async (
 		}
 
 		const result = await notificationOrchestrator.triggerNotification(
-			workspaceId!,
-			crypto.randomUUID(), // fresh key — bypasses idempotency for explicit retry
+			workspaceId,
+			crypto.randomUUID(),
 			{
 				templateId: notification.templateId,
 				subscriberExternalId: notification.subscriber.externalId,

@@ -17,6 +17,7 @@ router.post(
 )
 router.get("/", subscriberController.list)
 router.get("/:subscriberId", subscriberController.getById)
+router.post("/:subscriberId/ws-token", subscriberController.issueWebSocketToken)
 router.patch(
 	"/:subscriberId",
 	validate(updateSubscriberSchema),

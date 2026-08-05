@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express"
 import { providerService } from "./provider.service.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
 import { Resend } from "resend"
-import { decryptConfig } from "@/common/crypto.util.ts"
+import { decryptConfig } from "@/common/utils/crypto.util.ts"
 
 export const upsert = async (
 	req: Request,
@@ -42,17 +42,24 @@ export const list = async (
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertAdmin(workspaceId, userId)
 
-		// Phase 1: only email channel supported
-		const result = await providerService.getProviderConfig(
-			workspaceId,
-			"email",
-		)
-		const data = result
-			? {
-					...result,
-					config: decryptConfig(result.config as Record<string, unknown>),
-				}
-			: null
+		const results = await providerService.listProviderConfigs(workspaceId)
+		const data = results.map((result) => {
+			const config = decryptConfig(
+				result.config as Record<string, unknown>,
+			)
+			return {
+				...result,
+				config: Object.fromEntries(
+					Object.entries(config).map(([key, value]) => [
+						key,
+						key.toLowerCase().includes("secret") ||
+						key.toLowerCase().includes("key")
+							? "********"
+							: value,
+					]),
+				),
+			}
+		})
 		res.status(200).json({ success: true, data })
 	} catch (err) {
 		next(err)
@@ -87,7 +94,10 @@ export const testConnection = async (
 			const configData = decryptConfig(
 				providerRecord.config as Record<string, unknown>,
 			)
-			const apiKey = typeof configData.apiKey === "string" ? configData.apiKey : undefined
+			const apiKey =
+				typeof configData.apiKey === "string"
+					? configData.apiKey
+					: undefined
 			if (!apiKey) {
 				res.status(400).json({
 					success: false,

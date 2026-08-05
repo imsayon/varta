@@ -1,0 +1,23 @@
+packages:
+  - client
+  - server
+
+saveExact: true
+sharedWorkspaceLockfile: true
+frozenLockfile: true
+engineStrict: true
+strictPeerDependencies: true
+disallowWorkspaceCycles: true
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+blockExoticSubdeps: true
+
+allowBuilds:
+  '@prisma/engines': true
+  argon2: true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true

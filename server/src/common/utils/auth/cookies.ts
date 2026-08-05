@@ -19,3 +19,16 @@ export function setRefreshTokenCookie(res: Response, token: string): void {
 export function clearRefreshTokenCookie(res: Response): void {
 	res.clearCookie("refreshToken", REFRESH_COOKIE_OPTIONS)
 }
+
+export function validateSameOriginOrCsrf(req: {
+	headers: Record<string, string | string[] | undefined>
+}): boolean {
+	const origin = req.headers["origin"] || req.headers["referer"]
+	if (!origin) return true // Non-browser clients without cookie state
+	const originStr = Array.isArray(origin) ? origin[0] : origin
+	const allowedOrigin = env.CORS_ORIGIN || env.CLIENT_URL
+	if (originStr && allowedOrigin && allowedOrigin !== "*") {
+		return originStr.startsWith(allowedOrigin)
+	}
+	return true
+}

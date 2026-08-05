@@ -1,13 +1,28 @@
 import type { Request, Response, NextFunction } from "express"
 import { RateLimiterRedis } from "rate-limiter-flexible"
-import { redis } from "@/infra/redis/connection.ts"
+import { redis } from "@/infra/redis/redis.connection.ts"
 import { TooManyRequestsError } from "@/common/errors/app-error.ts"
+import { logger } from "@/infra/observability/logger.ts"
 
 const authLimiter = new RateLimiterRedis({
 	storeClient: redis,
 	keyPrefix: "rl_auth",
 	points: 5, // 5 requests
 	duration: 60 * 15, // per 15 minutes by IP
+})
+
+const globalLimiter = new RateLimiterRedis({
+	storeClient: redis,
+	keyPrefix: "rl_global",
+	points: 100, // 100 requests
+	duration: 60, // per minute by IP
+})
+
+const workspaceTriggerLimiter = new RateLimiterRedis({
+	storeClient: redis,
+	keyPrefix: "rl_trigger",
+	points: 60, // 60 requests
+	duration: 60, // per minute by workspace
 })
 
 export async function rateLimitAuth(
@@ -19,11 +34,79 @@ export async function rateLimitAuth(
 		const key = `${req.ip}_${req.body.email?.toLowerCase() ?? "unknown"}`
 		await authLimiter.consume(key)
 		next()
-	} catch (rejRes) {
-		next(
-			new TooManyRequestsError(
-				"Too many login attempts, please try again later.",
-			),
-		)
+	} catch (error) {
+		if (error && typeof error === "object" && "msBeforeNext" in error) {
+			next(
+				new TooManyRequestsError(
+					"Too many authentication attempts, please try again later.",
+				),
+			)
+		} else {
+			logger.warn(
+				{ err: error },
+				"Auth rate limiter error - failing open",
+			)
+			next()
+		}
+	}
+}
+
+export async function rateLimitGlobal(
+	req: Request,
+	res: Response,
+	next: NextFunction,
+) {
+	try {
+		const key = req.ip || "unknown_ip"
+		await globalLimiter.consume(key)
+		next()
+	} catch (error) {
+		if (error && typeof error === "object" && "msBeforeNext" in error) {
+			next(
+				new TooManyRequestsError(
+					"Global rate limit exceeded, please slow down.",
+				),
+			)
+		} else {
+			// Fail open on Redis error so system stays functional
+			logger.warn(
+				{ err: error },
+				"Global rate limiter error - failing open",
+			)
+			next()
+		}
+	}
+}
+
+export async function rateLimitWorkspaceTrigger(
+	req: Request,
+	res: Response,
+	next: NextFunction,
+) {
+	try {
+		const rawWorkspaceId =
+			req.params.workspaceId ||
+			req.apiKey?.workspaceId ||
+			req.ip ||
+			"unknown"
+		const workspaceIdKey = Array.isArray(rawWorkspaceId)
+			? (rawWorkspaceId[0] ?? "unknown")
+			: String(rawWorkspaceId)
+		await workspaceTriggerLimiter.consume(workspaceIdKey)
+		next()
+	} catch (error) {
+		if (error && typeof error === "object" && "msBeforeNext" in error) {
+			next(
+				new TooManyRequestsError(
+					"Workspace trigger rate limit exceeded (max 60 requests per minute).",
+				),
+			)
+		} else {
+			logger.warn(
+				{ err: error },
+				"Workspace trigger rate limiter error - failing open",
+			)
+			next()
+		}
 	}
 }

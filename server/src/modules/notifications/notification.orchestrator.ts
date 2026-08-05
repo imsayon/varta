@@ -3,12 +3,24 @@ import { idempotencyService } from "@/infra/idempotency/idempotency.service.ts"
 import { subscriberRepository } from "../subscribers/subscriber.repository.ts"
 import { templateRepository } from "../templates/template.repository.ts"
 import { notificationRepository } from "./notification.repository.ts"
-import { providerService } from "../providers/provider.service.ts"
-import { queueService } from "@/common/services/queue.service.ts"
-import { templateRendererService } from "@/common/template-engine/template-renderer.service.ts"
+import { queueService } from "@/infra/queues/queue.service.ts"
 import { Prisma } from "@prisma/client"
-import { decryptConfig } from "@/common/crypto.util.ts"
-import { NotFoundError, BadRequestError } from "@/common/errors/app-error.ts"
+import { NotFoundError } from "@/common/errors/app-error.ts"
+import { sendTimeOptimizationService } from "@/modules/ai/send-time-optimization.service.ts"
+import { logger } from "@/infra/observability/logger.ts"
+import { deliveryPreparationService } from "./delivery-preparation.service.ts"
+import { digestService } from "./digest.service.ts"
+import { routingRuleService } from "../routing-rules/routing-rule.service.ts"
+import { NotificationChannel } from "./notification.types.ts"
+
+function normalizeChannels(
+	channels: string[] | undefined,
+): NotificationChannel[] {
+	const resolved = (channels?.length ? channels : ["EMAIL"]).map((channel) =>
+		channel.toUpperCase(),
+	) as NotificationChannel[]
+	return [...new Set(resolved)]
+}
 
 export const notificationOrchestrator = {
 	async triggerNotification(
@@ -17,14 +29,10 @@ export const notificationOrchestrator = {
 		request: TriggerNotificationRequest,
 	) {
 		const { templateId, subscriberExternalId, payload, options } = request
-
-		// 1. Idempotency
-
 		const locked = await idempotencyService.acquireLock(
 			workspaceId,
 			idempotencyKey,
 		)
-
 		if (!locked) {
 			const existing = await notificationRepository.findByIdempotencyKey(
 				workspaceId,
@@ -40,78 +48,36 @@ export const notificationOrchestrator = {
 		}
 
 		try {
-			// 2. Resolve Template
-
 			const template = await templateRepository.findById(
 				workspaceId,
 				templateId,
 			)
-
-			if (!template) {
-				throw new NotFoundError("Template not found.")
-			}
-
-			// 3. Resolve Subscriber
-
+			if (!template) throw new NotFoundError("Template not found.")
 			const subscriber = await subscriberRepository.findByExternalId(
 				workspaceId,
 				subscriberExternalId,
 			)
+			if (!subscriber) throw new NotFoundError("Subscriber not found.")
 
-			if (!subscriber) {
-				throw new NotFoundError("Subscriber not found.")
-			}
-
-			// 4. Resolve Provider
-
-			const provider = await providerService.getProviderConfig(
+			const channels = await routingRuleService.resolveChannels(
 				workspaceId,
-				"email",
-			)
-
-			if (!provider?.config) {
-				throw new BadRequestError("Email provider not configured.")
-			}
-
-			const config = decryptConfig(provider.config as Record<string, unknown>) as {
-				apiKey: string
-				fromAddress: string
-			}
-
-			// 5. Render Template
-
-			const channels = template.channels as Record<string, { subject: string; htmlBody: string; textBody?: string }> | null
-			const emailTemplate = channels?.email
-
-			if (!emailTemplate) {
-				throw new BadRequestError("Email channel missing in template.")
-			}
-
-			const renderContext = {
-				...payload,
 				subscriber,
-			}
-
-			const renderedContent = {
-				subject: templateRendererService.renderAndSanitize(
-					emailTemplate.subject,
-					renderContext,
+				template.channels,
+				options?.channels
+					? normalizeChannels(options.channels)
+					: undefined,
+			)
+			const rendered = await Promise.all(
+				channels.map((channel) =>
+					deliveryPreparationService.prepare(
+						workspaceId,
+						channel,
+						template.channels,
+						subscriber as unknown as Record<string, unknown>,
+						payload,
+					),
 				),
-
-				html: templateRendererService.renderAndSanitize(
-					emailTemplate.htmlBody,
-					renderContext,
-				),
-
-				textBody: emailTemplate.textBody
-					? templateRendererService.renderAndSanitize(
-						emailTemplate.textBody,
-						renderContext,
-					)
-					: "",
-			}
-
-			// 6. Persist Notification
+			)
 
 			const notification = await notificationRepository.create({
 				workspaceId,
@@ -119,37 +85,115 @@ export const notificationOrchestrator = {
 				subscriberId: subscriber.id,
 				idempotencyKey,
 				triggerPayload: payload as Prisma.InputJsonValue,
-				channels: options?.channels ?? ["EMAIL"],
+				channels,
 				status: "ENQUEUED",
 				scheduledAt: options?.scheduledAt
 					? new Date(options.scheduledAt)
 					: null,
 				priority: options?.priority ?? "NORMAL",
+				smartTimingRequested: options?.smartTiming ?? false,
 			})
 
-			// 7. Queue Job
+			let sendDelayMs = 0
+			if (options?.scheduledAt) {
+				const scheduledTime = new Date(options.scheduledAt).getTime()
+				sendDelayMs = Math.max(0, scheduledTime - Date.now())
+			} else if (options?.smartTiming) {
+				try {
+					sendDelayMs = await sendTimeOptimizationService.getDelay(
+						workspaceId,
+						subscriber.id,
+						subscriber.timezone ?? "UTC",
+					)
+				} catch (error) {
+					logger.warn(
+						{
+							err: error,
+							workspaceId,
+							subscriberId: subscriber.id,
+						},
+						"STO lookup failed; sending immediately",
+					)
+				}
+			}
 
-			await queueService.enqueueEmail({
-				notificationId: notification.id,
-				workspaceId,
-				subscriberEmail: subscriber.email ?? "",
-				renderedContent,
-				providerConfig: {
-					apiKey: config.apiKey,
-					fromAddress: config.fromAddress,
-					providerName: provider.provider,
-				},
-			})
+			if (template.digestConfig) {
+				await digestService.addNotificationToBatches({
+					workspaceId,
+					subscriberId: subscriber.id,
+					templateId: template.id,
+					notificationId: notification.id,
+					channels: rendered,
+					digestConfig: template.digestConfig,
+				})
+			} else {
+				for (const delivery of rendered) {
+					const deliveryId = crypto.randomUUID()
+					if (delivery.channel === "EMAIL") {
+						await queueService.enqueueEmail({
+							notificationId: notification.id,
+							deliveryId,
+							workspaceId,
+							subscriberEmail: subscriber.email ?? "",
+							renderedContent: delivery.renderedContent,
+							providerConfig: delivery.providerConfig,
+							delayMs: sendDelayMs,
+						})
+					} else if (delivery.channel === "IN_APP") {
+						await queueService.enqueueInApp({
+							notificationId: notification.id,
+							deliveryId,
+							workspaceId,
+							subscriberId: subscriber.id,
+							renderedContent: delivery.renderedContent,
+							delayMs: sendDelayMs,
+						})
+					} else {
+						await queueService.enqueueWebhook({
+							notificationId: notification.id,
+							deliveryId,
+							workspaceId,
+							url: delivery.providerConfig.url,
+							signingSecret:
+								delivery.providerConfig.signingSecret,
+							eventType: delivery.eventType,
+							payload: delivery.payload,
+							delayMs: sendDelayMs,
+						})
+					}
+				}
+			}
 
 			return {
 				notificationId: notification.id,
 				status: "ENQUEUED",
-				channels: options?.channels ?? ["EMAIL"],
+				channels,
 				scheduledAt: options?.scheduledAt ?? null,
+				delayMs: sendDelayMs,
 			}
 		} catch (error) {
-			// If anything fails before enqueue, release the lock so the tenant can retry
 			await idempotencyService.releaseLock(workspaceId, idempotencyKey)
+			if (
+				error &&
+				typeof error === "object" &&
+				"code" in error &&
+				error.code === "P2002"
+			) {
+				const existing =
+					await notificationRepository.findByIdempotencyKey(
+						workspaceId,
+						idempotencyKey,
+					)
+				if (existing) {
+					return {
+						notificationId: existing.id,
+						status: existing.status,
+						channels: [],
+						scheduledAt: null,
+						delayMs: 0,
+					}
+				}
+			}
 			throw error
 		}
 	},

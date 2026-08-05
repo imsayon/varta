@@ -37,13 +37,11 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
 	token: z.string().min(1),
-	password: z
-		.string()
-		.min(8)
-		.max(128)
-		.regex(/[A-Z]/, "Must contain uppercase letter")
-		.regex(/[a-z]/, "Must contain lowercase letter")
-		.regex(/[0-9]/, "Must contain a number"),
+	password: z.string().min(8).max(128).optional(),
+	newPassword: z.string().min(8).max(128).optional(),
+}).refine((data) => !!(data.password || data.newPassword), {
+	message: "Password is required",
+	path: ["password"],
 })
 
 export type RegisterInput = z.infer<typeof registerSchema>

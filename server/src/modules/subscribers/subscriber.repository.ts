@@ -1,4 +1,5 @@
 import { prisma } from "@/infra/database/prisma.ts"
+import { ConflictError, NotFoundError } from "@/common/errors/app-error.ts"
 import type { Prisma } from "@prisma/client"
 
 export const subscriberRepository = {
@@ -47,10 +48,38 @@ export const subscriberRepository = {
 		id: string,
 		data: Prisma.SubscriberUncheckedUpdateInput,
 	) {
+		const subscriber = await prisma.subscriber.findFirst({
+			where: { id, workspaceId },
+			select: { id: true },
+		})
+
+		if (!subscriber) {
+			throw new NotFoundError("Subscriber not found")
+		}
+
 		return prisma.subscriber.update({ where: { id }, data })
 	},
 
 	async delete(workspaceId: string, id: string) {
+		const subscriber = await prisma.subscriber.findFirst({
+			where: { id, workspaceId },
+			select: { id: true },
+		})
+
+		if (!subscriber) {
+			throw new NotFoundError("Subscriber not found")
+		}
+
+		const dependentNotifications = await prisma.notification.count({
+			where: { subscriberId: id, workspaceId },
+		})
+
+		if (dependentNotifications > 0) {
+			throw new ConflictError(
+				"Subscriber has notification history and cannot be deleted",
+			)
+		}
+
 		return prisma.subscriber.delete({ where: { id } })
 	},
 }

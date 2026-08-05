@@ -1,0 +1,256 @@
+name: varta
+
+x-logging: &default-logging
+    driver: json-file
+    options:
+        max-size: "10m"
+        max-file: "5"
+
+services:
+    postgres:
+        image: pgvector/pgvector:pg16
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB:-varta}
+            POSTGRES_USER: ${POSTGRES_USER:-varta}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-varta-local-postgres-pass-32-char}
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+                ]
+            interval: 5s
+            timeout: 5s
+            retries: 12
+        logging: *default-logging
+        deploy:
+            resources:
+                limits:
+                    cpus: "2.0"
+                    memory: 1024M
+                    pids: 200
+        networks: [varta]
+
+    redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        command:
+            [
+                "redis-server",
+                "--appendonly",
+                "yes",
+                "--requirepass",
+                "${REDIS_PASSWORD:-varta-local-redis-password-32-char}",
+            ]
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "redis-cli -a '$${REDIS_PASSWORD:-varta-local-redis-password-32-char}' ping | grep PONG",
+                ]
+            interval: 5s
+            timeout: 3s
+            retries: 12
+        logging: *default-logging
+        deploy:
+            resources:
+                limits:
+                    cpus: "1.0"
+                    memory: 512M
+                    pids: 100
+        networks: [varta]
+
+    api:
+        build:
+            context: ../..
+            dockerfile: ops/docker/server.Dockerfile
+        command: ["node", "dist/server.js"]
+        restart: unless-stopped
+        environment: &server-environment
+            NODE_ENV: production
+            PORT: 5000
+            METRICS_PORT: 5001
+            SERVICE_NAME: varta-api
+            DATABASE_URL: postgresql://${POSTGRES_USER:-varta}:${POSTGRES_PASSWORD:-varta-local-postgres-pass-32-char}@postgres:5432/${POSTGRES_DB:-varta}
+            REDIS_URL: redis://:${REDIS_PASSWORD:-varta-local-redis-password-32-char}@redis:6379
+            CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+            CLIENT_URL: ${CLIENT_URL:-http://localhost}
+            JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET must be set}
+            JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET must be set}
+            JWT_WS_SECRET: ${JWT_WS_SECRET:?JWT_WS_SECRET must be set}
+            METRICS_AUTH_TOKEN: ${METRICS_AUTH_TOKEN:?METRICS_AUTH_TOKEN must be set}
+            ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set}
+            OTEL_ENABLED: ${OTEL_ENABLED:-false}
+            OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+        depends_on:
+            postgres: { condition: service_healthy }
+            redis: { condition: service_healthy }
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "fetch('http://127.0.0.1:5000/api/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 12
+            start_period: 20s
+        logging: *default-logging
+        deploy:
+            resources:
+                limits:
+                    cpus: "1.5"
+                    memory: 768M
+                    pids: 300
+        networks: [varta]
+
+    worker:
+        build:
+            context: ../..
+            dockerfile: ops/docker/server.Dockerfile
+        command: ["node", "dist/worker.js"]
+        restart: unless-stopped
+        environment:
+            <<: *server-environment
+            SERVICE_NAME: varta-worker
+        depends_on:
+            postgres: { condition: service_healthy }
+            redis: { condition: service_healthy }
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "fetch('http://127.0.0.1:5001/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 12
+            start_period: 20s
+        logging: *default-logging
+        deploy:
+            resources:
+                limits:
+                    cpus: "1.5"
+                    memory: 768M
+                    pids: 300
+        networks: [varta]
+
+    client:
+        build:
+            context: ../..
+            dockerfile: ops/docker/client.Dockerfile
+            args:
+                NEXT_PUBLIC_API_URL: http://api:5000
+        restart: unless-stopped
+        environment:
+            NODE_ENV: production
+            PORT: 3000
+            HOSTNAME: 0.0.0.0
+        depends_on:
+            api: { condition: service_healthy }
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "fetch('http://127.0.0.1:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 12
+            start_period: 20s
+        logging: *default-logging
+        deploy:
+            resources:
+                limits:
+                    cpus: "1.0"
+                    memory: 512M
+                    pids: 200
+        networks: [varta]
+
+    caddy:
+        image: caddy:2-alpine
+        restart: unless-stopped
+        ports:
+            - "${HTTP_PORT:-80}:80"
+            - "${HTTPS_PORT:-443}:443"
+        volumes:
+            - ../proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+            - caddy_data:/data
+            - caddy_config:/config
+        depends_on:
+            client: { condition: service_healthy }
+            api: { condition: service_healthy }
+        logging: *default-logging
+        networks: [varta]
+
+    prometheus:
+        image: prom/prometheus:v3.5.0
+        profiles: [observability]
+        restart: unless-stopped
+        ports: ["${PROMETHEUS_PORT:-9090}:9090"]
+        volumes:
+            - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+            - prometheus_data:/prometheus
+        secrets:
+            - metrics_auth_token
+        depends_on:
+            api: { condition: service_healthy }
+            worker: { condition: service_healthy }
+        logging: *default-logging
+        networks: [varta]
+
+    grafana:
+        image: grafana/grafana:12.1.1
+        profiles: [observability]
+        restart: unless-stopped
+        ports: ["${GRAFANA_PORT:-3002}:3000"]
+        environment:
+            GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+            GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-varta-local-grafana}
+            GF_USERS_ALLOW_SIGN_UP: "false"
+        volumes:
+            - grafana_data:/var/lib/grafana
+            - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+            - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+        depends_on:
+            prometheus: { condition: service_started }
+        logging: *default-logging
+        networks: [varta]
+
+    otel-collector:
+        image: otel/opentelemetry-collector-contrib:0.135.0
+        profiles: [observability]
+        restart: unless-stopped
+        command: ["--config=/etc/otelcol-contrib/config.yaml"]
+        volumes:
+            - ../monitoring/otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+        logging: *default-logging
+        networks: [varta]
+
+networks:
+    varta:
+        name: varta
+
+volumes:
+    postgres_data:
+    redis_data:
+    caddy_data:
+    caddy_config:
+    prometheus_data:
+    grafana_data:
+
+secrets:
+    metrics_auth_token:
+        file: ${METRICS_AUTH_TOKEN_FILE:?METRICS_AUTH_TOKEN_FILE must point to the Prometheus metrics token}

@@ -1,165 +1,165 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/shared/auth/auth-context';
-import { apiClient } from '@/shared/api/api';
-import { Card } from '@/components/ui/Card/Card';
-import { Button } from '@/components/ui/Button/Button';
-import { EmptyState } from '@/components/ui/EmptyState/EmptyState';
-import { Key, Plus, Trash2, Copy } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import type { IApiKey, IApiKeyCreateResponse } from '@/shared/types/domain';
-import styles from './ApiKeysPage.module.css';
+import { Card } from '@/components/ui/Card/Card';
+import { Input } from '@/components/ui/Input/Input';
+import { Button } from '@/components/ui/Button/Button';
+import { apiClient } from '@/shared/api/api';
+import { useAuth } from '@/shared/auth/auth-context';
+
+interface ApiKeyItem {
+  id: string;
+  name: string;
+  keyPrefix?: string;
+  permissions?: string[];
+  createdAt: string;
+  expiresAt?: string | null;
+}
 
 export default function ApiKeysPage() {
   const { workspace } = useAuth();
-  const [apiKeys, setApiKeys] = useState<IApiKey[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newKeyName, setNewKeyName] = useState('');
-  const [generatedKey, setGeneratedKey] = useState('');
+  const [keys, setKeys] = useState<ApiKeyItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [createdSecret, setCreatedSecret] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchKeys = useCallback(async () => {
     if (!workspace) return;
-
-    void (async () => {
-      const res = await apiClient.get<IApiKey[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
-      if (res.success && res.data) {
-        setApiKeys(res.data);
-      }
-    })();
+    setLoading(true);
+    const res = await apiClient.get<ApiKeyItem[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
+    if (res.success && res.data) {
+      setKeys(res.data);
+    } else {
+      toast.error(res.error?.message || 'Failed to load API keys');
+      setKeys([]);
+    }
+    setLoading(false);
   }, [workspace]);
 
-  const handleCreate = async () => {
-    if (!workspace || !newKeyName) return;
-    const res = await apiClient.post<IApiKeyCreateResponse>(`/api/v1/workspaces/${workspace.id}/api-keys`, { name: newKeyName });
+  useEffect(() => {
+    fetchKeys();
+  }, [fetchKeys]);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workspace || !name.trim()) return;
+
+    setIsCreating(true);
+    setCreatedSecret(null);
+
+    const res = await apiClient.post<any>(`/api/v1/workspaces/${workspace.id}/api-keys`, {
+      name: name.trim(),
+      permissions: ['notifications:write', 'subscribers:read', 'subscribers:write'],
+    });
+
+    setIsCreating(false);
+
     if (res.success && res.data) {
-      toast.success('API Key created');
-      setGeneratedKey(res.data.fullKey);
-      const refreshRes = await apiClient.get<IApiKey[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
-      if (refreshRes.success && refreshRes.data) {
-        setApiKeys(refreshRes.data);
-      }
+      const newKey = res.data;
+      setCreatedSecret(newKey.secretKey || newKey.fullKey || 'Key created successfully');
+      setName('');
+      toast.success('API key created successfully!');
+      fetchKeys();
     } else {
-      toast.error(res.error?.message || 'Failed to create key');
+      toast.error(res.error?.message || 'Failed to create API key');
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!workspace || !confirm(`Revoke key "${name}"? This cannot be undone.`)) return;
-    const res = await apiClient.del(`/api/v1/workspaces/${workspace.id}/api-keys/${id}`);
+  const handleRevoke = async (keyId: string) => {
+    if (!workspace) return;
+    const res = await apiClient.del(`/api/v1/workspaces/${workspace.id}/api-keys/${keyId}`);
     if (res.success) {
-      toast.success('API Key revoked');
-      const refreshRes = await apiClient.get<IApiKey[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
-      if (refreshRes.success && refreshRes.data) {
-        setApiKeys(refreshRes.data);
-      }
+      toast.success('API key revoked');
+      fetchKeys();
+    } else {
+      toast.error(res.error?.message || 'Failed to revoke API key');
     }
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>API Keys</h1>
-          <p className={styles.subtitle}>Manage keys for authenticating API requests</p>
-        </div>
-        <Button variant="primary" onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} />
-          <span>Generate New Key</span>
-        </Button>
+    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem' }}>
+      <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: '#f8fafc', marginBottom: '0.5rem' }}>
+        API Keys
+      </h1>
+      <p style={{ color: '#94a3b8', marginBottom: '1.5rem' }}>
+        Manage access keys for triggering notifications and accessing Varta APIs.
+      </p>
+
+      <div style={{ marginBottom: '2rem' }}>
+        <Card padding="lg">
+          <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1rem' }}>
+            Create New API Key
+          </h3>
+          <form onSubmit={handleCreate} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                type="text"
+                label="Key Name"
+                placeholder="e.g. Production Backend"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isCreating}
+                required
+              />
+            </div>
+            <Button type="submit" variant="primary" loading={isCreating}>
+              Create Key
+            </Button>
+          </form>
+
+          {createdSecret && (
+            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#0f172a', borderRadius: '0.375rem', border: '1px solid #10b981' }}>
+              <p style={{ fontSize: '0.875rem', color: '#10b981', fontWeight: 600, marginBottom: '0.25rem' }}>
+                Save your API key! It will not be shown again:
+              </p>
+              <code style={{ fontSize: '0.875rem', color: '#38bdf8', wordBreak: 'break-all' }}>
+                {createdSecret}
+              </code>
+            </div>
+          )}
+        </Card>
       </div>
 
-      {apiKeys.length === 0 ? (
-        <div className={styles.emptyContainer}>
-          <EmptyState
-            title="No API Keys"
-            description="Create an API key to start integrating Varta into your applications."
-            icon={<Key />}
-            actionLabel="Generate Key"
-            onAction={() => setIsModalOpen(true)}
-          />
-        </div>
-      ) : (
-        <Card className={styles.tableCard}>
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Prefix</th>
-                  <th>Created At</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {apiKeys.map(key => (
-                  <tr key={key.id}>
-                    <td>{key.name}</td>
-                    <td className={styles.monoId}>{key.prefix}••••••••</td>
-                    <td>{new Date(key.createdAt).toLocaleDateString()}</td>
-                    <td>
-                      <div className={styles.actions}>
-                        <button onClick={() => handleDelete(key.id, key.name)} className={styles.deleteBtn}>
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      <Card padding="lg">
+        <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1rem' }}>
+          Active Keys
+        </h3>
 
-      {isModalOpen && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent}>
-            <h2 className={styles.title}>Generate API Key</h2>
-            
-            {generatedKey ? (
-              <div>
-                <p className={styles.subtitle} style={{ marginBottom: '1rem' }}>
-                  Please copy this key now. You will not be able to see it again!
-                </p>
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem' }}>
-                  <input readOnly value={generatedKey} className={styles.input} />
-                  <Button variant="secondary" onClick={() => {
-                    navigator.clipboard.writeText(generatedKey);
-                    toast.success('Copied to clipboard');
-                  }}>
-                    <Copy size={16} />
-                  </Button>
+        {loading ? (
+          <p style={{ color: '#94a3b8' }}>Loading keys...</p>
+        ) : keys.length === 0 ? (
+          <p style={{ color: '#94a3b8' }}>No API keys created yet.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {keys.map((k) => (
+              <div key={k.id} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '1rem',
+                backgroundColor: '#1e293b',
+                borderRadius: '0.375rem',
+                border: '1px solid #334155'
+              }}>
+                <div>
+                  <div style={{ fontWeight: 600, color: '#f8fafc' }}>{k.name}</div>
+                  <div style={{ fontSize: '0.875rem', color: '#94a3b8', fontFamily: 'monospace' }}>
+                    Prefix: {k.keyPrefix || k.id.substring(0, 8)}...
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                    Created: {new Date(k.createdAt).toLocaleDateString()}
+                  </div>
                 </div>
-                <div className={styles.modalActions}>
-                  <Button variant="primary" onClick={() => {
-                    setIsModalOpen(false);
-                    setGeneratedKey('');
-                    setNewKeyName('');
-                  }}>Done</Button>
-                </div>
+                <Button variant="danger" size="sm" onClick={() => handleRevoke(k.id)}>
+                  Revoke
+                </Button>
               </div>
-            ) : (
-              <div>
-                <div className={styles.formGroup} style={{ marginTop: '1.5rem' }}>
-                  <label>Key Name</label>
-                  <input 
-                    className={styles.input}
-                    value={newKeyName} 
-                    onChange={e => setNewKeyName(e.target.value)}
-                    placeholder="e.g. Production Backend"
-                    autoFocus
-                  />
-                </div>
-                <div className={styles.modalActions}>
-                  <Button variant="secondary" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                  <Button variant="primary" onClick={handleCreate} disabled={!newKeyName}>Generate</Button>
-                </div>
-              </div>
-            )}
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </Card>
     </div>
   );
 }

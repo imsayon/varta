@@ -1,14 +1,16 @@
 import { prisma } from "@/infra/database/prisma.ts"
-import argon2 from "argon2"
 import crypto from "node:crypto"
 import type { JsonObject } from "@/common/types/json.ts"
+import { NotFoundError } from "@/common/errors/app-error.ts"
+import { hashToken, verifyToken } from "@/common/utils/auth/token-hash.ts"
+import argon2 from "argon2"
 
 export const apiKeyService = {
 	async create(workspaceId: string, name: string, permissions?: JsonObject) {
 		const rawKey = crypto.randomBytes(32).toString("hex")
 		const prefix = "vt_live_" + crypto.randomBytes(4).toString("hex")
 		const fullKey = prefix + "_" + rawKey
-		const keyHash = await argon2.hash(fullKey)
+		const keyHash = hashToken(fullKey)
 
 		const apiKey = await prisma.apiKey.create({
 			data: {
@@ -46,7 +48,10 @@ export const apiKeyService = {
 		})
 		if (!apiKey) return null
 
-		const isValid = await argon2.verify(apiKey.keyHash, rawKey)
+		const isValid =
+			verifyToken(rawKey, apiKey.keyHash) ||
+			(await argon2.verify(apiKey.keyHash, rawKey).catch(() => false))
+
 		if (!isValid) return null
 
 		// Fire-and-forget timestamp update — not worth blocking the request
@@ -61,8 +66,17 @@ export const apiKeyService = {
 	},
 
 	async revoke(workspaceId: string, keyId: string) {
-		return prisma.apiKey.delete({
+		const apiKey = await prisma.apiKey.findFirst({
 			where: { id: keyId, workspaceId },
+			select: { id: true },
+		})
+
+		if (!apiKey) {
+			throw new NotFoundError("API key not found")
+		}
+
+		return prisma.apiKey.delete({
+			where: { id: keyId },
 		})
 	},
 }

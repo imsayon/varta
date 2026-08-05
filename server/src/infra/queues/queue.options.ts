@@ -1,5 +1,7 @@
+export const MAX_DELIVERY_ATTEMPTS = 5
+
 export const DEFAULT_JOB_OPTIONS = {
-	attempts: 5,
+	attempts: MAX_DELIVERY_ATTEMPTS,
 
 	removeOnComplete: {
 		age: 3600,

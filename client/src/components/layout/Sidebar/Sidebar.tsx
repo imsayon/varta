@@ -2,17 +2,13 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { 
-  BarChart3, 
-  FileCode, 
-  GitBranch, 
-  Users, 
-  Rocket, 
-  Settings, 
+import {
+  Settings,
   LogOut, 
   ChevronRight,
-  Plus
+  Plus,
 } from 'lucide-react';
 import { useAuth } from '@/shared/auth/auth-context';
 import { useState, useEffect } from 'react';
@@ -30,12 +26,6 @@ export function Sidebar() {
   const [isCreatingWs, setIsCreatingWs] = useState(false);
 
   const navItems = [
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Templates', href: '/templates', icon: FileCode },
-    { name: 'Workflows', href: '/workflows', icon: GitBranch },
-    { name: 'Routing Rules', href: '/rules', icon: FileCode }, // Just changing icon here or keeping it
-    { name: 'Subscribers', href: '/subscribers', icon: Users },
-    { name: 'Trigger Studio', href: '/studio', icon: Rocket },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
@@ -72,8 +62,8 @@ export function Sidebar() {
     <aside className={styles.sidebar}>
       {/* Brand Header */}
       <div className={styles.brand}>
-        <div className={styles.logoIcon}>
-          <span>V</span>
+        <div className={styles.logoWrap}>
+          <Image src="/varta-logo.png" alt="Varta" width={32} height={32} />
         </div>
         <h1 className={styles.logoText}>
           Varta<span>.</span>
@@ -106,7 +96,7 @@ export function Sidebar() {
                     setActiveWorkspace({ id: ws.id, name: ws.name });
                     setIsDropdownOpen(false);
                     // Force refresh or redirect to reset state for new workspace context
-                    router.push('/analytics');
+                    router.push('/settings');
                   }}
                 >
                   {ws.name}

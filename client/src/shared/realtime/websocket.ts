@@ -1,28 +1,91 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { apiClient } from '@/shared/api/api';
 
-interface Notification {
-  id: string;
-  title: string;
-  body: string;
-  timestamp: string;
-  read: boolean;
+interface NotificationPayload {
+  id?: string;
+  [key: string]: unknown;
 }
 
-// Placeholder until Phase 2 WebSocket implementation
-export function useWebSocket(subscriberId: string | null) {
-  void subscriberId;
-  const [notifications] = useState<Notification[]>([]);
-  
-  const markAllRead = useCallback(() => {
-    // mock function
-  }, []);
-  
-  return {
-    notifications,
-    isConnected: false,
-    unreadCount: 0,
-    markAllRead,
-  };
+interface UseWebSocketOptions {
+  workspaceId?: string;
+  subscriberId?: string;
+  onNotification?: (notification: NotificationPayload) => void;
+}
+
+export function useWebSocket({ workspaceId, subscriberId, onNotification }: UseWebSocketOptions) {
+  const [isConnected, setIsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  const connectRef = useRef<() => void>(() => {});
+
+  const connect = useCallback(async () => {
+    if (!workspaceId || !subscriberId) return;
+
+    try {
+      const tokenRes = await apiClient.post<{ token?: string }>(`/api/v1/workspaces/${workspaceId}/subscribers/${subscriberId}/ws-token`);
+      const token = tokenRes.data?.token;
+
+      if (!token) return;
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
+
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setIsConnected(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'notification' || message.type === 'pending_flush') {
+            if (onNotification && message.data) {
+              onNotification(message.data);
+            }
+            if (message.data?.id && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ack', notificationId: message.data.id }));
+            }
+          }
+        } catch {
+          // Parse error ignore
+        }
+      };
+
+      ws.onclose = () => {
+        setIsConnected(false);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectRef.current();
+        }, 5000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    } catch {
+      // Token fetch error
+    }
+  }, [workspaceId, subscriberId, onNotification]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
+
+  useEffect(() => {
+    connect();
+
+    return () => {
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [connect]);
+
+  return { isConnected };
 }

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express"
 import { subscriberService } from "./subscriber.service.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
+import { generateSubscriberWebSocketToken } from "@/common/utils/auth/websocket-token.ts"
 
 export const createOrUpdate = async (
 	req: Request,
@@ -147,5 +148,32 @@ export const remove = async (
 		res.status(200).json({ success: true, message: "Subscriber deleted" })
 	} catch (err) {
 		next(err)
+	}
+}
+
+export const issueWebSocketToken = async (
+	req: Request,
+	res: Response,
+	next: NextFunction,
+): Promise<void> => {
+	try {
+		const workspaceId = req.params.workspaceId
+		const subscriberId = req.params.subscriberId
+		if (typeof workspaceId !== "string" || typeof subscriberId !== "string") {
+			throw new Error("Workspace id and subscriber id are required")
+		}
+		await workspaceService.assertMembership(workspaceId, req.user!.id)
+		const subscriber = await subscriberService.findById(workspaceId, subscriberId)
+		if (!subscriber) {
+			res.status(404).json({ success: false, message: "Subscriber not found" })
+			return
+		}
+		const token = await generateSubscriberWebSocketToken({
+			sub: subscriber.id,
+			workspaceId,
+		})
+		res.status(200).json({ success: true, data: { token, expiresInSeconds: 300 } })
+	} catch (error) {
+		next(error)
 	}
 }

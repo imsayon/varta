@@ -34,8 +34,8 @@
   position: absolute;
   inset: 0;
   background-image: 
-    radial-gradient(at 0% 0%, rgba(2, 132, 199, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.1) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(239, 68, 68, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.05) 0px, transparent 50%);
   z-index: 1;
 }
 
@@ -45,7 +45,7 @@
   left: 10%;
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgba(2, 132, 199, 0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.08) 0%, transparent 70%);
   z-index: 1;
   filter: blur(40px);
 }
@@ -56,7 +56,7 @@
   right: 10%;
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.05) 0%, transparent 70%);
   z-index: 1;
   filter: blur(50px);
 }
@@ -77,19 +77,23 @@
   gap: var(--space-3);
 }
 
-.logoIcon {
+.logoWrap {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-xl);
-  background: var(--gradient-brand);
+  background: var(--surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-bold);
-  color: #02040a;
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+  border: 1px solid var(--border-2);
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+}
+
+.logoWrap img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .logoText {
@@ -99,4 +103,8 @@
   color: var(--text-primary);
   margin: 0;
   letter-spacing: var(--tracking-tight);
+}
+
+.logoText span {
+  color: var(--color-primary-500);
 }

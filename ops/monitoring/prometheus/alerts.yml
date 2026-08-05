@@ -1,0 +1,29 @@
+groups:
+    - name: varta_alerts
+      rules:
+          - alert: HighQueueBacklog
+            expr: varta_queue_jobs{state="waiting"} > 1000
+            for: 5m
+            labels:
+                severity: warning
+            annotations:
+                summary: "High queue backlog detected"
+                description: "Queue {{ $labels.queue }} has over 1000 waiting jobs for 5 minutes."
+
+          - alert: HighDeliveryFailureRate
+            expr: sum(rate(varta_delivery_attempts_total{outcome=~"FAILED|DLQ"}[5m])) / clamp_min(sum(rate(varta_delivery_attempts_total[5m])), 1) > 0.05
+            for: 5m
+            labels:
+                severity: critical
+            annotations:
+                summary: "High delivery failure rate"
+                description: "Notification delivery failure rate exceeded 5% in the last 5 minutes."
+
+          - alert: HighHttpServerErrorRate
+            expr: sum(rate(varta_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(varta_http_requests_total[5m])), 1) > 0.01
+            for: 5m
+            labels:
+                severity: critical
+            annotations:
+                summary: "High HTTP 5xx error rate"
+                description: "HTTP 5xx server error rate exceeded 1% in the last 5 minutes."

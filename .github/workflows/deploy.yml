@@ -1,0 +1,36 @@
+name: CD Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: SSH Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/varta
+            test -f ops/env/production.env
+            git pull --ff-only origin main
+            chmod +x ops/scripts/validate.sh
+            ./ops/scripts/validate.sh ops/env/production.env
+            compose="docker compose --env-file ops/env/production.env -f ops/compose/compose.yaml"
+            $compose config --quiet
+            $compose up -d --wait postgres redis
+            $compose build api worker client
+            $compose run --rm --no-deps api npx prisma migrate deploy
+            $compose up -d --remove-orphans api worker client caddy
+            $compose exec -T api node -e "fetch('http://127.0.0.1:5000/api/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+            $compose exec -T worker node -e "fetch('http://127.0.0.1:5001/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"

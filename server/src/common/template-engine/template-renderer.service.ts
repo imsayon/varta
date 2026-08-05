@@ -3,7 +3,7 @@ import DOMPurify from "isomorphic-dompurify"
 
 export const templateRendererService = {
 	compile(templateString: string): HandlebarsTemplateDelegate {
-		return Handlebars.compile(templateString || "", { strict: true })
+		return Handlebars.compile(templateString || "", { strict: false })
 	},
 
 	render(
