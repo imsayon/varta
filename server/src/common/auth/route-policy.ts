@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express"
 import {
 	ForbiddenError,
+	EmailNotVerifiedError,
 	NotFoundError,
 	UnauthorizedError,
 } from "@/common/errors/app-error.ts"
@@ -124,6 +125,14 @@ export function authorize(policyId: string): RequestHandler {
 		}
 		if (!policy.principalKinds?.includes(capability.principal.kind)) {
 			next(new ForbiddenError("Principal is not allowed for this route"))
+			return
+		}
+		if (
+			capability.principal.kind === "browser_jwt" &&
+			!policy.id.startsWith("auth.") &&
+			capability.principal.verification !== "verified"
+		) {
+			next(new EmailNotVerifiedError())
 			return
 		}
 

@@ -2,6 +2,8 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import test from "node:test"
+import type { NextFunction, Request, Response } from "express"
+import { EmailNotVerifiedError } from "@/common/errors/app-error.ts"
 import { authorize, getRoutePolicy, ROUTE_POLICY_MATRIX } from "./route-policy.ts"
 import { isPrincipal } from "./principal.ts"
 
@@ -67,4 +69,39 @@ test("invalid principal kinds are rejected by the runtime type guard", () => {
 		}),
 		false,
 	)
+})
+
+test("unverified browser principals cannot use product routes", () => {
+	let failure: unknown
+	const middleware = authorize("workspace.list")
+	const request = {
+		params: {},
+		capability: {
+			principal: {
+				kind: "browser_jwt",
+				actorId: "user-1",
+				workspaceId: "workspace-1",
+				sessionId: "session-1",
+				role: "OWNER",
+				scopes: [],
+				verification: "unverified",
+			},
+			workspace: {
+				workspaceId: "workspace-1",
+				role: "OWNER",
+				scopes: [],
+				verification: "unverified",
+				actorId: "user-1",
+				principalKind: "browser_jwt",
+			},
+		},
+	} as unknown as Request
+	middleware(
+		request,
+		{} as Response,
+		((error?: unknown) => {
+			failure = error
+		}) as NextFunction,
+	)
+	assert.ok(failure instanceof EmailNotVerifiedError)
 })

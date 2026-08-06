@@ -62,13 +62,6 @@ export const authService = {
 
 		const passwordHash = await hashPassword(password)
 
-		const user = await authRepository.createUser({
-			name,
-			email,
-			passwordHash,
-		})
-
-		// every user gets a default workspace on signup
 		const workspaceName = `${name}'s Workspace`
 		const baseSlug = slugify(workspaceName, {
 			lower: true,
@@ -77,22 +70,15 @@ export const authService = {
 		})
 		const randomSuffix = crypto.randomBytes(4).toString("hex")
 
-		const workspace = await authRepository.createWorkspace({
-			name: workspaceName,
-			slug: `${baseSlug}-${randomSuffix}`,
-		})
-
-		await authRepository.createWorkspaceMember({
-			userId: user.id,
-			workspaceId: workspace.id,
-		})
-
-		// generate email verification token
 		const rawToken = generateEmailToken()
-		await authRepository.createEmailVerification({
-			userId: user.id,
-			tokenHash: hashEmailToken(rawToken),
-			expiresAt: new Date(
+		const { user, workspace } = await authRepository.createRegistration({
+			name,
+			email,
+			passwordHash,
+			workspaceName,
+			workspaceSlug: `${baseSlug}-${randomSuffix}`,
+			verificationTokenHash: hashEmailToken(rawToken),
+			verificationExpiresAt: new Date(
 				Date.now() + env.EMAIL_VERIFY_TOKEN_TTL_HOURS * ONE_HOUR_IN_MS,
 			),
 		})
@@ -398,15 +384,12 @@ export const authService = {
 	// Email Verification
 	async verifyEmail(token: string) {
 		const tokenHash = hashEmailToken(token)
-		const verification =
-			await authRepository.findEmailVerification(tokenHash)
+		const verification = await authRepository.consumeEmailVerification(tokenHash)
 
 		if (!verification) {
 			throw new BadRequestError("Invalid or expired verification token")
 		}
 
-		await authRepository.markUserEmailVerified(verification.userId)
-		await authRepository.markEmailVerificationUsed(verification.id)
 	},
 
 	async resendVerification(email: string) {
@@ -473,20 +456,14 @@ export const authService = {
 	// Reset Password
 	async resetPassword(token: string, newPassword: string) {
 		const tokenHash = hashEmailToken(token)
-		const resetToken =
-			await authRepository.findPasswordResetToken(tokenHash)
-
+		const passwordHash = await hashPassword(newPassword)
+		const resetToken = await authRepository.consumePasswordReset(
+			tokenHash,
+			passwordHash,
+		)
 		if (!resetToken) {
 			throw new BadRequestError("Invalid or expired reset token")
 		}
-
-		const passwordHash = await hashPassword(newPassword)
-
-		await authRepository.updatePassword(resetToken.userId, passwordHash)
-		await authRepository.markPasswordResetTokenUsed(resetToken.id)
-
-		// revoke all sessions so the user must log back in with new password
-		await authRepository.revokeAllSessionsForUser(resetToken.userId)
 	},
 
 	// Session Management

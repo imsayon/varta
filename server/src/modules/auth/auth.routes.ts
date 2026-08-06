@@ -1,8 +1,7 @@
 import { Router } from "express"
-import { env } from "@/common/config/env.ts"
 import { authController } from "./auth.controller.ts"
 import { validate } from "@/common/middleware/validate.middleware.ts"
-import { authenticate, captureOAuthUser } from "@/common/middleware/auth.middleware.ts"
+import { authenticate } from "@/common/middleware/auth.middleware.ts"
 import {
 	registerSchema,
 	loginSchema,
@@ -13,9 +12,9 @@ import {
 } from "./auth.schema.ts"
 
 import { rateLimitAuth } from "@/common/middleware/rate-limit.middleware.ts"
-import { passport } from "./auth.passport.ts"
-import { authOauth } from "./auth.oauth.ts"
 import { authorize } from "@/common/auth/route-policy.ts"
+import { requireTrustedOrigin } from "@/common/utils/auth/cookies.ts"
+import { ServiceUnavailableError } from "@/common/errors/app-error.ts"
 
 const router = Router()
 
@@ -34,9 +33,9 @@ router.post(
 	validate(loginSchema),
 	authController.login,
 )
-router.post("/refresh", authorize("auth.refresh"), authController.refresh)
-router.post("/logout", authorize("auth.logout"), rateLimitAuth, authController.logout)
-router.post("/logout-all", authorize("auth.logoutAll"), rateLimitAuth, authController.logoutAll)
+router.post("/refresh", authorize("auth.refresh"), requireTrustedOrigin, authController.refresh)
+router.post("/logout", authorize("auth.logout"), requireTrustedOrigin, rateLimitAuth, authController.logout)
+router.post("/logout-all", authorize("auth.logoutAll"), requireTrustedOrigin, rateLimitAuth, authController.logoutAll)
 router.get(
 	"/verify-email",
 	authorize("auth.verifyEmail.get"),
@@ -66,6 +65,7 @@ router.post(
 router.post(
 	"/reset-password",
 	authorize("auth.resetPassword"),
+	rateLimitAuth,
 	validate(resetPasswordSchema),
 	authController.resetPassword,
 )
@@ -75,42 +75,32 @@ router.get("/me", authenticate, authorize("auth.me"), authController.me)
 router.get("/sessions", authenticate, authorize("auth.sessions.list"), authController.getSessions)
 router.delete("/sessions/:id", authenticate, authorize("auth.sessions.revoke"), authController.revokeSession)
 
-// OAuth Routes
+const oauthUnavailable = () => {
+	throw new ServiceUnavailableError("OAuth sign-in is disabled until its security contract is complete")
+}
+
 router.get(
 	"/oauth/google",
 	authorize("auth.oauth.google.start"),
-	passport.authenticate("google", {
-		scope: ["profile", "email"],
-		session: false,
-	}),
+	oauthUnavailable,
 )
 
 router.get(
 	"/oauth/google/callback",
 	authorize("auth.oauth.google.callback"),
-	passport.authenticate("google", {
-		session: false,
-		failureRedirect: `${env.CLIENT_URL}/login?error=google_failed`,
-	}),
-	captureOAuthUser,
-	authOauth.handleOAuthCallback,
+	oauthUnavailable,
 )
 
 router.get(
 	"/oauth/github",
 	authorize("auth.oauth.github.start"),
-	passport.authenticate("github", { scope: ["user:email"], session: false }),
+	oauthUnavailable,
 )
 
 router.get(
 	"/oauth/github/callback",
 	authorize("auth.oauth.github.callback"),
-	passport.authenticate("github", {
-		session: false,
-		failureRedirect: `${env.CLIENT_URL}/login?error=github_failed`,
-	}),
-	captureOAuthUser,
-	authOauth.handleOAuthCallback,
+	oauthUnavailable,
 )
 
 export { router as authRouter }

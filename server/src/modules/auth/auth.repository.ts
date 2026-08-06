@@ -23,6 +23,40 @@ export const authRepository = {
 		return prisma.user.create({ data })
 	},
 
+	async createRegistration(data: {
+		name: string
+		email: string
+		passwordHash: string
+		workspaceName: string
+		workspaceSlug: string
+		verificationTokenHash: string
+		verificationExpiresAt: Date
+	}) {
+		return prisma.$transaction(async (tx) => {
+			const user = await tx.user.create({
+				data: {
+					name: data.name,
+					email: data.email,
+					passwordHash: data.passwordHash,
+				},
+			})
+			const workspace = await tx.workspace.create({
+				data: { name: data.workspaceName, slug: data.workspaceSlug },
+			})
+			await tx.workspaceMember.create({
+				data: { userId: user.id, workspaceId: workspace.id, role: "OWNER" },
+			})
+			await tx.emailVerification.create({
+				data: {
+					userId: user.id,
+					tokenHash: data.verificationTokenHash,
+					expiresAt: data.verificationExpiresAt,
+				},
+			})
+			return { user, workspace }
+		})
+	},
+
 	async markUserEmailVerified(userId: string) {
 		return prisma.user.update({
 			where: { id: userId },
@@ -199,6 +233,29 @@ export const authRepository = {
 		})
 	},
 
+	async consumeEmailVerification(tokenHash: string) {
+		return prisma.$transaction(async (tx) => {
+			const verification = await tx.emailVerification.findFirst({
+				where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+			})
+			if (!verification) return null
+			const claimed = await tx.emailVerification.updateMany({
+				where: {
+					id: verification.id,
+					usedAt: null,
+					expiresAt: { gt: new Date() },
+				},
+				data: { usedAt: new Date() },
+			})
+			if (claimed.count !== 1) return null
+			await tx.user.update({
+				where: { id: verification.userId },
+				data: { emailVerified: true },
+			})
+			return verification
+		})
+	},
+
 	// Password Reset
 
 	async createPasswordResetToken(data: {
@@ -223,6 +280,38 @@ export const authRepository = {
 		return prisma.passwordResetToken.update({
 			where: { id },
 			data: { usedAt: new Date() },
+		})
+	},
+
+	async consumePasswordReset(tokenHash: string, passwordHash: string) {
+		return prisma.$transaction(async (tx) => {
+			const reset = await tx.passwordResetToken.findFirst({
+				where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+			})
+			if (!reset) return null
+			const claimed = await tx.passwordResetToken.updateMany({
+				where: {
+					id: reset.id,
+					usedAt: null,
+					expiresAt: { gt: new Date() },
+				},
+				data: { usedAt: new Date() },
+			})
+			if (claimed.count !== 1) return null
+			const revokedAt = new Date()
+			await tx.user.update({
+				where: { id: reset.userId },
+				data: { passwordHash },
+			})
+			await tx.session.updateMany({
+				where: { userId: reset.userId, revokedAt: null },
+				data: { revokedAt },
+			})
+			await tx.refreshToken.updateMany({
+				where: { session: { userId: reset.userId }, revokedAt: null },
+				data: { revokedAt },
+			})
+			return reset
 		})
 	},
 }
