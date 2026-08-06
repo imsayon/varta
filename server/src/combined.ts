@@ -26,13 +26,14 @@ let shuttingDown = false
 async function cleanup(): Promise<Awaited<ReturnType<typeof shutdownResources>>> {
 	return shutdownResources(
 		[
-			() => closeHttpServer(server),
-			() => stopWebSocketServer(server),
-			() => stopWorkers(),
-			() => closeQueues(),
-			() => prisma.$disconnect(),
-			() => redis.quit().then(() => undefined),
-			() => stopTracing(),
+			[() => closeHttpServer(server), () => stopWebSocketServer(server)],
+			[() => stopWorkers()],
+			[() => closeQueues()],
+			[
+				() => prisma.$disconnect(),
+				() => redis.quit().then(() => undefined),
+			],
+			[() => stopTracing()],
 		],
 		env.SHUTDOWN_TIMEOUT_MS,
 	)

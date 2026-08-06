@@ -1,7 +1,7 @@
 import { logger } from "@/infra/observability/logger.ts"
 import type { Worker } from "bullmq"
 
-type WorkerHandle = Pick<Worker, "close">
+type WorkerHandle = Pick<Worker, "close" | "waitUntilReady">
 type WorkerModule = Record<string, unknown>
 export type WorkerModuleLoader = () => Promise<WorkerModule>
 
@@ -27,14 +27,24 @@ const defaultLoaders: WorkerModuleLoader[] = [
 	() => import("./reconciliation.worker.ts"),
 ]
 
-function collectWorkers(module: WorkerModule): void {
+function collectWorkers(module: WorkerModule): number {
+	let collected = 0
 	for (const value of Object.values(module)) {
-		if (value && typeof value === "object" && "close" in value) {
-			const candidate = value as { close?: unknown }
-			if (typeof candidate.close === "function")
+		if (value && typeof value === "object") {
+			const candidate = value as {
+				close?: unknown
+				waitUntilReady?: unknown
+			}
+			if (
+				typeof candidate.close === "function" &&
+				typeof candidate.waitUntilReady === "function"
+			) {
 				workers.push(value as WorkerHandle)
+				collected += 1
+			}
 		}
 	}
+	return collected
 }
 
 async function closeRegisteredWorkers(): Promise<unknown[]> {
@@ -57,7 +67,22 @@ export async function startWorkers(
 	workerState.status = "starting"
 	workerState.error = null
 	try {
-		for (const load of loaders) collectWorkers(await load())
+		const modules: WorkerModule[] = []
+		for (const load of loaders) {
+			const module = await load()
+			if (collectWorkers(module) === 0)
+				throw new Error("Worker module did not export a BullMQ worker")
+			modules.push(module)
+		}
+		await Promise.all(workers.map((worker) => worker.waitUntilReady()))
+		for (const module of modules) {
+			const startWorkerModule = module.startWorkerModule
+			if (startWorkerModule !== undefined) {
+				if (typeof startWorkerModule !== "function")
+					throw new Error("Worker module startup hook must be a function")
+				await startWorkerModule()
+			}
+		}
 		workerState.status = "ready"
 		logger.info("Background workers started")
 	} catch (error: unknown) {

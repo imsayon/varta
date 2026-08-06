@@ -13,6 +13,7 @@ function loaderWithClose(
 ): WorkerModuleLoader {
 	return async () => ({
 		worker: {
+			waitUntilReady: async () => undefined,
 			close: async () => {
 				closed.push(name)
 			},
@@ -49,4 +50,29 @@ test("worker readiness is published only after every worker module loads", async
 	await stopWorkers()
 	assert.equal(workerState.status, "stopped")
 	assert.deepEqual(closed, ["first", "second"])
+})
+
+test("worker readiness waits for BullMQ and module startup hooks", async () => {
+	const events: string[] = []
+	const loader: WorkerModuleLoader = async () => ({
+		worker: {
+			waitUntilReady: async () => void events.push("bullmq-ready"),
+			close: async () => void events.push("closed"),
+		},
+		startWorkerModule: async () => void events.push("module-ready"),
+	})
+
+	await startWorkers([loader])
+	assert.equal(workerState.status, "ready")
+	assert.deepEqual(events, ["bullmq-ready", "module-ready"])
+	await stopWorkers()
+})
+
+test("worker startup fails when a module exports no worker", async () => {
+	await assert.rejects(
+		() => startWorkers([async () => ({})]),
+		/Worker module did not export a BullMQ worker/,
+	)
+	assert.equal(workerState.status, "failed")
+	await stopWorkers()
 })

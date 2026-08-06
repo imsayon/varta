@@ -50,12 +50,14 @@ try {
 	logger.fatal({ err: error }, "Worker startup failed")
 	const result = await shutdownResources(
 		[
-			() => closeHttpServer(metricsServer),
-			() => stopWorkers(),
-			() => closeQueues(),
-			() => prisma.$disconnect(),
-			() => redis.quit().then(() => undefined),
-			() => stopTracing(),
+			[() => closeHttpServer(metricsServer)],
+			[() => stopWorkers()],
+			[() => closeQueues()],
+			[
+				() => prisma.$disconnect(),
+				() => redis.quit().then(() => undefined),
+			],
+			[() => stopTracing()],
 		],
 		env.SHUTDOWN_TIMEOUT_MS,
 	)
@@ -70,12 +72,14 @@ async function gracefulShutdown(signal: string): Promise<void> {
 	logger.info({ signal }, "Worker shutdown started")
 	const result = await shutdownResources(
 		[
-			() => closeHttpServer(metricsServer),
-			() => stopWorkers(),
-			() => closeQueues(),
-			() => prisma.$disconnect(),
-			() => redis.quit().then(() => undefined),
-			() => stopTracing(),
+			[() => closeHttpServer(metricsServer)],
+			[() => stopWorkers()],
+			[() => closeQueues()],
+			[
+				() => prisma.$disconnect(),
+				() => redis.quit().then(() => undefined),
+			],
+			[() => stopTracing()],
 		],
 		env.SHUTDOWN_TIMEOUT_MS,
 	)

@@ -1,6 +1,7 @@
 import type { Server } from "node:http"
 
 export type AsyncCleanup = () => Promise<void>
+export type CleanupPhase = readonly AsyncCleanup[]
 
 export type ShutdownResult = {
 	timedOut: boolean
@@ -38,17 +39,26 @@ export function closeHttpServer(server: Server): Promise<void> {
 }
 
 export async function shutdownResources(
-	cleanups: readonly AsyncCleanup[],
+	phases: readonly CleanupPhase[],
 	timeoutMs: number,
 ): Promise<ShutdownResult> {
-	const completion = Promise.allSettled(cleanups.map((cleanup) => cleanup())).then(
-		(results) => ({
-			timedOut: false as const,
-			failures: results
-				.filter((result): result is PromiseRejectedResult => result.status === "rejected")
-				.map((result) => result.reason),
-		}),
-	)
+	const completion = (async (): Promise<ShutdownResult> => {
+		const failures: unknown[] = []
+		for (const phase of phases) {
+			const results = await Promise.allSettled(
+				phase.map((cleanup) => cleanup()),
+			)
+			failures.push(
+				...results
+					.filter(
+						(result): result is PromiseRejectedResult =>
+							result.status === "rejected",
+					)
+					.map((result) => result.reason),
+			)
+		}
+		return { timedOut: false, failures }
+	})()
 
 	let timeout: NodeJS.Timeout | undefined
 	const deadline = new Promise<ShutdownResult>((resolve) => {

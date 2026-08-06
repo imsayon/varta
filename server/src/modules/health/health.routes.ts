@@ -5,6 +5,20 @@ import { workerState } from "@/infra/workers/worker.bootstrap.ts"
 
 const router = Router()
 
+async function dependencyChecks(): Promise<{
+	database: boolean
+	redis: boolean
+}> {
+	const checks = await Promise.allSettled([
+		prisma.$queryRaw`SELECT 1`,
+		redis.ping(),
+	])
+	return {
+		database: checks[0]?.status === "fulfilled",
+		redis: checks[1]?.status === "fulfilled",
+	}
+}
+
 router.get("/", (_req, res) => {
 	res.status(200).json({
 		status: "ok",
@@ -18,16 +32,28 @@ router.get("/live", (_req, res) => {
 })
 
 router.get("/ready", async (_req, res) => {
-	const checks = await Promise.allSettled([
-		prisma.$queryRaw`SELECT 1`,
-		redis.ping(),
-	])
-	const database = checks[0]?.status === "fulfilled"
-	const cache = checks[1]?.status === "fulfilled"
-	const ready = database && cache
+	const checks = await dependencyChecks()
+	const ready = checks.database && checks.redis
 	res.status(ready ? 200 : 503).json({
 		status: ready ? "ok" : "not_ready",
-		checks: { database: database ? "ok" : "failed", redis: cache ? "ok" : "failed" },
+		checks: {
+			database: checks.database ? "ok" : "failed",
+			redis: checks.redis ? "ok" : "failed",
+		},
+	})
+})
+
+router.get("/combined/ready", async (_req, res) => {
+	const checks = await dependencyChecks()
+	const worker = workerState.status === "ready"
+	const ready = checks.database && checks.redis && worker
+	res.status(ready ? 200 : 503).json({
+		status: ready ? "ok" : "not_ready",
+		checks: {
+			database: checks.database ? "ok" : "failed",
+			redis: checks.redis ? "ok" : "failed",
+			worker: workerState.status,
+		},
 	})
 })
 

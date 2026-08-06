@@ -45,8 +45,8 @@ for name in ("varta-api", "varta-client"):
 api = by_name["varta-api"]
 if "start:combined" not in api["startCommand"]:
     raise SystemExit("API must start the combined backend")
-if api["healthCheckPath"] != "/api/health/ready":
-    raise SystemExit("API health check must be API readiness")
+if api["healthCheckPath"] != "/api/health/combined/ready":
+    raise SystemExit("Combined backend health check must include API and worker readiness")
 
 client = by_name["varta-client"]
 if "@varta/web" not in client["startCommand"] or "start" not in client["startCommand"]:

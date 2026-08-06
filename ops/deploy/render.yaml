@@ -10,7 +10,7 @@ services:
       branch: main
       buildCommand: corepack pnpm@11.20.0 install --frozen-lockfile && corepack pnpm@11.20.0 --filter @varta/server prisma:generate && corepack pnpm@11.20.0 --filter @varta/server build
       startCommand: corepack pnpm@11.20.0 --filter @varta/server start:combined
-      healthCheckPath: /api/health/ready
+      healthCheckPath: /api/health/combined/ready
       envVars:
           - key: NODE_ENV
             value: production

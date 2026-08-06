@@ -30,12 +30,13 @@ try {
 	logger.fatal({ err: error }, "Varta API startup failed")
 	await shutdownResources(
 		[
-			() => closeHttpServer(server),
-			() => stopWebSocketServer(server),
-			() => closeQueues(),
-			() => prisma.$disconnect(),
-			() => redis.quit().then(() => undefined),
-			() => stopTracing(),
+			[() => closeHttpServer(server), () => stopWebSocketServer(server)],
+			[() => closeQueues()],
+			[
+				() => prisma.$disconnect(),
+				() => redis.quit().then(() => undefined),
+			],
+			[() => stopTracing()],
 		],
 		env.SHUTDOWN_TIMEOUT_MS,
 	)
@@ -48,12 +49,13 @@ async function gracefulShutdown(signal: string): Promise<void> {
 	logger.info({ signal }, "API shutdown started")
 	const result = await shutdownResources(
 		[
-			() => closeHttpServer(server),
-			() => stopWebSocketServer(server),
-			() => closeQueues(),
-			() => prisma.$disconnect(),
-			() => redis.quit().then(() => undefined),
-			() => stopTracing(),
+			[() => closeHttpServer(server), () => stopWebSocketServer(server)],
+			[() => closeQueues()],
+			[
+				() => prisma.$disconnect(),
+				() => redis.quit().then(() => undefined),
+			],
+			[() => stopTracing()],
 		],
 		env.SHUTDOWN_TIMEOUT_MS,
 	)

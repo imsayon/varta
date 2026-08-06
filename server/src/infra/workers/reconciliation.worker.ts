@@ -20,12 +20,9 @@ reconciliationWorker.on("failed", (job, error) =>
 	logger.error({ jobId: job?.id, err: error }, "Reconciliation job failed"),
 )
 
-// Schedule recurring 5-minute reconciliation task
-void reconciliationQueue
-	.add("periodic", { run: true }, {
-		jobId: "reconciliation:periodic",
+export async function startWorkerModule(): Promise<void> {
+	await reconciliationQueue.add("periodic", { run: true }, {
+		jobId: "reconciliation-periodic",
 		repeat: { every: 300_000 },
 	} as unknown as import("bullmq").JobsOptions)
-	.catch((err) =>
-		logger.error({ err }, "Failed to schedule reconciliation worker"),
-	)
+}

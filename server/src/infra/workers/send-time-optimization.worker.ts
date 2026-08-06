@@ -16,23 +16,19 @@ sendTimeOptimizationWorker.on("failed", (job, error) =>
 	logger.error({ jobId: job?.id, err: error }, "STO vector job failed"),
 )
 
-void prisma.workspace
-	.findMany({ select: { id: true } })
-	.then(async (workspaces) => {
-		for (let i = 0; i < workspaces.length; i += 1) {
-			const workspace = workspaces[i]
-			if (!workspace) continue
-			const delayOffset = i * 60_000 // Stagger jobs by 1 minute per workspace
-			await sendTimeOptimizationQueue.add(
-				"nightly",
-				{ workspaceId: workspace.id },
-				{
-					jobId: `sto:${workspace.id}`,
-					repeat: { every: 86_400_000, offset: delayOffset },
-				} as unknown as import("bullmq").JobsOptions,
-			)
-		}
-	})
-	.catch((error) =>
-		logger.error({ err: error }, "Failed to schedule STO vector jobs"),
-	)
+export async function startWorkerModule(): Promise<void> {
+	const workspaces = await prisma.workspace.findMany({ select: { id: true } })
+	for (let index = 0; index < workspaces.length; index += 1) {
+		const workspace = workspaces[index]
+		if (!workspace) continue
+		const delayOffset = index * 60_000
+		await sendTimeOptimizationQueue.add(
+			"nightly",
+			{ workspaceId: workspace.id },
+			{
+				jobId: `sto-${workspace.id}`,
+				repeat: { every: 86_400_000, offset: delayOffset },
+			} as unknown as import("bullmq").JobsOptions,
+		)
+	}
+}
