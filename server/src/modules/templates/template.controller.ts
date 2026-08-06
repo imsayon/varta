@@ -4,9 +4,9 @@ import { workspaceService } from "../workspaces/workspace.service.ts"
 import Handlebars from "handlebars"
 import DOMPurify from "isomorphic-dompurify"
 import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
-import { sendSuccess } from "@/common/utils/response.ts"
+import { sendSuccess, sendPaginated } from "@/common/utils/response.ts"
 import { NotFoundError, BadRequestError } from "@/common/errors/app-error.ts"
-import { parsePaginationQuery } from "@/common/utils/pagination.ts"
+import { parsePaginationQuery, encodeCursor, decodeCursor } from "@/common/utils/pagination.ts"
 
 export const create = async (
 	req: Request,
@@ -38,20 +38,24 @@ export const list = async (
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
-		const { page, limit } = parsePaginationQuery(req.query as Record<string, unknown>)
-		const skip = (page - 1) * limit
+		const { limit, cursor } = parsePaginationQuery(req.query as Record<string, unknown>)
+		const decoded = decodeCursor(cursor)
+		const skip = decoded ? 0 : 0
 
 		const [templates, total] = await templateService.search(
 			workspaceId,
 			skip,
-			limit,
+			limit + 1,
 		)
-		sendSuccess(req, res, { templates, total, page, limit }, 200, {
-			page,
-			limit,
-			total,
-			hasMore: page * limit < total,
-		})
+
+		const hasMore = templates.length > limit
+		const items = hasMore ? templates.slice(0, limit) : templates
+		const lastItem = items.length > 0 ? items[items.length - 1] : undefined
+		const nextCursor = lastItem
+			? encodeCursor({ id: lastItem.id, createdAt: lastItem.createdAt.toISOString() })
+			: null
+
+		sendPaginated(req, res, items, nextCursor, hasMore, total)
 	} catch (err) {
 		next(err)
 	}
@@ -150,11 +154,9 @@ export const preview = async (
 
 		const { content, payload } = req.body
 
-		// Step 1: Compile Handlebars template and render with payload
-		const render = Handlebars.compile(content, { strict: false })
-		const rawHtml = render(payload)
+		const render = Handlebars.compile(content || "", { strict: false })
+		const rawHtml = render(payload || {})
 
-		// Step 2: Sanitize to prevent XSS in rendered output
 		const sanitizedHtml = DOMPurify.sanitize(rawHtml)
 
 		sendSuccess(req, res, { html: sanitizedHtml })

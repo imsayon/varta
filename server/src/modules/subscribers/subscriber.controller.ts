@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from "express"
 import { subscriberService } from "./subscriber.service.ts"
 import { generateSubscriberWebSocketToken } from "@/common/utils/auth/websocket-token.ts"
-import { sendSuccess } from "@/common/utils/response.ts"
+import { sendSuccess, sendPaginated } from "@/common/utils/response.ts"
 import { NotFoundError } from "@/common/errors/app-error.ts"
-import { parsePaginationQuery } from "@/common/utils/pagination.ts"
+import { parsePaginationQuery, encodeCursor, decodeCursor } from "@/common/utils/pagination.ts"
 
 export const createOrUpdate = async (
 	req: Request,
@@ -12,14 +12,24 @@ export const createOrUpdate = async (
 ): Promise<void> => {
 	try {
 		const workspaceId = req.params.workspaceId as string
+		const { externalId, email, name, timezone, locale, attributes, preferences } = req.body
 
-		const subscriber = req.body.externalId
-			? await subscriberService.upsert(
-					workspaceId,
-					req.body.externalId,
-					req.body,
-				)
-			: await subscriberService.create({ ...req.body, workspaceId })
+		const payload = {
+			workspaceId,
+			externalId,
+			...(email !== undefined ? { email } : {}),
+			...(name !== undefined ? { name } : {}),
+			timezone: timezone || "UTC",
+			locale: locale || "en-US",
+			attributes: attributes || {},
+			preferences: preferences || {},
+		}
+
+		const subscriber = await subscriberService.upsert(
+			workspaceId,
+			externalId,
+			payload,
+		)
 
 		sendSuccess(req, res, subscriber, 201)
 	} catch (err) {
@@ -34,21 +44,24 @@ export const list = async (
 ): Promise<void> => {
 	try {
 		const workspaceId = req.params.workspaceId as string
-
-		const { page, limit } = parsePaginationQuery(req.query as Record<string, unknown>)
-		const skip = (page - 1) * limit
+		const { limit, cursor } = parsePaginationQuery(req.query as Record<string, unknown>)
+		const decoded = decodeCursor(cursor)
+		const skip = decoded ? 0 : 0
 
 		const [subscribers, total] = await subscriberService.search(
 			workspaceId,
 			skip,
-			limit,
+			limit + 1,
 		)
-		sendSuccess(req, res, { subscribers, total, page, limit }, 200, {
-			page,
-			limit,
-			total,
-			hasMore: page * limit < total,
-		})
+
+		const hasMore = subscribers.length > limit
+		const items = hasMore ? subscribers.slice(0, limit) : subscribers
+		const lastItem = items.length > 0 ? items[items.length - 1] : undefined
+		const nextCursor = lastItem
+			? encodeCursor({ id: lastItem.id, createdAt: lastItem.createdAt.toISOString() })
+			: null
+
+		sendPaginated(req, res, items, nextCursor, hasMore, total)
 	} catch (err) {
 		next(err)
 	}
@@ -61,11 +74,9 @@ export const getById = async (
 ): Promise<void> => {
 	try {
 		const workspaceId = req.params.workspaceId as string
+		const subscriberId = req.params.subscriberId as string
 
-		const subscriber = await subscriberService.findById(
-			workspaceId,
-			req.params.subscriberId as string,
-		)
+		const subscriber = await subscriberService.findById(workspaceId, subscriberId)
 		if (!subscriber) {
 			throw new NotFoundError("Subscriber not found")
 		}
@@ -83,18 +94,16 @@ export const update = async (
 ): Promise<void> => {
 	try {
 		const workspaceId = req.params.workspaceId as string
+		const subscriberId = req.params.subscriberId as string
 
-		const existing = await subscriberService.findById(
-			workspaceId,
-			req.params.subscriberId as string,
-		)
+		const existing = await subscriberService.findById(workspaceId, subscriberId)
 		if (!existing) {
 			throw new NotFoundError("Subscriber not found")
 		}
 
 		const subscriber = await subscriberService.update(
 			workspaceId,
-			req.params.subscriberId as string,
+			subscriberId,
 			req.body,
 		)
 		sendSuccess(req, res, subscriber)
@@ -110,19 +119,14 @@ export const remove = async (
 ): Promise<void> => {
 	try {
 		const workspaceId = req.params.workspaceId as string
+		const subscriberId = req.params.subscriberId as string
 
-		const existing = await subscriberService.findById(
-			workspaceId,
-			req.params.subscriberId as string,
-		)
+		const existing = await subscriberService.findById(workspaceId, subscriberId)
 		if (!existing) {
 			throw new NotFoundError("Subscriber not found")
 		}
 
-		await subscriberService.delete(
-			workspaceId,
-			req.params.subscriberId as string,
-		)
+		await subscriberService.delete(workspaceId, subscriberId)
 		sendSuccess(req, res, null)
 	} catch (err) {
 		next(err)

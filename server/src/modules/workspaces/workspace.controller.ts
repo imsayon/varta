@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express"
 import { workspaceService } from "./workspace.service.ts"
 import { requireCapability } from "@/common/auth/capability.ts"
-import { sendSuccess } from "@/common/utils/response.ts"
+import { sendSuccess, sendPaginated } from "@/common/utils/response.ts"
 import { ForbiddenError } from "@/common/errors/app-error.ts"
 import { parsePaginationQuery } from "@/common/utils/pagination.ts"
 
@@ -26,10 +26,11 @@ export const list = async (
 ): Promise<void> => {
 	try {
 		const userId = requireCapability(req).principal.actorId as string
-		const { page, limit } = parsePaginationQuery(req.query as Record<string, unknown>)
-		const workspaces = await workspaceService.listByUser(userId, (page - 1) * limit, limit + 1)
+		const { limit } = parsePaginationQuery(req.query as Record<string, unknown>)
+		const workspaces = await workspaceService.listByUser(userId, 0, limit + 1)
 		const hasMore = workspaces.length > limit
-		sendSuccess(req, res, hasMore ? workspaces.slice(0, limit) : workspaces, 200, { page, limit, hasMore })
+		const items = hasMore ? workspaces.slice(0, limit) : workspaces
+		sendPaginated(req, res, items, null, hasMore)
 	} catch (err) {
 		next(err)
 	}
@@ -98,10 +99,11 @@ export const listMembers = async (
 		const userId = requireCapability(req).principal.actorId as string
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
-		const { page, limit } = parsePaginationQuery(req.query as Record<string, unknown>)
-		const members = await workspaceService.listMembers(workspaceId, (page - 1) * limit, limit + 1)
+		const { limit } = parsePaginationQuery(req.query as Record<string, unknown>)
+		const members = await workspaceService.listMembers(workspaceId, 0, limit + 1)
 		const hasMore = members.length > limit
-		sendSuccess(req, res, hasMore ? members.slice(0, limit) : members, 200, { page, limit, hasMore })
+		const items = hasMore ? members.slice(0, limit) : members
+		sendPaginated(req, res, items, null, hasMore)
 	} catch (err) {
 		next(err)
 	}

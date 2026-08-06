@@ -17,6 +17,7 @@ import {
 	Check,
 	Lock,
 	Sliders,
+	Send,
 } from "lucide-react"
 import { toast } from "sonner"
 import type {
@@ -46,9 +47,18 @@ interface EmailProviderConfig {
 }
 
 function readEmailProviderConfig(
-	providerConfig: IProviderConfig | null | undefined,
+	providerData: IProviderConfig | IProviderConfig[] | null | undefined,
 ): EmailProviderConfig {
-	const config = providerConfig?.config as JsonObject | undefined
+	let providerRecord: IProviderConfig | undefined
+	if (Array.isArray(providerData)) {
+		providerRecord = providerData.find(
+			(p) => p.channel === "email" || p.provider === "resend",
+		)
+	} else if (providerData) {
+		providerRecord = providerData
+	}
+
+	const config = providerRecord?.config as JsonObject | undefined
 
 	return {
 		apiKey: typeof config?.apiKey === "string" ? config.apiKey : "",
@@ -58,7 +68,7 @@ function readEmailProviderConfig(
 }
 
 export function WorkspaceSettings() {
-	const { workspace, setActiveWorkspace } = useAuth()
+	const { workspace, user, setActiveWorkspace } = useAuth()
 
 	const [workspaceData, setWorkspaceData] = useState<WorkspaceDetails | null>(
 		null,
@@ -66,6 +76,7 @@ export function WorkspaceSettings() {
 	const [apiKeys, setApiKeys] = useState<IApiKey[]>([])
 	const [loading, setLoading] = useState(true)
 	const [saving, setSaving] = useState(false)
+	const [testingProvider, setTestingProvider] = useState(false)
 	const [generatingKey, setGeneratingKey] = useState(false)
 
 	const [name, setName] = useState("")
@@ -94,7 +105,7 @@ export function WorkspaceSettings() {
 			apiClient.get<IApiKey[]>(
 				`/api/v1/workspaces/${workspace.id}/api-keys`,
 			),
-			apiClient.get<IProviderConfig | null>(
+			apiClient.get<IProviderConfig[]>(
 				`/api/v1/workspaces/${workspace.id}/providers`,
 			),
 		])
@@ -110,11 +121,11 @@ export function WorkspaceSettings() {
 
 		setWorkspaceData(workspaceRes.data)
 		setName(workspaceRes.data.name)
-		setDefaultTimezone(workspaceRes.data.settings.defaultTimezone || "UTC")
+		setDefaultTimezone(workspaceRes.data.settings?.defaultTimezone || "UTC")
 		setEmailLimit(
-			workspaceRes.data.settings.rateLimits?.emailPerHour || 1000,
+			workspaceRes.data.settings?.rateLimits?.emailPerHour || 1000,
 		)
-		setPushLimit(workspaceRes.data.settings.rateLimits?.pushPerHour || 5000)
+		setPushLimit(workspaceRes.data.settings?.rateLimits?.pushPerHour || 5000)
 
 		if (apiKeysRes.success && apiKeysRes.data) {
 			setApiKeys(apiKeysRes.data)
@@ -142,6 +153,22 @@ export function WorkspaceSettings() {
 			await fetchSettings()
 		})()
 	}, [workspace, fetchSettings])
+
+	const handleTestProvider = async () => {
+		if (!workspace) return
+		setTestingProvider(true)
+
+		const res = await apiClient.post(
+			`/api/v1/workspaces/${workspace.id}/providers/email/test`,
+		)
+		setTestingProvider(false)
+
+		if (res.success) {
+			toast.success("Resend provider connectivity test passed!")
+		} else {
+			toast.error(res.error?.message || "Provider test failed. Please verify API key.")
+		}
+	}
 
 	const handleSaveWorkspace = async (event: React.FormEvent) => {
 		event.preventDefault()
@@ -272,11 +299,16 @@ export function WorkspaceSettings() {
 				<div>
 					<h1 className={styles.title}>Settings</h1>
 					<p className={styles.subtitle}>
-						Phase 1 supports workspace metadata, throttling, email
-						delivery, and API keys.
+						Manage workspace settings, rate limits, provider credentials, and API integration keys.
 					</p>
 				</div>
 			</div>
+
+			{user?.emailVerified === false && (
+				<div style={{ padding: "1rem", backgroundColor: "#7f1d1d", borderRadius: "0.5rem", color: "#fecaca", marginBottom: "1.5rem" }}>
+					<strong>Unverified Account:</strong> Please verify your email address to access administrative workspace settings.
+				</div>
+			)}
 
 			<div className={styles.layout}>
 				<form
@@ -334,19 +366,34 @@ export function WorkspaceSettings() {
 									/>
 									<span>Resend</span>
 								</div>
-								<button
-									type="button"
-									onClick={() =>
-										setRevealEmail((value) => !value)
-									}
-									className={styles.revealBtn}
-								>
-									{revealEmail ? (
-										<EyeOff size={16} />
-									) : (
-										<Eye size={16} />
-									)}
-								</button>
+								<div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+									<button
+										type="button"
+										onClick={handleTestProvider}
+										disabled={testingProvider || !emailApiKey}
+										className={styles.revealBtn}
+										title="Test Resend connection"
+										style={{ opacity: emailApiKey ? 1 : 0.5 }}
+									>
+										<Send size={14} />
+										<span style={{ marginLeft: "4px", fontSize: "0.75rem" }}>
+											{testingProvider ? "Testing..." : "Test"}
+										</span>
+									</button>
+									<button
+										type="button"
+										onClick={() =>
+											setRevealEmail((value) => !value)
+										}
+										className={styles.revealBtn}
+									>
+										{revealEmail ? (
+											<EyeOff size={16} />
+										) : (
+											<Eye size={16} />
+										)}
+									</button>
+								</div>
 							</div>
 							<div className={styles.providerFields}>
 								<Input

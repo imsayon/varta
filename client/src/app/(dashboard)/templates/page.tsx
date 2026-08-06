@@ -1,10 +1,7 @@
-import { FeatureUnavailable } from "@/components/feature-unavailable/FeatureUnavailable"
+"use client"
+
+import { TemplateList } from "@/features/templates/components/TemplateList"
 
 export default function TemplatesPage() {
-	return (
-		<FeatureUnavailable
-			title="Templates unavailable"
-			description="Template management is not exposed until live API-backed list and edit flows are verified."
-		/>
-	)
+	return <TemplateList />
 }
