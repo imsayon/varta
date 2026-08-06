@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -12,12 +12,22 @@ import { apiClient } from '@/shared/api/api';
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get('token');
+  const initialToken = searchParams.get('token');
+  const [token, setToken] = useState<string | null>(initialToken);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (initialToken) {
+      setToken(initialToken);
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [initialToken]);
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
@@ -37,7 +47,7 @@ function ResetPasswordForm() {
     if (!validate()) return;
 
     setIsSubmitting(true);
-    const res = await apiClient.post('/api/v1/auth/reset-password', { token, newPassword: password });
+    const res = await apiClient.post('/api/v1/auth/reset-password', { token, newPassword: password }, { skipAuth: true });
     setIsSubmitting(false);
 
     if (res.success) {

@@ -1,17 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "@/shared/auth/auth-context"
+import { validateRedirectUrl } from "@/proxy"
 import { Card } from "@/components/ui/Card/Card"
 import { Input } from "@/components/ui/Input/Input"
 import { Button } from "@/components/ui/Button/Button"
 import styles from "./LoginPage.module.css"
 
-export default function LoginPage() {
+function LoginForm() {
 	const router = useRouter()
+	const searchParams = useSearchParams()
 	const { login } = useAuth()
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
@@ -41,7 +43,8 @@ export default function LoginPage() {
 
 		if (res.success) {
 			toast.success("Successfully logged in!")
-			router.push("/analytics")
+			const target = validateRedirectUrl(searchParams.get("from"))
+			router.push(target)
 		} else {
 			toast.error(res.error || "Invalid credentials")
 		}
@@ -79,6 +82,12 @@ export default function LoginPage() {
 					required
 				/>
 
+				<div style={{ textAlign: "right", marginTop: "-0.5rem", marginBottom: "1rem" }}>
+					<Link href="/forgot-password" style={{ color: "#6366f1", fontSize: "0.875rem" }}>
+						Forgot password?
+					</Link>
+				</div>
+
 				<Button
 					type="submit"
 					variant="primary"
@@ -90,29 +99,6 @@ export default function LoginPage() {
 				</Button>
 			</form>
 
-			{/* OAuth deferred
-      <div className={styles.divider}>
-        <span>Or continue with</span>
-      </div>
-
-      <div className={styles.oauthProviders}>
-        <Button
-          variant="secondary"
-          className={styles.oauthBtn}
-          onClick={() => window.location.href = 'http://localhost:5000/api/v1/auth/google'}
-        >
-          Google
-        </Button>
-        <Button
-          variant="secondary"
-          className={styles.oauthBtn}
-          onClick={() => window.location.href = 'http://localhost:5000/api/v1/auth/github'}
-        >
-          GitHub
-        </Button>
-      </div>
-      */}
-
 			<div className={styles.footer}>
 				<span>New to Varta?</span>{" "}
 				<Link href="/signup" className={styles.link}>
@@ -120,5 +106,13 @@ export default function LoginPage() {
 				</Link>
 			</div>
 		</Card>
+	)
+}
+
+export default function LoginPage() {
+	return (
+		<Suspense fallback={<Card padding="lg">Loading...</Card>}>
+			<LoginForm />
+		</Suspense>
 	)
 }

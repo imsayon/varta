@@ -10,19 +10,26 @@ import { apiClient } from '@/shared/api/api';
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get('token');
+  const initialToken = searchParams.get('token');
 
+  const [token, setToken] = useState<string | null>(initialToken);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    if (!token) {
+    if (!initialToken) {
       setStatus('error');
       setErrorMessage('Missing verification token in URL.');
       return;
     }
 
-    apiClient.post('/api/v1/auth/verify-email', { token })
+    setToken(initialToken);
+    // Strip token from URL bar and browser history immediately to prevent leakage
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    apiClient.post('/api/v1/auth/verify-email', { token: initialToken }, { skipAuth: true })
       .then((res) => {
         if (res.success) {
           setStatus('success');
@@ -31,11 +38,11 @@ function VerifyEmailContent() {
           setErrorMessage(res.error?.message || 'Verification failed');
         }
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         setStatus('error');
-        setErrorMessage(err?.message || 'Verification failed');
+        setErrorMessage(err instanceof Error ? err.message : 'Verification failed');
       });
-  }, [token]);
+  }, [initialToken]);
 
   return (
     <Card padding="lg">

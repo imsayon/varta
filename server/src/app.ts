@@ -27,16 +27,23 @@ import { rateLimitGlobal } from "./common/middleware/rate-limit.middleware.ts"
 import { authenticateOperatorMetrics } from "./common/middleware/operator.middleware.ts"
 import { authorize } from "./common/auth/route-policy.ts"
 
+import { requestIdMiddleware } from "./common/middleware/request-id.middleware.ts"
+
 const app = express()
 
 // Global Middleware
 app.disable("x-powered-by")
+app.use(requestIdMiddleware)
 app.use(
 	(
 		pinoHttp as unknown as (opts: {
 			logger: typeof logger
+			genReqId?: (req: express.Request) => string
 		}) => express.RequestHandler
-	)({ logger }),
+	)({
+		logger,
+		genReqId: (req) => (req as any).requestId || (req as any).id || "unknown",
+	}),
 )
 app.use((req, res, next) => {
 	const started = process.hrtime.bigint()
@@ -88,8 +95,14 @@ app.get("/api/metrics", authenticateOperatorMetrics, authorize("metrics.read"), 
 	res.type(metricsRegistry.contentType).send(await metricsRegistry.metrics())
 })
 
+import { openApiSpec } from "./common/openapi.ts"
+
 // Global API rate limiting
 app.use("/api/v1", rateLimitGlobal)
+
+app.get("/api/v1/openapi.json", authorize("openapi.read"), (_req, res) => {
+	res.json(openApiSpec)
+})
 
 app.use("/api/v1/auth", authRouter)
 app.use("/api/v1/workspaces", workspaceRouter)

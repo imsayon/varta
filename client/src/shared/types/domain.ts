@@ -183,9 +183,21 @@ export interface INotification {
 /*  API Response Wrapper                                                      */
 /* -------------------------------------------------------------------------- */
 
+export interface IApiMeta {
+	requestId?: string
+	cursor?: string | null
+	hasMore?: boolean
+	total?: number
+	page?: number
+	limit?: number
+	[key: string]: unknown
+}
+
 export interface IApiError {
+	code?: string
 	message: string
-	status: number
+	status?: number
+	details?: Record<string, string[]> | unknown
 	stack?: string
 }
 
@@ -198,6 +210,7 @@ export interface ApiResponse<T> {
 	data?: T
 	message?: string
 	error?: IApiError
+	meta?: IApiMeta
 }
 
 /* -------------------------------------------------------------------------- */

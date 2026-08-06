@@ -1,21 +1,45 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-const publicRoutes = ["/login", "/signup"]
+const publicAuthRoutes = [
+	"/login",
+	"/signup",
+	"/forgot-password",
+	"/reset-password",
+	"/verify-email",
+]
+
 const protectedRoutes = [
 	"/analytics",
 	"/api-keys",
 	"/subscribers",
 	"/templates",
 	"/rules",
+	"/routing-rules",
 	"/settings",
 	"/dashboard",
+	"/studio",
+	"/notifications",
 ]
+
+export function validateRedirectUrl(urlParam?: string | null): string {
+	if (!urlParam) return "/analytics"
+	const trimmed = urlParam.trim()
+	if (
+		trimmed.startsWith("/") &&
+		!trimmed.startsWith("//") &&
+		!trimmed.startsWith("/\\") &&
+		!trimmed.includes(":")
+	) {
+		return trimmed
+	}
+	return "/analytics"
+}
 
 export function proxy(request: NextRequest) {
 	const { pathname } = request.nextUrl
 
-	// Skip proxy for API routes and static assets
+	// Skip proxy for API routes, Next.js static assets, and files with extensions
 	if (
 		pathname.startsWith("/api") ||
 		pathname.startsWith("/_next") ||
@@ -26,10 +50,12 @@ export function proxy(request: NextRequest) {
 
 	const hasRefreshToken = request.cookies.has("refreshToken")
 
-	// If trying to access public auth routes while already logged in
-	if (publicRoutes.some((route) => pathname.startsWith(route))) {
-        if (hasRefreshToken) {
-			return NextResponse.redirect(new URL("/settings", request.url))
+	// If trying to access public auth routes while logged in
+	if (publicAuthRoutes.some((route) => pathname.startsWith(route))) {
+		const isVerificationFlow = pathname.startsWith("/verify-email") || pathname.startsWith("/reset-password")
+		if (hasRefreshToken && !isVerificationFlow) {
+			const redirectTarget = validateRedirectUrl(request.nextUrl.searchParams.get("from"))
+			return NextResponse.redirect(new URL(redirectTarget, request.url))
 		}
 		return NextResponse.next()
 	}

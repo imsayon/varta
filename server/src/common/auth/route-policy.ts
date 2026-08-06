@@ -31,6 +31,7 @@ export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 	{ id: "health.combinedReady", method: "GET", path: "/api/health/combined/ready", public: true },
 	{ id: "health.workerReady", method: "GET", path: "/api/health/worker/ready", public: true },
 	{ id: "metrics.read", method: "GET", path: "/api/metrics", principalKinds: ["operator_metrics"], scopes: ["metrics:read"] },
+	{ id: "openapi.read", method: "GET", path: "/api/v1/openapi.json", public: true },
 
 	{ id: "auth.register", method: "POST", path: "/api/v1/auth/register", public: true },
 	{ id: "auth.login", method: "POST", path: "/api/v1/auth/login", public: true },
