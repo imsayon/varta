@@ -1,6 +1,7 @@
 import { Router } from "express"
 import { prisma } from "@/infra/database/prisma.ts"
 import { redis } from "@/infra/redis/redis.connection.ts"
+import { workerState } from "@/infra/workers/worker.bootstrap.ts"
 
 const router = Router()
 
@@ -27,6 +28,22 @@ router.get("/ready", async (_req, res) => {
 	res.status(ready ? 200 : 503).json({
 		status: ready ? "ok" : "not_ready",
 		checks: { database: database ? "ok" : "failed", redis: cache ? "ok" : "failed" },
+	})
+})
+
+router.get("/worker/ready", (_req, res) => {
+	if (workerState.status === "not_started") {
+		res.status(404).json({ status: "not_applicable" })
+		return
+	}
+
+	const ready = workerState.status === "ready" && redis.status === "ready"
+	res.status(ready ? 200 : 503).json({
+		status: ready ? "ok" : "not_ready",
+		checks: {
+			worker: workerState.status,
+			redis: redis.status === "ready" ? "ok" : "failed",
+		},
 	})
 })
 

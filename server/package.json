@@ -11,9 +11,10 @@
 	"scripts": {
 		"dev": "tsx watch src/server.ts",
 		"dev:worker": "tsx watch src/worker.ts",
-		"build": "tsup src/server.ts src/worker.ts --format esm --out-dir dist --target node24 --sourcemap --clean --tsconfig tsconfig.json",
+		"build": "tsup src/server.ts src/worker.ts src/combined.ts --format esm --out-dir dist --target node24 --sourcemap --clean --tsconfig tsconfig.json",
 		"start": "node dist/server.js",
 		"start:worker": "node dist/worker.js",
+		"start:combined": "node dist/combined.js",
 		"lint": "tsc --noEmit",
 		"typecheck": "tsc --noEmit",
 		"test": "DATABASE_URL=postgresql://localhost/test JWT_ACCESS_SECRET=test JWT_REFRESH_SECRET=test NODE_ENV=test tsx --test src/**/*.test.ts",
