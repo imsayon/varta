@@ -16,6 +16,7 @@ export const create = async (
 			workspaceId,
 			req.body.name,
 			req.body.permissions,
+			req.body.expiresAt ? new Date(req.body.expiresAt) : undefined,
 		)
 		res.status(201).json({ success: true, data: apiKey })
 	} catch (err) {

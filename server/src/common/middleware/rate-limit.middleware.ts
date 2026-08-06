@@ -3,6 +3,15 @@ import { RateLimiterRedis } from "rate-limiter-flexible"
 import { redis } from "@/infra/redis/redis.connection.ts"
 import { TooManyRequestsError } from "@/common/errors/app-error.ts"
 import { logger } from "@/infra/observability/logger.ts"
+import { ServiceUnavailableError } from "@/common/errors/app-error.ts"
+
+function retryAfterSeconds(error: object): number {
+	const milliseconds =
+		"msBeforeNext" in error && typeof error.msBeforeNext === "number"
+			? error.msBeforeNext
+			: 60_000
+	return Math.max(1, Math.ceil(milliseconds / 1000))
+}
 
 const authLimiter = new RateLimiterRedis({
 	storeClient: redis,
@@ -39,14 +48,12 @@ export async function rateLimitAuth(
 			next(
 				new TooManyRequestsError(
 					"Too many authentication attempts, please try again later.",
+					retryAfterSeconds(error),
 				),
 			)
 		} else {
-			logger.warn(
-				{ err: error },
-				"Auth rate limiter error - failing open",
-			)
-			next()
+			logger.error({ err: error }, "Auth rate limiter unavailable")
+			next(new ServiceUnavailableError("Authentication rate limiter unavailable"))
 		}
 	}
 }
@@ -65,6 +72,7 @@ export async function rateLimitGlobal(
 			next(
 				new TooManyRequestsError(
 					"Global rate limit exceeded, please slow down.",
+					retryAfterSeconds(error),
 				),
 			)
 		} else {
@@ -99,14 +107,12 @@ export async function rateLimitWorkspaceTrigger(
 			next(
 				new TooManyRequestsError(
 					"Workspace trigger rate limit exceeded (max 60 requests per minute).",
+					retryAfterSeconds(error),
 				),
 			)
 		} else {
-			logger.warn(
-				{ err: error },
-				"Workspace trigger rate limiter error - failing open",
-			)
-			next()
+			logger.error({ err: error }, "Workspace trigger rate limiter unavailable")
+			next(new ServiceUnavailableError("Workspace trigger rate limiter unavailable"))
 		}
 	}
 }

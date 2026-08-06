@@ -5,11 +5,11 @@ import {
 	createSubscriberSchema,
 	updateSubscriberSchema,
 } from "./subscriber.schema.ts"
-import { authenticate } from "@/common/middleware/auth.middleware.ts"
+import { authenticateAny } from "@/common/middleware/auth.middleware.ts"
 import { authorize } from "@/common/auth/route-policy.ts"
 
 const router = Router({ mergeParams: true })
-router.use(authenticate)
+router.use(authenticateAny)
 
 router.post(
 	"/",

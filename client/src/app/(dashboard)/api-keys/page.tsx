@@ -51,7 +51,7 @@ export default function ApiKeysPage() {
 
     const res = await apiClient.post<any>(`/api/v1/workspaces/${workspace.id}/api-keys`, {
       name: name.trim(),
-      permissions: ['notifications:write', 'subscribers:read', 'subscribers:write'],
+      permissions: ['notifications:trigger', 'notifications:retry', 'subscribers:read', 'subscribers:write'],
     });
 
     setIsCreating(false);

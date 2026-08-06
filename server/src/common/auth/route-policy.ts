@@ -57,12 +57,12 @@ export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 	{ id: "workspace.delete", method: "DELETE", path: "/api/v1/workspaces/:workspaceId", principalKinds: browser, roles: ["OWNER"], hideWorkspaceMismatch: true },
 	{ id: "workspace.members.list", method: "GET", path: "/api/v1/workspaces/:workspaceId/members", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
 
-	{ id: "subscriber.create", method: "POST", path: "/api/v1/workspaces/:workspaceId/subscribers", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
-	{ id: "subscriber.list", method: "GET", path: "/api/v1/workspaces/:workspaceId/subscribers", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
-	{ id: "subscriber.read", method: "GET", path: "/api/v1/workspaces/:workspaceId/subscribers/:subscriberId", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
-	{ id: "subscriber.wsToken", method: "POST", path: "/api/v1/workspaces/:workspaceId/subscribers/:subscriberId/ws-token", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
-	{ id: "subscriber.update", method: "PATCH", path: "/api/v1/workspaces/:workspaceId/subscribers/:subscriberId", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
-	{ id: "subscriber.delete", method: "DELETE", path: "/api/v1/workspaces/:workspaceId/subscribers/:subscriberId", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
+	{ id: "subscriber.create", method: "POST", path: "/api/v1/workspaces/:workspaceId/subscribers", principalKinds: browserOrKey, roles: triggerRoles, scopes: ["subscribers:write"], hideWorkspaceMismatch: true },
+	{ id: "subscriber.list", method: "GET", path: "/api/v1/workspaces/:workspaceId/subscribers", principalKinds: browserOrKey, roles: triggerRoles, scopes: ["subscribers:read"], hideWorkspaceMismatch: true },
+	{ id: "subscriber.read", method: "GET", path: "/api/v1/workspaces/:workspaceId/subscribers/:subscriberId", principalKinds: browserOrKey, roles: triggerRoles, scopes: ["subscribers:read"], hideWorkspaceMismatch: true },
+	{ id: "subscriber.wsToken", method: "POST", path: "/api/v1/workspaces/:workspaceId/subscribers/:subscriberId/ws-token", principalKinds: browserOrKey, roles: triggerRoles, scopes: ["subscribers:ws-token"], hideWorkspaceMismatch: true },
+	{ id: "subscriber.update", method: "PATCH", path: "/api/v1/workspaces/:workspaceId/subscribers/:subscriberId", principalKinds: browserOrKey, roles: triggerRoles, scopes: ["subscribers:write"], hideWorkspaceMismatch: true },
+	{ id: "subscriber.delete", method: "DELETE", path: "/api/v1/workspaces/:workspaceId/subscribers/:subscriberId", principalKinds: browserOrKey, roles: triggerRoles, scopes: ["subscribers:write"], hideWorkspaceMismatch: true },
 
 	{ id: "template.list", method: "GET", path: "/api/v1/workspaces/:workspaceId/templates", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
 	{ id: "template.create", method: "POST", path: "/api/v1/workspaces/:workspaceId/templates", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
@@ -153,7 +153,10 @@ export function authorize(policyId: string): RequestHandler {
 
 		if (policy.scopes && capability.principal.kind === "api_key") {
 			const scopes = capability.workspace?.scopes ?? capability.principal.scopes
-			if (!policy.scopes.every((scope) => scopes.includes(scope))) {
+			if (
+				!scopes.includes("*") &&
+				!policy.scopes.every((scope) => scopes.includes(scope))
+			) {
 				next(new ForbiddenError("Insufficient scope for this route"))
 				return
 			}
