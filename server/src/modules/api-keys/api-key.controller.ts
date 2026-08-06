@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express"
 import { apiKeyService } from "./api-key.service.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
+import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
 
 export const create = async (
 	req: Request,
@@ -8,7 +9,7 @@ export const create = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertAdmin(workspaceId, userId)
 		const apiKey = await apiKeyService.create(
@@ -28,7 +29,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 		const keys = await apiKeyService.list(workspaceId)
@@ -44,7 +45,7 @@ export const remove = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertAdmin(workspaceId, userId)
 		await apiKeyService.revoke(workspaceId, req.params.keyId as string)

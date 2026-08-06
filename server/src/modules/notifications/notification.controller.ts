@@ -8,9 +8,10 @@ import {
 	ForbiddenError,
 } from "@/common/errors/app-error.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
+import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
 
 function assertApiKeyWorkspace(req: Request, workspaceId: string) {
-	if (req.apiKey?.workspaceId !== workspaceId) {
+	if (requireWorkspaceCapability(req).workspaceId !== workspaceId) {
 		throw new ForbiddenError("API key does not belong to this workspace")
 	}
 }
@@ -51,7 +52,7 @@ export const list = async (
 ): Promise<void> => {
 	try {
 		const workspaceId = req.params.workspaceId as string
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		await workspaceService.assertMembership(workspaceId, userId)
 
 		const page = Number(req.query.page ?? 1)
@@ -86,7 +87,7 @@ export const getById = async (
 	try {
 		const workspaceId = req.params.workspaceId as string
 		const notificationId = req.params.notificationId as string
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		await workspaceService.assertMembership(workspaceId, userId)
 
 		const notification = await notificationRepository.findById(
@@ -119,7 +120,7 @@ export const markRead = async (
 	try {
 		const workspaceId = req.params.workspaceId as string
 		const notificationId = req.params.notificationId as string
-		await workspaceService.assertMembership(workspaceId, req.user!.id)
+		await workspaceService.assertMembership(workspaceId, requireWorkspaceCapability(req).actorId)
 		const notification = await notificationRepository.markRead(workspaceId, notificationId)
 		res.status(200).json({ success: true, data: notification })
 	} catch (error) {

@@ -24,6 +24,8 @@ import { providerRouter } from "./modules/providers/provider.routes.ts"
 import { webhookInboundRoutes } from "./modules/webhooks/webhook-inbound.routes.ts"
 import { metricsRegistry, observeHttp } from "@/infra/observability/metrics.ts"
 import { rateLimitGlobal } from "./common/middleware/rate-limit.middleware.ts"
+import { authenticateOperatorMetrics } from "./common/middleware/operator.middleware.ts"
+import { authorize } from "./common/auth/route-policy.ts"
 
 const app = express()
 
@@ -82,25 +84,7 @@ app.use(passport.initialize())
 
 // Route Mounting
 app.use("/api/health", healthRouter)
-app.get("/api/metrics", async (req, res) => {
-	const authHeader = req.headers.authorization
-	const tokenHeader = req.headers["x-metrics-token"]
-	const providedToken = authHeader?.startsWith("Bearer ")
-		? authHeader.slice(7)
-		: typeof tokenHeader === "string"
-			? tokenHeader
-			: null
-
-	if (!providedToken || providedToken !== env.METRICS_AUTH_TOKEN) {
-		res.status(401).json({
-			statusCode: 401,
-			error: "Unauthorized",
-			code: "UNAUTHORIZED",
-			message: "Invalid or missing metrics authentication token",
-		})
-		return
-	}
-
+app.get("/api/metrics", authenticateOperatorMetrics, authorize("metrics.read"), async (_req, res) => {
 	res.type(metricsRegistry.contentType).send(await metricsRegistry.metrics())
 })
 

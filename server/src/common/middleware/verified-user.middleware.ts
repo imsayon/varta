@@ -1,24 +1,17 @@
 import type { Request, Response, NextFunction } from "express"
 import { prisma } from "@/infra/database/prisma.ts"
+import { requireCapability } from "@/common/auth/capability.ts"
 
 export async function requireVerifiedUser(
 	req: Request,
 	res: Response,
 	next: NextFunction,
 ): Promise<void> {
-	if (!req.user || !req.user.id) {
-		res.status(401).json({
-			statusCode: 401,
-			error: "Unauthorized",
-			code: "UNAUTHORIZED",
-			message: "Authentication required",
-		})
-		return
-	}
-
 	try {
+		const actorId = requireCapability(req).principal.actorId
+		if (!actorId) throw new Error("Capability has no actor")
 		const user = await prisma.user.findUnique({
-			where: { id: req.user.id },
+			where: { id: actorId },
 			select: { emailVerified: true },
 		})
 

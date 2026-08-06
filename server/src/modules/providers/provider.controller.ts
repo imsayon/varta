@@ -3,6 +3,7 @@ import { providerService } from "./provider.service.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
 import { Resend } from "resend"
 import { decryptConfig } from "@/common/utils/crypto.util.ts"
+import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
 
 export const upsert = async (
 	req: Request,
@@ -10,7 +11,7 @@ export const upsert = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 
 		// Step 1: Only admins can configure providers
@@ -38,7 +39,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertAdmin(workspaceId, userId)
 
@@ -72,7 +73,7 @@ export const testConnection = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		const channel = req.params.channel as string
 		await workspaceService.assertAdmin(workspaceId, userId)

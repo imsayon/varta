@@ -3,6 +3,7 @@ import { templateService } from "./template.service.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
 import Handlebars from "handlebars"
 import DOMPurify from "isomorphic-dompurify"
+import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
 
 export const create = async (
 	req: Request,
@@ -10,7 +11,7 @@ export const create = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -30,7 +31,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -61,7 +62,7 @@ export const getById = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -89,7 +90,7 @@ export const update = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -122,7 +123,7 @@ export const remove = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -154,7 +155,7 @@ export const preview = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 

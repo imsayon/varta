@@ -8,6 +8,8 @@ import {
 	verifySubscriberWebSocketToken,
 	type SubscriberWebSocketTokenPayload,
 } from "@/common/utils/auth/websocket-token.ts"
+import { getRoutePolicy } from "@/common/auth/route-policy.ts"
+import type { AuthorizationCapability, SubscriberWebSocketPrincipal } from "@/common/auth/principal.ts"
 import {
 	REALTIME_CHANNEL,
 	realtimeConnectionKey,
@@ -30,6 +32,7 @@ const webSocketServer = new WebSocketServer({ noServer: true })
 const pubsub = redis.duplicate()
 const connections = new Map<string, Connection>()
 const socketTokens = new WeakMap<WebSocket, SubscriberWebSocketTokenPayload>()
+const socketCapabilities = new WeakMap<WebSocket, AuthorizationCapability>()
 let heartbeat: NodeJS.Timeout | undefined
 let upgradeHandler:
 	| ((
@@ -117,7 +120,8 @@ async function register(
 	request: IncomingMessage,
 ): Promise<void> {
 	const token = socketTokens.get(socket)
-	if (!token || !token.sub) {
+	const capability = socketCapabilities.get(socket)
+	if (!token || !token.sub || !capability) {
 		socket.close(1008, "Invalid token")
 		return
 	}
@@ -212,8 +216,32 @@ async function upgrade(
 		const token = url.searchParams.get("token")
 		if (!token) throw new Error("Missing WebSocket token")
 		const claims = await verifySubscriberWebSocketToken(token)
+		const policy = getRoutePolicy("websocket.subscriber")
+		const principal: SubscriberWebSocketPrincipal = {
+			kind: "subscriber_websocket",
+			actorId: claims.sub,
+			workspaceId: claims.workspaceId,
+			subscriberId: claims.sub,
+			scopes: ["realtime:subscribe"],
+			verification: "not_applicable",
+		}
+		if (!policy.principalKinds?.includes(principal.kind)) {
+			socket.destroy()
+			return
+		}
 		webSocketServer.handleUpgrade(request, socket, head, (client) => {
 			socketTokens.set(client, claims)
+			socketCapabilities.set(client, {
+				principal,
+				workspace: {
+					actorId: principal.actorId,
+					workspaceId: principal.workspaceId,
+					role: "SUBSCRIBER",
+					scopes: principal.scopes,
+					verification: principal.verification,
+					principalKind: principal.kind,
+				},
+			})
 			webSocketServer.emit("connection", client, request)
 		})
 	} catch (error) {

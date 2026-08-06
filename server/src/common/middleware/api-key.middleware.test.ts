@@ -6,10 +6,8 @@ describe("API Key Scope Middleware", () => {
 	it("allows request when required scope is present", () => {
 		const middleware = requireApiKeyScope("notifications:write")
 		const req: any = {
-			apiKey: {
-				id: "key_1",
-				workspaceId: "ws_1",
-				permissions: ["notifications:write", "subscribers:read"],
+			capability: {
+				principal: { kind: "api_key", scopes: ["notifications:write", "subscribers:read"] },
 			},
 		}
 		let nextCalled = false
@@ -25,10 +23,8 @@ describe("API Key Scope Middleware", () => {
 	it("denies request when required scope is missing", () => {
 		const middleware = requireApiKeyScope("admin:all")
 		const req: any = {
-			apiKey: {
-				id: "key_1",
-				workspaceId: "ws_1",
-				permissions: ["notifications:write"],
+			capability: {
+				principal: { kind: "api_key", scopes: ["notifications:write"] },
 			},
 		}
 		let statusCode = 0
@@ -54,10 +50,8 @@ describe("API Key Scope Middleware", () => {
 	it("allows request when wildcard * scope is present", () => {
 		const middleware = requireApiKeyScope("admin:all")
 		const req: any = {
-			apiKey: {
-				id: "key_1",
-				workspaceId: "ws_1",
-				permissions: ["*"],
+			capability: {
+				principal: { kind: "api_key", scopes: ["*"] },
 			},
 		}
 		let nextCalled = false

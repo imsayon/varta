@@ -7,6 +7,7 @@ import {
 	clearRefreshTokenCookie,
 } from "@/common/utils/auth/cookies.ts"
 import { verifyRefreshToken } from "@/common/utils/auth/jwt.ts"
+import { requireCapability } from "@/common/auth/capability.ts"
 
 export const authController = {
 	async register(req: Request, res: Response) {
@@ -142,7 +143,7 @@ export const authController = {
 	},
 
 	async getSessions(req: Request, res: Response) {
-		const sessions = await authService.getSessions(req.user!.id)
+		const sessions = await authService.getSessions(requireCapability(req).principal.actorId as string)
 		res.status(200).json({
 			success: true,
 			data: sessions,
@@ -151,7 +152,7 @@ export const authController = {
 
 	async revokeSession(req: Request, res: Response) {
 		await authService.revokeSession(
-			req.user!.id,
+			requireCapability(req).principal.actorId as string,
 			req.params.id as string,
 		)
 		res.status(200).json({
@@ -161,7 +162,7 @@ export const authController = {
 	},
 
 	async me(req: Request, res: Response) {
-		const user = await authRepository.findUserById(req.user!.id)
+		const user = await authRepository.findUserById(requireCapability(req).principal.actorId as string)
 		if (!user) {
 			res.status(404).json({ success: false, message: "User not found" })
 			return

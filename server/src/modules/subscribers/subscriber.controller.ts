@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express"
 import { subscriberService } from "./subscriber.service.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
 import { generateSubscriberWebSocketToken } from "@/common/utils/auth/websocket-token.ts"
+import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
 
 export const createOrUpdate = async (
 	req: Request,
@@ -9,7 +10,7 @@ export const createOrUpdate = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -33,7 +34,7 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -64,7 +65,7 @@ export const getById = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -92,7 +93,7 @@ export const update = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -125,7 +126,7 @@ export const remove = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -162,7 +163,7 @@ export const issueWebSocketToken = async (
 		if (typeof workspaceId !== "string" || typeof subscriberId !== "string") {
 			throw new Error("Workspace id and subscriber id are required")
 		}
-		await workspaceService.assertMembership(workspaceId, req.user!.id)
+		await workspaceService.assertMembership(workspaceId, requireWorkspaceCapability(req).actorId)
 		const subscriber = await subscriberService.findById(workspaceId, subscriberId)
 		if (!subscriber) {
 			res.status(404).json({ success: false, message: "Subscriber not found" })

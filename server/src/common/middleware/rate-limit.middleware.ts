@@ -86,7 +86,7 @@ export async function rateLimitWorkspaceTrigger(
 	try {
 		const rawWorkspaceId =
 			req.params.workspaceId ||
-			req.apiKey?.workspaceId ||
+			req.capability?.workspace?.workspaceId ||
 			req.ip ||
 			"unknown"
 		const workspaceIdKey = Array.isArray(rawWorkspaceId)
