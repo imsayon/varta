@@ -14,8 +14,8 @@ export const subscriberRepository = {
 	) {
 		return prisma.subscriber.upsert({
 			where: { workspaceId_externalId: { workspaceId, externalId } },
-			update: data,
-			create: data,
+			update: { ...data, workspaceId, externalId },
+			create: { ...data, workspaceId, externalId },
 		})
 	},
 
@@ -46,18 +46,16 @@ export const subscriberRepository = {
 	async update(
 		workspaceId: string,
 		id: string,
-		data: Prisma.SubscriberUncheckedUpdateInput,
+		data: Prisma.SubscriberUpdateManyMutationInput,
 	) {
-		const subscriber = await prisma.subscriber.findFirst({
-			where: { id, workspaceId },
-			select: { id: true },
+		return prisma.$transaction(async (tx) => {
+			const updated = await tx.subscriber.updateMany({
+				where: { id, workspaceId },
+				data,
+			})
+			if (updated.count !== 1) throw new NotFoundError("Subscriber not found")
+			return tx.subscriber.findUniqueOrThrow({ where: { id } })
 		})
-
-		if (!subscriber) {
-			throw new NotFoundError("Subscriber not found")
-		}
-
-		return prisma.subscriber.update({ where: { id }, data })
 	},
 
 	async delete(workspaceId: string, id: string) {
@@ -80,6 +78,7 @@ export const subscriberRepository = {
 			)
 		}
 
-		return prisma.subscriber.delete({ where: { id } })
+		const deleted = await prisma.subscriber.deleteMany({ where: { id, workspaceId } })
+		if (deleted.count !== 1) throw new NotFoundError("Subscriber not found")
 	},
 }

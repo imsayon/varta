@@ -22,16 +22,20 @@ export const routingRuleRepository = {
 	async update(
 		workspaceId: string,
 		id: string,
-		data: Prisma.RoutingRuleUncheckedUpdateInput,
+		data: Prisma.RoutingRuleUpdateManyMutationInput,
 	) {
-		const rule = await this.findById(workspaceId, id)
-		if (!rule) return null
-		return prisma.routingRule.update({ where: { id: rule.id }, data })
+		return prisma.$transaction(async (tx) => {
+			const updated = await tx.routingRule.updateMany({
+				where: { id, workspaceId },
+				data,
+			})
+			if (updated.count !== 1) return null
+			return tx.routingRule.findUniqueOrThrow({ where: { id } })
+		})
 	},
 
 	async delete(workspaceId: string, id: string) {
-		const rule = await this.findById(workspaceId, id)
-		if (!rule) return null
-		return prisma.routingRule.delete({ where: { id: rule.id } })
+		const deleted = await prisma.routingRule.deleteMany({ where: { id, workspaceId } })
+		return deleted.count === 1
 	},
 }

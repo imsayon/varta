@@ -1,5 +1,6 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import { Prisma } from "@prisma/client"
+import { NotFoundError } from "@/common/errors/app-error.ts"
 
 export const templateRepository = {
 	async create(data: Prisma.TemplateUncheckedCreateInput) {
@@ -33,17 +34,20 @@ export const templateRepository = {
 	async update(
 		workspaceId: string,
 		id: string,
-		data: Prisma.TemplateUncheckedUpdateInput,
+		data: Prisma.TemplateUpdateManyMutationInput,
 	) {
-		return prisma.template.update({
-			where: { id },
-			data,
+		return prisma.$transaction(async (tx) => {
+			const updated = await tx.template.updateMany({
+				where: { id, workspaceId },
+				data,
+			})
+			if (updated.count !== 1) throw new NotFoundError("Template not found")
+			return tx.template.findUniqueOrThrow({ where: { id } })
 		})
 	},
 
 	async delete(workspaceId: string, id: string) {
-		return prisma.template.delete({
-			where: { id },
-		})
+		const deleted = await prisma.template.deleteMany({ where: { id, workspaceId } })
+		if (deleted.count !== 1) throw new NotFoundError("Template not found")
 	},
 }

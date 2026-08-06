@@ -29,7 +29,7 @@ export const subscriberService = {
 	async update(
 		workspaceId: string,
 		id: string,
-		data: Prisma.SubscriberUncheckedUpdateInput,
+		data: Prisma.SubscriberUpdateManyMutationInput,
 	) {
 		return subscriberRepository.update(workspaceId, id, data)
 	},

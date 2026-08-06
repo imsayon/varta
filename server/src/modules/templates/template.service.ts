@@ -10,7 +10,7 @@ export const templateService = {
 	async update(
 		workspaceId: string,
 		id: string,
-		data: Prisma.TemplateUncheckedUpdateInput,
+		data: Prisma.TemplateUpdateManyMutationInput,
 	) {
 		return templateRepository.update(workspaceId, id, data)
 	},
