@@ -42,8 +42,8 @@ function parseRuleAst(value: unknown): RoutingRuleAst {
 }
 
 export const routingRuleService = {
-	async list(workspaceId: string) {
-		return routingRuleRepository.list(workspaceId)
+	async list(workspaceId: string, skip?: number, take?: number) {
+		return routingRuleRepository.list(workspaceId, skip, take)
 	},
 
 	async create(workspaceId: string, input: unknown) {

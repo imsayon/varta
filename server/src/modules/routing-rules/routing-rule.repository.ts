@@ -2,10 +2,12 @@ import { prisma } from "@/infra/database/prisma.ts"
 import type { Prisma } from "@prisma/client"
 
 export const routingRuleRepository = {
-	async list(workspaceId: string) {
+	async list(workspaceId: string, skip?: number, take?: number) {
 		return prisma.routingRule.findMany({
 			where: { workspaceId },
 			orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+			...(skip !== undefined ? { skip } : {}),
+			...(take !== undefined ? { take } : {}),
 		})
 	},
 

@@ -7,15 +7,9 @@ import { Input } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button/Button';
 import { apiClient } from '@/shared/api/api';
 import { useAuth } from '@/shared/auth/auth-context';
+import type { IApiKey, IApiKeyCreateResponse } from '@/shared/types/domain';
 
-interface ApiKeyItem {
-  id: string;
-  name: string;
-  keyPrefix?: string;
-  permissions?: string[];
-  createdAt: string;
-  expiresAt?: string | null;
-}
+type ApiKeyItem = IApiKey;
 
 export default function ApiKeysPage() {
   const { workspace } = useAuth();
@@ -29,7 +23,7 @@ export default function ApiKeysPage() {
     if (!workspace) return;
     setLoading(true);
     const res = await apiClient.get<ApiKeyItem[]>(`/api/v1/workspaces/${workspace.id}/api-keys`);
-    if (res.success && res.data) {
+    if (res.success) {
       setKeys(res.data);
     } else {
       toast.error(res.error?.message || 'Failed to load API keys');
@@ -49,16 +43,16 @@ export default function ApiKeysPage() {
     setIsCreating(true);
     setCreatedSecret(null);
 
-    const res = await apiClient.post<any>(`/api/v1/workspaces/${workspace.id}/api-keys`, {
+    const res = await apiClient.post<IApiKeyCreateResponse>(`/api/v1/workspaces/${workspace.id}/api-keys`, {
       name: name.trim(),
       permissions: ['notifications:trigger', 'notifications:retry', 'subscribers:read', 'subscribers:write'],
     });
 
     setIsCreating(false);
 
-    if (res.success && res.data) {
+    if (res.success) {
       const newKey = res.data;
-      setCreatedSecret(newKey.secretKey || newKey.fullKey || 'Key created successfully');
+      setCreatedSecret(newKey.fullKey);
       setName('');
       toast.success('API key created successfully!');
       fetchKeys();
@@ -146,7 +140,7 @@ export default function ApiKeysPage() {
                 <div>
                   <div style={{ fontWeight: 600, color: '#f8fafc' }}>{k.name}</div>
                   <div style={{ fontSize: '0.875rem', color: '#94a3b8', fontFamily: 'monospace' }}>
-                    Prefix: {k.keyPrefix || k.id.substring(0, 8)}...
+                    Prefix: {k.prefix || k.id.substring(0, 8)}...
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
                     Created: {new Date(k.createdAt).toLocaleDateString()}

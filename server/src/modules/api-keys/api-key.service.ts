@@ -40,9 +40,11 @@ export const apiKeyService = {
 		return { ...apiKey, fullKey }
 	},
 
-	async list(workspaceId: string) {
+	async list(workspaceId: string, skip = 0, take = 101) {
 		return prisma.apiKey.findMany({
 			where: { workspaceId },
+			skip,
+			take,
 			select: {
 				id: true,
 				name: true,

@@ -26,6 +26,14 @@ export interface ApiErrorEnvelope {
 	meta: ApiMeta
 }
 
+export function requestMeta(req: Request, extra: ApiMeta = {}): ApiMeta {
+	const requestId = String(req.requestId || req.id || "")
+	return {
+		...(requestId ? { requestId } : {}),
+		...extra,
+	}
+}
+
 export function sendSuccess<T>(
 	req: Request,
 	res: Response,
@@ -33,14 +41,10 @@ export function sendSuccess<T>(
 	statusCode = 200,
 	meta: ApiMeta = {},
 ): Response {
-	const requestId = String(req.requestId || req.id || res.getHeader("x-request-id") || "")
 	const payload: ApiSuccessEnvelope<T> = {
 		success: true,
 		data,
-		meta: {
-			...(requestId ? { requestId } : {}),
-			...meta,
-		},
+		meta: requestMeta(req, meta),
 	}
 	return res.status(statusCode).json(payload)
 }
@@ -55,9 +59,7 @@ export function sendPaginated<T>(
 	statusCode = 200,
 	extraMeta: ApiMeta = {},
 ): Response {
-	const requestId = String(req.requestId || req.id || res.getHeader("x-request-id") || "")
-	const meta: ApiMeta = {
-		...(requestId ? { requestId } : {}),
+	const paginationMeta: ApiMeta = {
 		cursor,
 		hasMore,
 		...(total !== undefined ? { total } : {}),
@@ -66,6 +68,25 @@ export function sendPaginated<T>(
 	return res.status(statusCode).json({
 		success: true,
 		data: items,
-		meta,
+		meta: requestMeta(req, paginationMeta),
+	})
+}
+
+export function sendError(
+	req: Request,
+	res: Response,
+	statusCode: number,
+	code: string,
+	message: string,
+	details?: Record<string, string[]> | unknown,
+): Response {
+	return res.status(statusCode).json({
+		success: false,
+		error: {
+			code,
+			message,
+			...(details !== undefined ? { details } : {}),
+		},
+		meta: requestMeta(req),
 	})
 }

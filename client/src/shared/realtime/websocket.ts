@@ -26,7 +26,7 @@ export function useWebSocket({ workspaceId, subscriberId, onNotification }: UseW
 
     try {
       const tokenRes = await apiClient.post<{ token?: string }>(`/api/v1/workspaces/${workspaceId}/subscribers/${subscriberId}/ws-token`);
-      const token = tokenRes.data?.token;
+      const token = tokenRes.success ? tokenRes.data.token : undefined;
 
       if (!token) return;
 

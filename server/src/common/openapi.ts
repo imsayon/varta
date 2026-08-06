@@ -2,7 +2,7 @@ export const openApiSpec = {
 	openapi: "3.0.3",
 	info: {
 		title: "Varta API",
-		version: "1.0.0",
+		version: "0.0.0",
 		description: "Production Notification Platform API",
 	},
 	servers: [

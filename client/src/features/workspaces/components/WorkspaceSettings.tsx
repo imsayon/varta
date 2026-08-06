@@ -99,7 +99,7 @@ export function WorkspaceSettings() {
 			),
 		])
 
-		if (!workspaceRes.success || !workspaceRes.data) {
+		if (!workspaceRes.success) {
 			toast.error(
 				workspaceRes.error?.message ||
 					"Failed to load workspace settings",
@@ -175,7 +175,7 @@ export function WorkspaceSettings() {
 			},
 		)
 
-		if (!workspaceRes.success || !workspaceRes.data) {
+		if (!workspaceRes.success) {
 			setSaving(false)
 			toast.error(
 				workspaceRes.error?.message ||
@@ -229,7 +229,7 @@ export function WorkspaceSettings() {
 		)
 		setGeneratingKey(false)
 
-		if (!response.success || !response.data) {
+		if (!response.success) {
 			toast.error(response.error?.message || "Failed to generate API key")
 			return
 		}

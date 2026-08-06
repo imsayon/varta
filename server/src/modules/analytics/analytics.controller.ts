@@ -3,6 +3,7 @@ import { workspaceService } from "../workspaces/workspace.service.ts"
 import { analyticsService } from "./analytics.service.ts"
 import type { AnalyticsQuery } from "./analytics.schema.ts"
 import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
+import { sendSuccess } from "@/common/utils/response.ts"
 
 async function context(req: Request): Promise<{ workspaceId: string; query: AnalyticsQuery }> {
 	const workspaceId = req.params.workspaceId as string
@@ -13,7 +14,7 @@ async function context(req: Request): Promise<{ workspaceId: string; query: Anal
 export const overview = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const c = await context(req)
-		res.json({ success: true, data: await analyticsService.overview(c.workspaceId, c.query) })
+		sendSuccess(req, res, await analyticsService.overview(c.workspaceId, c.query))
 	} catch (error) {
 		next(error)
 	}
@@ -22,7 +23,7 @@ export const overview = async (req: Request, res: Response, next: NextFunction) 
 export const deliveryTimeline = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const c = await context(req)
-		res.json({ success: true, data: await analyticsService.deliveryTimeline(c.workspaceId, c.query) })
+		sendSuccess(req, res, await analyticsService.deliveryTimeline(c.workspaceId, c.query))
 	} catch (error) {
 		next(error)
 	}
@@ -31,7 +32,7 @@ export const deliveryTimeline = async (req: Request, res: Response, next: NextFu
 export const channelBreakdown = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const c = await context(req)
-		res.json({ success: true, data: await analyticsService.channelBreakdown(c.workspaceId, c.query) })
+		sendSuccess(req, res, await analyticsService.channelBreakdown(c.workspaceId, c.query))
 	} catch (error) {
 		next(error)
 	}
@@ -40,7 +41,7 @@ export const channelBreakdown = async (req: Request, res: Response, next: NextFu
 export const topTemplates = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const c = await context(req)
-		res.json({ success: true, data: await analyticsService.topTemplates(c.workspaceId, c.query) })
+		sendSuccess(req, res, await analyticsService.topTemplates(c.workspaceId, c.query))
 	} catch (error) {
 		next(error)
 	}

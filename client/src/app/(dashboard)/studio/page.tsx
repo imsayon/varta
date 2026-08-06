@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button/Button';
 import { apiClient } from '@/shared/api/api';
 import { useAuth } from '@/shared/auth/auth-context';
+import type { INotificationTriggerResponse, TriggerNotificationInput } from '@/shared/types/domain';
+import type { JsonObject } from '@/shared/types/json';
 
 export default function StudioPage() {
   const { workspace } = useAuth();
@@ -15,7 +17,7 @@ export default function StudioPage() {
   const [templateId, setTemplateId] = useState('');
   const [payloadJson, setPayloadJson] = useState('{\n  "name": "Alex",\n  "action": "login"\n}');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [triggerResult, setTriggerResult] = useState<any>(null);
+  const [triggerResult, setTriggerResult] = useState<INotificationTriggerResponse | { error: string } | null>(null);
 
   const handleTrigger = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,11 +29,17 @@ export default function StudioPage() {
       toast.error('Subscriber ID is required');
       return;
     }
+    if (!templateId.trim()) {
+      toast.error('Template ID is required');
+      return;
+    }
 
-    let parsedPayload = {};
+    let parsedPayload: JsonObject = {};
     try {
       if (payloadJson.trim()) {
-        parsedPayload = JSON.parse(payloadJson);
+        const parsed: unknown = JSON.parse(payloadJson);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('Payload must be an object');
+        parsedPayload = parsed as JsonObject;
       }
     } catch {
       toast.error('Invalid JSON payload');
@@ -41,12 +49,16 @@ export default function StudioPage() {
     setIsSubmitting(true);
     setTriggerResult(null);
 
-    const res = await apiClient.post(`/api/v1/workspaces/${workspace.id}/notifications/trigger`, {
-      subscriberId,
-      channels: [channel],
-      templateId: templateId.trim() || undefined,
+    const requestBody: TriggerNotificationInput = {
+      subscriberExternalId: subscriberId.trim(),
+      templateId: templateId.trim(),
       payload: parsedPayload,
-    });
+      options: { channels: [channel] },
+    };
+    const res = await apiClient.post<INotificationTriggerResponse>(
+      `/api/v1/workspaces/${workspace.id}/notifications/trigger`,
+      requestBody,
+    );
 
     setIsSubmitting(false);
 
@@ -54,7 +66,7 @@ export default function StudioPage() {
       setTriggerResult(res.data);
       toast.success('Notification triggered successfully!');
     } else {
-      const msg = res.error?.message || 'Trigger failed';
+      const msg = res.error.message || 'Trigger failed';
       toast.error(msg);
       setTriggerResult({ error: msg });
     }
@@ -87,7 +99,7 @@ export default function StudioPage() {
             </label>
             <select
               value={channel}
-              onChange={(e: any) => setChannel(e.target.value)}
+      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setChannel(e.target.value as typeof channel)}
               style={{
                 width: '100%',
                 padding: '0.625rem',
@@ -152,7 +164,7 @@ export default function StudioPage() {
               backgroundColor: '#0f172a',
               padding: '1rem',
               borderRadius: '0.375rem',
-              color: triggerResult.error ? '#ef4444' : '#10b981',
+              color: 'error' in triggerResult ? '#ef4444' : '#10b981',
               fontSize: '0.875rem',
               overflowX: 'auto',
             }}>

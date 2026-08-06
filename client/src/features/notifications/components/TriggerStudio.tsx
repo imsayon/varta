@@ -18,9 +18,7 @@ import { toast } from 'sonner';
 import type {
   INotificationTriggerResponse,
   ISubscriber,
-  ISubscriberListData,
   ITemplate,
-  ITemplateListData,
   TriggerNotificationInput,
 } from '@/shared/types/domain';
 import type { JsonObject } from '@/shared/types/json';
@@ -64,8 +62,8 @@ export function TriggerStudio() {
     const loadData = async () => {
       setLoading(true);
       const [templatesRes, subscribersRes] = await Promise.all([
-        apiClient.get<ITemplateListData>(`/api/v1/workspaces/${workspace.id}/templates`),
-        apiClient.get<ISubscriberListData>(`/api/v1/workspaces/${workspace.id}/subscribers`)
+        apiClient.get<{ templates: ITemplate[] }>(`/api/v1/workspaces/${workspace.id}/templates`),
+        apiClient.get<{ subscribers: ISubscriber[] }>(`/api/v1/workspaces/${workspace.id}/subscribers`)
       ]);
 
       if (templatesRes.success && templatesRes.data) {
@@ -131,7 +129,7 @@ export function TriggerStudio() {
 
     setTriggering(false);
 
-    if (res.success && res.data) {
+    if (res.success) {
       toast.success('Notification triggered successfully!');
       addLog('success', 'Pipeline accepted request (200 OK)');
       addLog('info', `Notification ID: ${res.data.notificationId}`);
@@ -146,8 +144,8 @@ export function TriggerStudio() {
         addLog('warn', 'Routing result: 0 active channels. Filtered by subscriber preferences or active routing rules.');
       }
     } else {
-      toast.error(res.error?.message || 'Failed to trigger notification');
-      addLog('error', `Pipeline execution failed: ${res.error?.message || 'Unknown network error'}`);
+      toast.error(res.error.message || 'Failed to trigger notification');
+      addLog('error', `Pipeline execution failed: ${res.error.message || 'Unknown network error'}`);
     }
   };
 

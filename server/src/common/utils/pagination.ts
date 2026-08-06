@@ -1,5 +1,6 @@
 export interface PaginationQuery {
 	cursor?: string
+	page: number
 	limit: number
 	from?: Date
 	to?: Date
@@ -14,6 +15,8 @@ export interface DecodedCursor {
 export function parsePaginationQuery(query: Record<string, unknown>): PaginationQuery {
 	const limitRaw = Number(query.limit)
 	const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 20
+	const pageRaw = Number(query.page)
+	const page = Number.isInteger(pageRaw) && pageRaw > 0 ? pageRaw : 1
 
 	let from: Date | undefined
 	if (typeof query.from === "string" && query.from.length > 0) {
@@ -39,7 +42,7 @@ export function parsePaginationQuery(query: Record<string, unknown>): Pagination
 		? query.search.trim()
 		: undefined
 
-	const result: PaginationQuery = { limit }
+	const result: PaginationQuery = { page, limit }
 	if (cursor) result.cursor = cursor
 	if (from) result.from = from
 	if (to) result.to = to

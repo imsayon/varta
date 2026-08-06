@@ -4,6 +4,8 @@ import { workspaceService } from "../workspaces/workspace.service.ts"
 import { Resend } from "resend"
 import { decryptConfig } from "@/common/utils/crypto.util.ts"
 import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
+import { sendSuccess } from "@/common/utils/response.ts"
+import { NotFoundError, BadRequestError } from "@/common/errors/app-error.ts"
 
 export const upsert = async (
 	req: Request,
@@ -27,7 +29,7 @@ export const upsert = async (
 			config,
 			isActive ?? true,
 		)
-		res.status(200).json({ success: true, data: result })
+		sendSuccess(req, res, result)
 	} catch (err) {
 		next(err)
 	}
@@ -61,7 +63,7 @@ export const list = async (
 				),
 			}
 		})
-		res.status(200).json({ success: true, data })
+		sendSuccess(req, res, data, 200, { total: data.length, hasMore: false })
 	} catch (err) {
 		next(err)
 	}
@@ -83,11 +85,7 @@ export const testConnection = async (
 			channel,
 		)
 		if (!providerRecord?.config) {
-			res.status(404).json({
-				success: false,
-				message: "Provider config not found",
-			})
-			return
+			throw new NotFoundError("Provider config not found")
 		}
 
 		// Step 1: Test Resend connectivity by listing API keys
@@ -100,33 +98,18 @@ export const testConnection = async (
 					? configData.apiKey
 					: undefined
 			if (!apiKey) {
-				res.status(400).json({
-					success: false,
-					message: "Missing Resend API key in config",
-				})
-				return
+				throw new BadRequestError("Missing Resend API key in config")
 			}
 
 			const resend = new Resend(apiKey)
 			const { error } = await resend.apiKeys.list()
 			if (error) {
-				res.status(400).json({
-					success: false,
-					message: "Test failed",
-					error,
-				})
-				return
+				throw new BadRequestError("Test failed")
 			}
 
-			res.status(200).json({
-				success: true,
-				message: "Connection successful",
-			})
+			sendSuccess(req, res, null)
 		} else {
-			res.status(400).json({
-				success: false,
-				message: `Unsupported provider: ${providerRecord.provider}`,
-			})
+			throw new BadRequestError(`Unsupported provider: ${providerRecord.provider}`)
 		}
 	} catch (err) {
 		next(err)

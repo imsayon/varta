@@ -40,7 +40,7 @@ export function RuleBuilder() {
     void (async () => {
       setLoading(true);
       const res = await apiClient.get<IRoutingRule[]>(`/api/v1/workspaces/${workspace.id}/routing-rules`);
-      if (res.success && res.data) {
+      if (res.success) {
         setRules(res.data);
       } else {
         toast.error(res.error?.message || 'Failed to fetch routing rules');
@@ -60,7 +60,7 @@ export function RuleBuilder() {
     );
     setCompiling(false);
 
-    if (res.success && res.data) {
+      if (res.success) {
       toast.success(`Rule "${name}" compiled and saved!`);
       setName('');
       setNaturalLanguage('');

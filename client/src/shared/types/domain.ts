@@ -21,7 +21,7 @@ export interface IApiKey {
 	workspaceId: string
 	name: string
 	prefix: string
-	permissions?: JsonObject | null
+	permissions?: string[] | null
 	isActive: boolean
 	lastUsedAt: string | null
 	expiresAt: string | null
@@ -194,24 +194,29 @@ export interface IApiMeta {
 }
 
 export interface IApiError {
-	code?: string
+	code: string
 	message: string
 	status?: number
 	details?: Record<string, string[]> | unknown
-	stack?: string
 }
 
 /**
  * Canonical envelope for every API response.
  * @typeParam T - The shape of the `data` payload on success.
  */
-export interface ApiResponse<T> {
-	success: boolean
-	data?: T
-	message?: string
-	error?: IApiError
-	meta?: IApiMeta
+export interface ApiSuccess<T> {
+	success: true
+	data: T
+	meta: IApiMeta
 }
+
+export interface ApiFailure {
+	success: false
+	error: IApiError
+	meta: IApiMeta
+}
+
+export type ApiResponse<T> = ApiSuccess<T> | ApiFailure
 
 /* -------------------------------------------------------------------------- */
 /*  Auth                                                                      */
@@ -234,31 +239,8 @@ export type SubscriberPreferences = JsonObject &
 	Partial<Record<ChannelVariant, boolean>>
 
 export interface PaginatedResponse<T> {
-	page: number
-	limit: number
-	total: number
 	items: T[]
-}
-
-export interface ISubscriberListData {
-	subscribers: ISubscriber[]
-	page: number
-	limit: number
-	total: number
-}
-
-export interface ITemplateListData {
-	templates: ITemplate[]
-	page: number
-	limit: number
-	total: number
-}
-
-export interface INotificationListData {
-	notifications: INotification[]
-	page: number
-	limit: number
-	total: number
+	meta: Pick<IApiMeta, "cursor" | "hasMore" | "total" | "page" | "limit">
 }
 
 export interface IApiKeyCreateResponse extends IApiKey {
@@ -270,6 +252,36 @@ export interface INotificationTriggerResponse {
 	status: NotificationStatus
 	channels: string[]
 	scheduledAt: string | null
+}
+
+export interface IAnalyticsOverview {
+	totalSent: number
+	delivered: number
+	failed: number
+	deliveryRate: number
+	openRate: number
+	clickRate: number
+	byChannel: Record<string, {
+		sent: number
+		delivered: number
+		failed: number
+		deliveryRate: number
+	}>
+}
+
+export interface IAnalyticsChannel {
+	channel: string
+	sent: number
+	delivered: number
+	failed: number
+	avgDurationMs: number | null
+}
+
+export interface IAnalyticsTimelinePoint {
+	timestamp: string
+	sent: number
+	delivered: number
+	failed: number
 }
 
 export interface SubscriberUpsertInput {
@@ -296,6 +308,7 @@ export interface TriggerNotificationInput {
 	payload: JsonObject
 	options?: {
 		smartTiming?: boolean
+		channels?: string[]
 	}
 }
 

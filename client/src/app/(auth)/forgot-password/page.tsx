@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
     setIsSubmitting(true);
     setError('');
 
-    const res = await apiClient.post('/api/v1/auth/forgot-password', { email });
+    const res = await apiClient.post('/api/v1/auth/forgot-password', { email }, { skipAuth: true });
     setIsSubmitting(false);
 
     if (res.success) {
@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
           Forgot your password?
         </h2>
         <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>
-          Enter your email address and we'll send you a password reset link.
+          Enter your email address and we&apos;ll send you a password reset link.
         </p>
       </div>
 

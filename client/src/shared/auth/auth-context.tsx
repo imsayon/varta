@@ -1,9 +1,10 @@
 'use client';
 
 import { createContext, useContext, useEffect, useCallback, useState, useRef, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from './auth-store';
-import { apiClient } from '../api/api';
-import type { IUser, IWorkspace } from '../types/domain';
+import { apiClient, refreshAccessToken, setApiRequestSignal } from '../api/api';
+import type { IUser } from '../types/domain';
 
 interface AuthState {
   user: IUser | null;
@@ -28,37 +29,37 @@ type AuthContextValue = AuthState & AuthActions;
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const { user, isAuthenticated, isLoading, setAuth, clearAuth } = useAuthStore();
   const abortControllerRef = useRef<AbortController>(new AbortController());
 
-  const [workspace, setWorkspaceState] = useState<{ id: string; name: string } | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const storedWsId = localStorage.getItem('varta_ws_id');
-    const storedWsName = localStorage.getItem('varta_ws_name');
-    return storedWsId && storedWsName ? { id: storedWsId, name: storedWsName } : null;
-  });
-
-  const [apiKey, setApiKeyState] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('varta_api_key');
-  });
+  const [workspace, setWorkspaceState] = useState<{ id: string; name: string } | null>(null);
+  const [apiKey, setApiKeyState] = useState<string | null>(null);
+  const sessionBootstrapRef = useRef(false);
 
   const getAbortSignal = useCallback(() => {
     return abortControllerRef.current.signal;
   }, []);
 
   useEffect(() => {
+    setApiRequestSignal(abortControllerRef.current.signal);
+  }, []);
+
+  useEffect(() => {
+    if (sessionBootstrapRef.current) return;
+    sessionBootstrapRef.current = true;
+
     const verifySession = async () => {
       try {
-        const refreshRes = await apiClient.post<{ accessToken: string }>('/api/v1/auth/refresh', undefined, { skipAuth: true });
-        if (refreshRes.success && refreshRes.data?.accessToken) {
+        const accessToken = await refreshAccessToken();
+        if (accessToken) {
           useAuthStore.getState().setAuth(
             user || { id: '', email: '' },
-            refreshRes.data.accessToken
+            accessToken
           );
           const meRes = await apiClient.get<IUser>('/api/v1/auth/me');
-          if (meRes.success && meRes.data) {
-            setAuth(meRes.data, refreshRes.data.accessToken);
+          if (meRes.success) {
+            setAuth(meRes.data, accessToken);
           } else {
             clearAuth();
           }
@@ -71,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     verifySession();
-  }, [setAuth, clearAuth]);
+  }, [clearAuth, setAuth, user]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
@@ -80,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       }, { skipAuth: true });
 
-      if (!res.success || !res.data) {
+      if (!res.success) {
         let errorMsg = res.error?.message || 'Invalid credentials';
         if (res.error?.details) {
           const firstDetail = Object.values(res.error.details as Record<string, string[]>)[0];
@@ -117,11 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: errorMsg };
       }
 
-      return login(email, password);
+      return { success: true };
     } catch {
       return { success: false, error: 'Network error during signup' };
     }
-  }, [login]);
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -131,17 +132,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
+    setApiRequestSignal(abortControllerRef.current.signal);
 
     clearAuth();
     setWorkspaceState(null);
     setApiKeyState(null);
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('varta_ws_id');
-      localStorage.removeItem('varta_ws_name');
-      localStorage.removeItem('varta_api_key');
-      window.location.href = '/login';
+      router.replace('/login');
     }
-  }, [clearAuth]);
+  }, [clearAuth, router]);
 
   const logoutAll = useCallback(async () => {
     try {
@@ -151,39 +150,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
+    setApiRequestSignal(abortControllerRef.current.signal);
 
     clearAuth();
     setWorkspaceState(null);
     setApiKeyState(null);
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('varta_ws_id');
-      localStorage.removeItem('varta_ws_name');
-      localStorage.removeItem('varta_api_key');
-      window.location.href = '/login';
+      router.replace('/login');
     }
-  }, [clearAuth]);
+  }, [clearAuth, router]);
 
   const setActiveWorkspace = useCallback((ws: { id: string; name: string }) => {
     // Abort active in-flight requests for prior workspace
     abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
+    setApiRequestSignal(abortControllerRef.current.signal);
 
     setWorkspaceState(ws);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('varta_ws_id', ws.id);
-      localStorage.setItem('varta_ws_name', ws.name);
-    }
   }, []);
 
   const setApiKey = useCallback((key: string | null) => {
     setApiKeyState(key);
-    if (typeof window !== 'undefined') {
-      if (key) {
-        localStorage.setItem('varta_api_key', key);
-      } else {
-        localStorage.removeItem('varta_api_key');
-      }
-    }
   }, []);
 
   const value: AuthContextValue = {

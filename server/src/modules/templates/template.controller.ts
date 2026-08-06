@@ -4,6 +4,9 @@ import { workspaceService } from "../workspaces/workspace.service.ts"
 import Handlebars from "handlebars"
 import DOMPurify from "isomorphic-dompurify"
 import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
+import { sendSuccess } from "@/common/utils/response.ts"
+import { NotFoundError, BadRequestError } from "@/common/errors/app-error.ts"
+import { parsePaginationQuery } from "@/common/utils/pagination.ts"
 
 export const create = async (
 	req: Request,
@@ -19,7 +22,7 @@ export const create = async (
 			...req.body,
 			workspaceId,
 		})
-		res.status(201).json({ success: true, data: template })
+		sendSuccess(req, res, template, 201)
 	} catch (err) {
 		next(err)
 	}
@@ -35,11 +38,7 @@ export const list = async (
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
-		const page = Math.max(1, parseInt(req.query.page as string) || 1)
-		const limit = Math.min(
-			100,
-			Math.max(1, parseInt(req.query.limit as string) || 20),
-		)
+		const { page, limit } = parsePaginationQuery(req.query as Record<string, unknown>)
 		const skip = (page - 1) * limit
 
 		const [templates, total] = await templateService.search(
@@ -47,9 +46,11 @@ export const list = async (
 			skip,
 			limit,
 		)
-		res.status(200).json({
-			success: true,
-			data: { templates, total, page, limit },
+		sendSuccess(req, res, { templates, total, page, limit }, 200, {
+			page,
+			limit,
+			total,
+			hasMore: page * limit < total,
 		})
 	} catch (err) {
 		next(err)
@@ -71,14 +72,10 @@ export const getById = async (
 			req.params.templateId as string,
 		)
 		if (!template) {
-			res.status(404).json({
-				success: false,
-				message: "Template not found",
-			})
-			return
+			throw new NotFoundError("Template not found")
 		}
 
-		res.status(200).json({ success: true, data: template })
+		sendSuccess(req, res, template)
 	} catch (err) {
 		next(err)
 	}
@@ -99,11 +96,7 @@ export const update = async (
 			req.params.templateId as string,
 		)
 		if (!existing) {
-			res.status(404).json({
-				success: false,
-				message: "Template not found",
-			})
-			return
+			throw new NotFoundError("Template not found")
 		}
 
 		const template = await templateService.update(
@@ -111,7 +104,7 @@ export const update = async (
 			req.params.templateId as string,
 			req.body,
 		)
-		res.status(200).json({ success: true, data: template })
+		sendSuccess(req, res, template)
 	} catch (err) {
 		next(err)
 	}
@@ -132,18 +125,14 @@ export const remove = async (
 			req.params.templateId as string,
 		)
 		if (!existing) {
-			res.status(404).json({
-				success: false,
-				message: "Template not found",
-			})
-			return
+			throw new NotFoundError("Template not found")
 		}
 
 		await templateService.delete(
 			workspaceId,
 			req.params.templateId as string,
 		)
-		res.status(200).json({ success: true, message: "Template deleted" })
+		sendSuccess(req, res, null)
 	} catch (err) {
 		next(err)
 	}
@@ -168,14 +157,10 @@ export const preview = async (
 		// Step 2: Sanitize to prevent XSS in rendered output
 		const sanitizedHtml = DOMPurify.sanitize(rawHtml)
 
-		res.status(200).json({ success: true, data: { html: sanitizedHtml } })
+		sendSuccess(req, res, { html: sanitizedHtml })
 	} catch (err: unknown) {
 		const message =
 			err instanceof Error ? err.message : "Template preview failed"
-		res.status(400).json({
-			success: false,
-			message: "Failed to preview template",
-			error: message,
-		})
+		next(new BadRequestError(message))
 	}
 }

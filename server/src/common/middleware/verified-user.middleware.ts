@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express"
 import { prisma } from "@/infra/database/prisma.ts"
 import { requireCapability } from "@/common/auth/capability.ts"
+import { sendError } from "@/common/utils/response.ts"
 
 export async function requireVerifiedUser(
 	req: Request,
@@ -16,12 +17,7 @@ export async function requireVerifiedUser(
 		})
 
 		if (!user || !user.emailVerified) {
-			res.status(403).json({
-				statusCode: 403,
-				error: "Forbidden",
-				code: "EMAIL_NOT_VERIFIED",
-				message: "Verified email address is required for this action",
-			})
+			sendError(req, res, 403, "EMAIL_NOT_VERIFIED", "Verified email address is required for this action")
 			return
 		}
 

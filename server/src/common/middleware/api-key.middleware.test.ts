@@ -44,7 +44,7 @@ describe("API Key Scope Middleware", () => {
 		middleware(req, res, () => {})
 
 		assert.equal(statusCode, 403)
-		assert.equal(jsonBody?.code, "INSUFFICIENT_PERMISSIONS")
+		assert.equal(jsonBody?.error?.code, "INSUFFICIENT_PERMISSIONS")
 	})
 
 	it("allows request when wildcard * scope is present", () => {

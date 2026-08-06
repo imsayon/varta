@@ -25,8 +25,8 @@ export const workspaceService = {
 		return workspace
 	},
 
-	async listByUser(userId: string) {
-		const memberships = await workspaceRepository.listByUser(userId)
+	async listByUser(userId: string, skip = 0, take = 101) {
+		const memberships = await workspaceRepository.listByUser(userId, skip, take)
 		return memberships.map((m) => ({ ...m.workspace, role: m.role }))
 	},
 
@@ -52,7 +52,7 @@ export const workspaceService = {
 		return member
 	},
 
-	async listMembers(workspaceId: string) {
-		return workspaceRepository.listMembers(workspaceId)
+	async listMembers(workspaceId: string, skip = 0, take = 101) {
+		return workspaceRepository.listMembers(workspaceId, skip, take)
 	},
 }

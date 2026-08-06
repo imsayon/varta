@@ -13,7 +13,7 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialToken = searchParams.get('token');
-  const [token, setToken] = useState<string | null>(initialToken);
+  const [token] = useState<string | null>(() => initialToken);
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,13 +21,12 @@ function ResetPasswordForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (initialToken) {
-      setToken(initialToken);
+    if (token) {
       if (typeof window !== 'undefined') {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
-  }, [initialToken]);
+  }, [token]);
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};

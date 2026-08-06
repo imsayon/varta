@@ -37,21 +37,25 @@ export const workspaceRepository = {
 		})
 	},
 
-	async listMembers(workspaceId: string) {
+	async listMembers(workspaceId: string, skip = 0, take = 101) {
 		return prisma.workspaceMember.findMany({
 			where: { workspaceId },
 			include: {
 				user: { select: { id: true, name: true, email: true } },
 			},
 			orderBy: { createdAt: "asc" },
+			skip,
+			take,
 		})
 	},
 
-	async listByUser(userId: string) {
+	async listByUser(userId: string, skip = 0, take = 101) {
 		return prisma.workspaceMember.findMany({
 			where: { userId },
 			include: { workspace: true },
 			orderBy: { createdAt: "desc" },
+			skip,
+			take,
 		})
 	},
 

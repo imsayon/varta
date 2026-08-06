@@ -9,6 +9,8 @@ import {
 } from "@/common/errors/app-error.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
 import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
+import { sendSuccess } from "@/common/utils/response.ts"
+import { parsePaginationQuery } from "@/common/utils/pagination.ts"
 
 function assertApiKeyWorkspace(req: Request, workspaceId: string) {
 	if (requireWorkspaceCapability(req).workspaceId !== workspaceId) {
@@ -36,10 +38,7 @@ export const trigger = async (
 			body,
 		)
 
-		res.status(202).json({
-			success: true,
-			data: result,
-		})
+		sendSuccess(req, res, result, 202)
 	} catch (err) {
 		next(err)
 	}
@@ -55,8 +54,7 @@ export const list = async (
 		const userId = requireWorkspaceCapability(req).actorId
 		await workspaceService.assertMembership(workspaceId, userId)
 
-		const page = Number(req.query.page ?? 1)
-		const limit = Number(req.query.limit ?? 20)
+		const { page, limit } = parsePaginationQuery(req.query as Record<string, unknown>)
 		const skip = (page - 1) * limit
 
 		const [notifications, total] = await notificationRepository.findMany(
@@ -65,14 +63,11 @@ export const list = async (
 			limit,
 		)
 
-		res.status(200).json({
-			success: true,
-			data: {
-				notifications,
-				total,
-				page,
-				limit,
-			},
+		sendSuccess(req, res, { notifications, total, page, limit }, 200, {
+			page,
+			limit,
+			total,
+			hasMore: page * limit < total,
 		})
 	} catch (err) {
 		next(err)
@@ -96,17 +91,10 @@ export const getById = async (
 		)
 
 		if (!notification) {
-			res.status(404).json({
-				success: false,
-				message: "Notification not found.",
-			})
-			return
+			throw new NotFoundError("Notification not found")
 		}
 
-		res.status(200).json({
-			success: true,
-			data: notification,
-		})
+		sendSuccess(req, res, notification)
 	} catch (err) {
 		next(err)
 	}
@@ -122,7 +110,7 @@ export const markRead = async (
 		const notificationId = req.params.notificationId as string
 		await workspaceService.assertMembership(workspaceId, requireWorkspaceCapability(req).actorId)
 		const notification = await notificationRepository.markRead(workspaceId, notificationId)
-		res.status(200).json({ success: true, data: notification })
+		sendSuccess(req, res, notification)
 	} catch (error) {
 		next(error)
 	}
@@ -154,7 +142,7 @@ export const retry = async (
 			},
 		)
 
-		res.status(202).json({ success: true, data: result })
+		sendSuccess(req, res, result, 202)
 	} catch (err) {
 		next(err)
 	}

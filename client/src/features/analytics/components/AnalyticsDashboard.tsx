@@ -4,14 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { Activity, AlertCircle, Clock, TrendingUp } from 'lucide-react';
 import { apiClient } from '@/shared/api/api';
 import { useAuth } from '@/shared/auth/auth-context';
+import type { IAnalyticsChannel, IAnalyticsOverview, IAnalyticsTimelinePoint } from '@/shared/types/domain';
 
 export function AnalyticsDashboard() {
   const { workspace } = useAuth();
   const [timeRange, setTimeRange] = useState('30d');
   const [loading, setLoading] = useState(true);
-  const [overview, setOverview] = useState<any>(null);
-  const [channels, setChannels] = useState<any[]>([]);
-  const [timeline, setTimeline] = useState<any[]>([]);
+  const [overview, setOverview] = useState<IAnalyticsOverview | null>(null);
+  const [channels, setChannels] = useState<IAnalyticsChannel[]>([]);
+  const [timeline, setTimeline] = useState<IAnalyticsTimelinePoint[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const fetchAnalytics = useCallback(async () => {
@@ -20,9 +21,9 @@ export function AnalyticsDashboard() {
     setError(null);
 
     const [overviewRes, channelRes, timelineRes] = await Promise.all([
-      apiClient.get<any>(`/api/v1/workspaces/${workspace.id}/analytics/overview?timeRange=${timeRange}`),
-      apiClient.get<any[]>(`/api/v1/workspaces/${workspace.id}/analytics/channel-breakdown?timeRange=${timeRange}`),
-      apiClient.get<any[]>(`/api/v1/workspaces/${workspace.id}/analytics/delivery-timeline?timeRange=${timeRange}`),
+      apiClient.get<IAnalyticsOverview>(`/api/v1/workspaces/${workspace.id}/analytics/overview?timeRange=${timeRange}`),
+      apiClient.get<IAnalyticsChannel[]>(`/api/v1/workspaces/${workspace.id}/analytics/channel-breakdown?timeRange=${timeRange}`),
+      apiClient.get<IAnalyticsTimelinePoint[]>(`/api/v1/workspaces/${workspace.id}/analytics/delivery-timeline?timeRange=${timeRange}`),
     ]);
 
     if (overviewRes.success && overviewRes.data) {
@@ -47,8 +48,8 @@ export function AnalyticsDashboard() {
 
   const totalSent = overview?.totalSent ?? 0;
   const deliveryRate = overview?.deliveryRate != null ? `${(overview.deliveryRate * 100).toFixed(1)}%` : '0%';
-  const p99Latency = overview?.p99Latency != null ? `${overview.p99Latency}ms` : '0ms';
-  const failures = overview?.failures ?? 0;
+  const p99Latency = 'Not available';
+  const failures = overview?.failed ?? 0;
 
   const statCards = [
     { label: 'Total Sent', value: totalSent.toLocaleString(), icon: Activity, note: `${timeRange} activity` },
@@ -121,14 +122,14 @@ export function AnalyticsDashboard() {
             <p style={{ color: '#94a3b8' }}>No delivery data available for this range.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {channels.map((ch: any) => {
-                const total = channels.reduce((acc, curr) => acc + (curr.count || 0), 0);
-                const pct = total > 0 ? ((ch.count / total) * 100).toFixed(1) : 0;
+              {channels.map((ch) => {
+                const total = channels.reduce((acc, curr) => acc + curr.sent, 0);
+                const pct = total > 0 ? ((ch.sent / total) * 100).toFixed(1) : '0';
                 return (
                   <div key={ch.channel}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#cbd5e1', marginBottom: '0.25rem' }}>
                       <span>{ch.channel}</span>
-                      <span>{pct}% ({ch.count})</span>
+                      <span>{pct}% ({ch.sent})</span>
                     </div>
                     <div style={{ height: '6px', backgroundColor: '#0f172a', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ width: `${pct}%`, height: '100%', backgroundColor: '#3b82f6' }} />
@@ -150,10 +151,10 @@ export function AnalyticsDashboard() {
             <p style={{ color: '#94a3b8' }}>No timeline data available.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto' }}>
-              {timeline.map((item: any, idx: number) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#cbd5e1', padding: '0.5rem 0', borderBottom: '1px solid #334155' }}>
-                  <span>{new Date(item.bucket).toLocaleDateString()}</span>
-                  <span style={{ color: '#10b981', fontWeight: 600 }}>{item.successful || item.count || 0} sent</span>
+              {timeline.map((item) => (
+                <div key={item.timestamp} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#cbd5e1', padding: '0.5rem 0', borderBottom: '1px solid #334155' }}>
+                  <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                  <span style={{ color: '#10b981', fontWeight: 600 }}>{item.sent} sent</span>
                 </div>
               ))}
             </div>

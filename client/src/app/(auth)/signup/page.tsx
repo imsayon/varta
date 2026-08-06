@@ -47,8 +47,8 @@ export default function SignupPage() {
     setIsSubmitting(false);
 
     if (res.success) {
-      toast.success('Successfully signed up! Welcome to Varta.');
-      router.push('/analytics');
+      toast.success('Account created. Check your email to verify it before signing in.');
+      router.push('/login?registered=true');
     } else {
       toast.error(res.error || 'Registration failed');
     }
@@ -116,29 +116,6 @@ export default function SignupPage() {
           Create Account
         </Button>
       </form>
-
-      {/* OAuth deferred
-      <div className={styles.divider}>
-        <span>Or continue with</span>
-      </div>
-
-      <div className={styles.oauthProviders}>
-        <Button 
-          variant="secondary" 
-          className={styles.oauthBtn}
-          onClick={() => window.location.href = 'http://localhost:5000/api/v1/auth/google'}
-        >
-          Google
-        </Button>
-        <Button 
-          variant="secondary" 
-          className={styles.oauthBtn}
-          onClick={() => window.location.href = 'http://localhost:5000/api/v1/auth/github'}
-        >
-          GitHub
-        </Button>
-      </div>
-      */}
 
       <div className={styles.footer}>
         <span>Already have an account?</span>{' '}

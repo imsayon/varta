@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express"
 import { createHash } from "node:crypto"
 import { prisma } from "@/infra/database/prisma.ts"
 import { Prisma } from "@prisma/client"
+import { sendSuccess } from "@/common/utils/response.ts"
 
 function objectValue(value: unknown): Record<string, unknown> {
 	return value && typeof value === "object" && !Array.isArray(value)
@@ -53,10 +54,7 @@ export const handleResendInboundWebhook = async (
 				throw error
 			}
 		}
-		res.status(200).json({
-			success: true,
-			message: "Webhook event accepted",
-		})
+		sendSuccess(req, res, null)
 	} catch (error) {
 		next(error)
 	}

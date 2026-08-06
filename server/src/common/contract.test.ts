@@ -96,6 +96,7 @@ describe("C1 API Contract & Envelope Suite", () => {
 
 	it("parses pagination params with limits bounded between 1 and 100", () => {
 		const defaultParams = parsePaginationQuery({})
+		assert.equal(defaultParams.page, 1)
 		assert.equal(defaultParams.limit, 20)
 		assert.equal(defaultParams.cursor, undefined)
 
