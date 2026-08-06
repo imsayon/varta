@@ -26,11 +26,11 @@ jobs:
       - name: Validate repository policy
         run: bash ops/scripts/validate-repository.sh
 
-      - name: Validate Render Blueprint
-        run: bash ops/scripts/validate-render-blueprint.sh
-
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Validate Render Blueprint
+        run: bash ops/scripts/validate-render-blueprint.sh
 
       # Prisma generates the TypeScript client from schema.prisma.
       # Must run before typechecking since modules import from @prisma/client.
