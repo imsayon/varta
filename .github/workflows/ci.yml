@@ -12,16 +12,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.20.0
+      - name: Validate repository policy
+        run: bash ops/scripts/validate-repository.sh
+
+      - name: Validate Render Blueprint
+        run: bash ops/scripts/validate-render-blueprint.sh
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
@@ -47,7 +53,9 @@ jobs:
         run: pnpm --filter @varta/server typecheck
 
       - name: Test server
-        run: pnpm --filter @varta/server test
+        run: |
+          mkdir -p artifacts
+          pnpm --filter @varta/server test > artifacts/server-test.tap
 
       - name: Build server
         run: pnpm --filter @varta/server build
@@ -69,3 +77,27 @@ jobs:
 
       - name: Build client image
         run: docker build -f ops/docker/client.Dockerfile .
+
+      - name: Validate observability Compose configuration
+        env:
+          JWT_ACCESS_SECRET: 'ci-access-secret-at-least-32-characters'
+          JWT_REFRESH_SECRET: 'ci-refresh-secret-at-least-32-characters'
+          JWT_WS_SECRET: 'ci-websocket-secret-at-least-32-characters'
+          METRICS_AUTH_TOKEN: 'ci-metrics-token-at-least-32-characters'
+          ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef'
+          METRICS_AUTH_TOKEN_FILE: '/tmp/varta-ci-metrics-token-observability'
+        run: |
+          install -Dm600 /dev/null "$METRICS_AUTH_TOKEN_FILE"
+          docker compose --profile observability -f ops/compose/compose.yaml config --quiet
+
+      - name: Write build evidence manifest
+        run: |
+          node -e "const fs=require('node:fs'); const cp=require('node:child_process'); const exists=p=>fs.existsSync(p); const manifest={commit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),node:process.version,pnpm:cp.execFileSync('pnpm',['--version'],{encoding:'utf8'}).trim(),serverDist:exists('server/dist'),clientNext:exists('client/.next'),serverImageDockerfile:exists('ops/docker/server.Dockerfile'),clientImageDockerfile:exists('ops/docker/client.Dockerfile')}; fs.mkdirSync('artifacts',{recursive:true}); fs.writeFileSync('artifacts/build-manifest.json',JSON.stringify(manifest,null,2)+'\\n')"
+
+      - name: Upload CI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: varta-ci-evidence
+          path: artifacts/
+          if-no-files-found: ignore

@@ -1,8 +1,52 @@
-# Locked hosted deployment target. This remains an intentionally invalid-for-
-# launch placeholder until the audited free-demo topology (static client if
-# export-compatible plus one combined API/worker web service), secrets, Supabase
-# migration gate, Upstash/BullMQ quota checks, and rollback path are implemented.
-# Keep independent API/worker entrypoints for Compose and the later paid split.
-# Keep Render-specific configuration here; retain Compose as the portable local,
-# CI, self-hosting, and study topology.
-services: []
+# Initial hosted profile: two Render Free web services from the same commit.
+# The client remains a Next.js web runtime because the current rewrites,
+# auth-cookie proxy, and same-origin API calls are not static-export compatible.
+# API and worker remain independently runnable through the split entrypoints.
+services:
+    - type: web
+      name: varta-api
+      runtime: node
+      plan: free
+      branch: main
+      buildCommand: corepack pnpm@11.20.0 install --frozen-lockfile && corepack pnpm@11.20.0 --filter @varta/server prisma:generate && corepack pnpm@11.20.0 --filter @varta/server build
+      startCommand: corepack pnpm@11.20.0 --filter @varta/server start:combined
+      healthCheckPath: /api/health/ready
+      envVars:
+          - key: NODE_ENV
+            value: production
+          - key: SERVICE_NAME
+            value: varta-api-combined
+          - key: DATABASE_URL
+            sync: false
+          - key: REDIS_URL
+            sync: false
+          - key: JWT_ACCESS_SECRET
+            sync: false
+          - key: JWT_REFRESH_SECRET
+            sync: false
+          - key: JWT_WS_SECRET
+            sync: false
+          - key: ENCRYPTION_KEY
+            sync: false
+          - key: METRICS_AUTH_TOKEN
+            sync: false
+          - key: CORS_ORIGIN
+            sync: false
+          - key: CLIENT_URL
+            sync: false
+          - key: OTEL_ENABLED
+            value: "false"
+
+    - type: web
+      name: varta-client
+      runtime: node
+      plan: free
+      branch: main
+      buildCommand: corepack pnpm@11.20.0 install --frozen-lockfile && corepack pnpm@11.20.0 --filter @varta/web build
+      startCommand: corepack pnpm@11.20.0 --filter @varta/web start
+      healthCheckPath: /
+      envVars:
+          - key: NODE_ENV
+            value: production
+          - key: NEXT_PUBLIC_API_URL
+            sync: false
