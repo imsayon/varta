@@ -1,10 +1,13 @@
 import type { Request, Response, NextFunction } from "express"
-import { verifyWebhookSignature } from "@/modules/providers/webhook.util.ts"
-import { env } from "@/common/config/env.ts"
-import { logger } from "@/infra/observability/logger.ts"
+import { createHash } from "node:crypto"
 import { prisma } from "@/infra/database/prisma.ts"
+import { Prisma } from "@prisma/client"
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000
+function objectValue(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: {}
+}
 
 export const handleResendInboundWebhook = async (
 	req: Request,
@@ -12,95 +15,47 @@ export const handleResendInboundWebhook = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const timestampHeader =
-			req.header("svix-timestamp") || req.header("x-resend-timestamp")
-		const signatureHeader =
-			req.header("svix-signature") || req.header("x-resend-signature")
-		const eventIdHeader =
-			req.header("svix-id") || req.header("x-resend-id") || req.body?.id
-
-		if (!timestampHeader || !signatureHeader) {
-			res.status(400).json({
-				success: false,
-				message: "Missing webhook signature headers",
-			})
-			return
-		}
-
-		const timestampRaw = Number(timestampHeader)
-		if (Number.isNaN(timestampRaw)) {
-			res.status(400).json({
-				success: false,
-				message: "Invalid timestamp header",
-			})
-			return
-		}
-
-		// Convert unix seconds to milliseconds if needed
-		const timestampMs =
-			timestampRaw < 1e11 ? timestampRaw * 1000 : timestampRaw
-		const now = Date.now()
-
-		if (Math.abs(now - timestampMs) > FIVE_MINUTES_MS) {
-			res.status(400).json({
-				success: false,
-				message: "Webhook timestamp out of tolerance window",
-			})
-			return
-		}
-
-		const secret =
-			(env as any).RESEND_WEBHOOK_SECRET || env.JWT_ACCESS_SECRET
-		const rawBodyStr = (req as any).rawBody
-			? (req as any).rawBody.toString("utf8")
-			: typeof req.body === "string"
-				? req.body
-				: JSON.stringify(req.body)
-
-		const isValid = verifyWebhookSignature(
-			timestampRaw,
-			rawBodyStr,
-			secret,
-			signatureHeader,
-		)
-
-		if (!isValid) {
-			res.status(401).json({
-				success: false,
-				message: "Invalid webhook signature",
-			})
-			return
-		}
-
-		// Duplicate event processing check
-		if (eventIdHeader) {
-			try {
-				const existing = await prisma.deliveryAttempt.findFirst({
-					where: { providerMessageId: String(eventIdHeader) },
+		const eventId = req.header("svix-id") || req.header("x-resend-id")
+		if (!eventId) throw new Error("Verified webhook is missing an event ID")
+		const body = objectValue(req.body)
+		const data = objectValue(body.data)
+		const eventType = typeof body.type === "string" ? body.type : "unknown"
+		const providerMessageId =
+			typeof data.email_id === "string" ? data.email_id : null
+		const rawBody = req.rawBody ?? Buffer.from(JSON.stringify(req.body))
+		try {
+			await prisma.$transaction(async (tx) => {
+				const attempt = providerMessageId
+					? await tx.deliveryAttempt.findFirst({
+							where: { provider: "resend", providerMessageId },
+							select: { id: true },
+						})
+					: null
+				await tx.providerWebhookEvent.create({
+					data: {
+						provider: "resend",
+						eventId,
+						eventType,
+						providerMessageId,
+						payloadHash: createHash("sha256").update(rawBody).digest("hex"),
+						matchedAttemptId: attempt?.id ?? null,
+					},
 				})
-				if (existing) {
-					logger.info(
-						{ eventId: eventIdHeader },
-						"Duplicate inbound webhook event received, skipping",
-					)
-					res.status(200).json({
-						success: true,
-						message: "Event already processed",
+				if (attempt) {
+					await tx.deliveryAttempt.update({
+						where: { id: attempt.id },
+						data: { providerResponse: { callbackEvent: eventType, eventId } },
 					})
-					return
 				}
-			} catch {
-				// Non-fatal if query fails
+			})
+		} catch (error) {
+			if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) {
+				throw error
 			}
 		}
-
-		logger.info(
-			{ event: req.body, eventId: eventIdHeader },
-			"Received valid inbound provider webhook event",
-		)
 		res.status(200).json({
 			success: true,
-			message: "Webhook event processed",
+			message: "Webhook event accepted",
 		})
 	} catch (error) {
 		next(error)

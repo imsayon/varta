@@ -4,11 +4,14 @@ import { sendTimeOptimizationQueue } from "@/infra/queues/sto.queue.ts"
 import { sendTimeOptimizationService } from "@/modules/ai/send-time-optimization.service.ts"
 import { prisma } from "@/infra/database/prisma.ts"
 import { logger } from "@/infra/observability/logger.ts"
+import { STOJobSchema } from "@/infra/queues/payloads.ts"
 
-export const sendTimeOptimizationWorker = new Worker<{ workspaceId: string }>(
+export const sendTimeOptimizationWorker = new Worker<{ version: 1; workspaceId: string }>(
 	"system-queue",
-	async (job) =>
-		sendTimeOptimizationService.recomputeWorkspace(job.data.workspaceId),
+	async (job) => {
+		const payload = STOJobSchema.parse(job.data)
+		return sendTimeOptimizationService.recomputeWorkspace(payload.workspaceId)
+	},
 	{ connection: getQueueConnection() },
 )
 
@@ -22,13 +25,13 @@ export async function startWorkerModule(): Promise<void> {
 		const workspace = workspaces[index]
 		if (!workspace) continue
 		const delayOffset = index * 60_000
-		await sendTimeOptimizationQueue.add(
-			"nightly",
-			{ workspaceId: workspace.id },
+		await sendTimeOptimizationQueue.upsertJobScheduler(
+			`sto-${workspace.id}`,
+			{ every: 86_400_000, offset: delayOffset },
 			{
-				jobId: `sto-${workspace.id}`,
-				repeat: { every: 86_400_000, offset: delayOffset },
-			} as unknown as import("bullmq").JobsOptions,
+				name: "nightly",
+				data: { version: 1, workspaceId: workspace.id },
+			},
 		)
 	}
 }

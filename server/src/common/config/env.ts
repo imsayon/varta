@@ -72,6 +72,10 @@ const envSchema = z.object({
 
 	CLIENT_URL: z.string().default("http://localhost:3000"),
 	RESEND_API_KEY: z.string().default(""),
+	RESEND_WEBHOOK_SECRET:
+		process.env.NODE_ENV === "production"
+			? z.string().min(16, "RESEND_WEBHOOK_SECRET is required in production")
+			: z.string().default(""),
 	EMAIL_FROM: z.string().default("Varta <onboarding@resend.dev>"),
 	PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().default(15),
 	EMAIL_VERIFY_TOKEN_TTL_HOURS: z.coerce.number().default(24),

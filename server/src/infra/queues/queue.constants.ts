@@ -5,4 +5,5 @@ export enum QueueNames {
 	DIGEST = "digest-queue",
 	SYSTEM = "system-queue",
 	RECONCILIATION = "reconciliation-queue",
+	OUTBOX = "outbox-queue",
 }

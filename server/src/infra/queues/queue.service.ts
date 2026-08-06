@@ -10,26 +10,60 @@ import type { ProcessDigestJobDto } from "./digest.queue.ts"
 export const queueService = {
 	async enqueueEmail(jobData: SendEmailJobDto) {
 		await emailQueue.add("deliver", jobData, {
-			jobId: `not_${jobData.notificationId}:email`,
-			delay: jobData.delayMs ?? 0,
+			jobId: `delivery-${jobData.deliveryId}`,
 		})
 	},
 	async enqueueWebhook(jobData: SendWebhookJobDto) {
 		await webhookQueue.add("deliver", jobData, {
-			jobId: `not_${jobData.notificationId}:webhook`,
-			delay: jobData.delayMs ?? 0,
+			jobId: `delivery-${jobData.deliveryId}`,
 		})
 	},
 	async enqueueInApp(jobData: SendInAppJobDto) {
 		await inAppQueue.add("deliver", jobData, {
-			jobId: `not_${jobData.notificationId}:inapp`,
-			delay: jobData.delayMs ?? 0,
+			jobId: `delivery-${jobData.deliveryId}`,
 		})
 	},
 	async enqueueDigest(jobData: ProcessDigestJobDto, delayMs: number) {
+		const jobId = `digest-${jobData.batchId}`
+		const existing = await digestQueue.getJob(jobId)
+		if (existing) {
+			const state = await existing.getState()
+			if (state === "failed") {
+				await existing.retry("failed")
+				return
+			}
+			if (["active", "waiting", "delayed", "prioritized"].includes(state)) return
+			await existing.remove()
+		}
 		await digestQueue.add("process", jobData, {
-			jobId: `digest:${jobData.batchId}`,
+			jobId,
 			delay: Math.max(0, delayMs),
 		})
+	},
+	async replayDelivery(jobData: SendEmailJobDto, channel: string) {
+		const queue =
+			channel === "EMAIL"
+				? emailQueue
+				: channel === "IN_APP"
+					? inAppQueue
+					: channel === "WEBHOOK"
+						? webhookQueue
+						: null
+		if (!queue) throw new Error(`Unsupported delivery channel: ${channel}`)
+		const jobId = `delivery-${jobData.deliveryId}`
+		const existing = await queue.getJob(jobId)
+		if (existing) {
+			const state = await existing.getState()
+			if (state === "failed") {
+				await existing.retry("failed")
+				return true
+			}
+			if (["active", "waiting", "delayed", "prioritized"].includes(state)) {
+				return false
+			}
+			await existing.remove()
+		}
+		await queue.add("deliver", jobData, { jobId })
+		return true
 	},
 }

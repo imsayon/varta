@@ -102,6 +102,7 @@ export const providerService = {
 			subject: "Varta Provider Test",
 			html: "<h1>Varta Setup Successful!</h1><p>Your email provider is configured correctly.</p>",
 			apiKey: config.apiKey ?? "",
+			idempotencyKey: `provider-test-${crypto.randomUUID()}`,
 		})
 	},
 }

@@ -1,451 +1,526 @@
 generator client {
-    provider        = "prisma-client-js"
-    previewFeatures = ["postgresqlExtensions"]
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
+
 datasource db {
-    provider   = "postgresql"
-    extensions = [vector, pg_stat_statements, pgcrypto, supabase_vault, uuid_ossp(map: "uuid-ossp")]
+  provider   = "postgresql"
+  extensions = [vector, pg_stat_statements, pgcrypto, supabase_vault, uuid_ossp(map: "uuid-ossp")]
 }
 
 model User {
-    id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    email               String               @unique
-    name                String?
-    passwordHash        String?              @map("password_hash")
-    emailVerified       Boolean              @default(false) @map("email_verified")
-    createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-    oauthAccounts       OauthAccount[]
-    emailVerifications  EmailVerification[]
-    passwordResetTokens PasswordResetToken[]
-    sessions            Session[]
-    workspaceMembers    WorkspaceMember[]
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String               @unique
+  name                String?
+  passwordHash        String?              @map("password_hash")
+  emailVerified       Boolean              @default(false) @map("email_verified")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  oauthAccounts       OauthAccount[]
+  emailVerifications  EmailVerification[]
+  passwordResetTokens PasswordResetToken[]
+  sessions            Session[]
+  workspaceMembers    WorkspaceMember[]
 
-    @@map("users")
+  @@map("users")
 }
 
 model OauthAccount {
-    id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId       String    @map("user_id") @db.Uuid
-    provider     String
-    providerUid  String    @map("provider_uid")
-    accessToken  String    @map("access_token")
-    refreshToken String?   @map("refresh_token")
-    expiresAt    DateTime? @map("expires_at") @db.Timestamptz
-    createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  provider     String
+  providerUid  String    @map("provider_uid")
+  accessToken  String    @map("access_token")
+  refreshToken String?   @map("refresh_token")
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@unique([provider, providerUid])
-    @@map("oauth_accounts")
+  @@unique([provider, providerUid])
+  @@map("oauth_accounts")
 }
 
 model Session {
-    id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId        String         @map("user_id") @db.Uuid
-    userAgent     String?        @map("user_agent")
-    ipAddress     String?        @map("ip_address")
-    createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
-    lastSeenAt    DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz
-    revokedAt     DateTime?      @map("revoked_at") @db.Timestamptz
-    user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    refreshTokens RefreshToken[]
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  userAgent     String?        @map("user_agent")
+  ipAddress     String?        @map("ip_address")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  lastSeenAt    DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz
+  revokedAt     DateTime?      @map("revoked_at") @db.Timestamptz
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
 
-    @@index([userId])
-    @@map("sessions")
+  @@index([userId])
+  @@map("sessions")
 }
 
 model RefreshToken {
-    id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    sessionId String    @map("session_id") @db.Uuid
-    tokenHash String    @unique @map("token_hash")
-    expiresAt DateTime  @map("expires_at") @db.Timestamptz
-    revokedAt DateTime? @map("revoked_at") @db.Timestamptz
-    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-    @@index([sessionId])
-    @@map("refresh_tokens")
+  @@index([sessionId])
+  @@map("refresh_tokens")
 }
 
 model EmailVerification {
-    id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId    String    @map("user_id") @db.Uuid
-    tokenHash String    @unique @map("token_hash")
-    expiresAt DateTime  @map("expires_at") @db.Timestamptz
-    usedAt    DateTime? @map("used_at") @db.Timestamptz
-    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([userId])
-    @@map("email_verifications")
+  @@index([userId])
+  @@map("email_verifications")
 }
 
 model PasswordResetToken {
-    id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId    String    @map("user_id") @db.Uuid
-    tokenHash String    @unique @map("token_hash")
-    expiresAt DateTime  @map("expires_at") @db.Timestamptz
-    usedAt    DateTime? @map("used_at") @db.Timestamptz
-    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([userId])
-    @@map("password_reset_tokens")
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 enum WorkspaceRole {
-    OWNER
-    ADMIN
-    MEMBER
+  OWNER
+  ADMIN
+  MEMBER
 
-    @@map("workspace_role")
+  @@map("workspace_role")
 }
 
 model Workspace {
-    id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    name             String
-    slug             String            @unique
-    settings         Json?             @default("{}")
-    createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt        DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-    members          WorkspaceMember[]
-    apiKeys          ApiKey[]
-    providerConfigs  ProviderConfig[]
-    subscribers      Subscriber[]
-    templates        Template[]
-    routingRules     RoutingRule[]
-    notifications    Notification[]
-    pendingInApp     PendingInApp[]
-    engagementEvents EngagementEvent[]
-    digestBatches    DigestBatch[]
-    aiConfig         WorkspaceAiConfig?
-    aiUsage          AiUsage[]
-    engagementVectors SubscriberEngagementVector[]
+  id                String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  slug              String                       @unique
+  settings          Json?                        @default("{}")
+  createdAt         DateTime                     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime                     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  members           WorkspaceMember[]
+  apiKeys           ApiKey[]
+  providerConfigs   ProviderConfig[]
+  subscribers       Subscriber[]
+  templates         Template[]
+  routingRules      RoutingRule[]
+  notifications     Notification[]
+  pendingInApp      PendingInApp[]
+  engagementEvents  EngagementEvent[]
+  digestBatches     DigestBatch[]
+  aiConfig          WorkspaceAiConfig?
+  aiUsage           AiUsage[]
+  engagementVectors SubscriberEngagementVector[]
+  deliveries        Delivery[]
+  outboxIntents     OutboxIntent[]
 
-    @@map("workspaces")
+  @@map("workspaces")
 }
 
 model WorkspaceAiConfig {
-    id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId     String    @unique @map("workspace_id") @db.Uuid
-    provider        String
-    model           String
-    encryptedApiKey String    @map("encrypted_api_key")
-    baseUrl         String?   @map("base_url")
-    isEnabled       Boolean   @default(true) @map("is_enabled")
-    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-    workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String    @unique @map("workspace_id") @db.Uuid
+  provider        String
+  model           String
+  encryptedApiKey String    @map("encrypted_api_key")
+  baseUrl         String?   @map("base_url")
+  isEnabled       Boolean   @default(true) @map("is_enabled")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-    @@map("workspace_ai_configs")
+  @@map("workspace_ai_configs")
 }
 
 model AiUsage {
-    id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId    String    @map("workspace_id") @db.Uuid
-    provider       String
-    model          String
-    inputTokens    Int?      @map("input_tokens")
-    outputTokens   Int?      @map("output_tokens")
-    latencyMs      Int?      @map("latency_ms")
-    promptVersion  String?   @map("prompt_version")
-    requestId      String?   @map("request_id")
-    status         String
-    errorCategory  String?   @map("error_category")
-    createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String    @map("workspace_id") @db.Uuid
+  provider      String
+  model         String
+  inputTokens   Int?      @map("input_tokens")
+  outputTokens  Int?      @map("output_tokens")
+  latencyMs     Int?      @map("latency_ms")
+  promptVersion String?   @map("prompt_version")
+  requestId     String?   @map("request_id")
+  status        String
+  errorCategory String?   @map("error_category")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-    @@index([workspaceId, createdAt])
-    @@index([workspaceId, provider, model])
-    @@map("ai_usage")
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, provider, model])
+  @@map("ai_usage")
 }
 
 model WorkspaceMember {
-    id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    userId      String        @map("user_id") @db.Uuid
-    workspaceId String        @map("workspace_id") @db.Uuid
-    role        WorkspaceRole @default(MEMBER)
-    createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
-    user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-    workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, workspaceId])
-    @@index([workspaceId])
-    @@map("workspace_members")
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+  @@map("workspace_members")
 }
 
 model ApiKey {
-    id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId String    @map("workspace_id") @db.Uuid
-    name        String
-    prefix      String    @unique
-    keyHash     String    @map("key_hash")
-    permissions Json?
-    isActive    Boolean   @default(true) @map("is_active")
-    lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
-    expiresAt   DateTime? @map("expires_at") @db.Timestamptz
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  prefix      String    @unique
+  keyHash     String    @map("key_hash")
+  permissions Json?
+  isActive    Boolean   @default(true) @map("is_active")
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-    @@index([workspaceId])
-    @@map("api_keys")
+  @@index([workspaceId])
+  @@map("api_keys")
 }
 
 model ProviderConfig {
-    id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId String    @map("workspace_id") @db.Uuid
-    channel     String
-    provider    String
-    config      Json
-    isActive    Boolean   @default(true) @map("is_active")
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-    workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  channel     String
+  provider    String
+  config      Json
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-    @@unique([workspaceId, channel])
-    @@map("provider_configs")
+  @@unique([workspaceId, channel])
+  @@map("provider_configs")
 }
 
 model Subscriber {
-    id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId   String            @map("workspace_id") @db.Uuid
-    externalId    String            @map("external_id")
-    email         String?
-    name          String?
-    timezone      String?           @default("UTC")
-    locale        String?           @default("en")
-    attributes    Json?             @default("{}")
-    preferences   Json?             @default("{}")
-    createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-    workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-    notifications Notification[]
-    engagements   EngagementEvent[]
-    pendingInApp  PendingInApp[]
-    digestBatches  DigestBatch[]
-    engagementVector SubscriberEngagementVector?
+  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String                      @map("workspace_id") @db.Uuid
+  externalId       String                      @map("external_id")
+  email            String?
+  name             String?
+  timezone         String?                     @default("UTC")
+  locale           String?                     @default("en")
+  attributes       Json?                       @default("{}")
+  preferences      Json?                       @default("{}")
+  createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace        Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  notifications    Notification[]
+  engagements      EngagementEvent[]
+  pendingInApp     PendingInApp[]
+  digestBatches    DigestBatch[]
+  engagementVector SubscriberEngagementVector?
 
-    @@unique([workspaceId, externalId])
-    @@index([workspaceId])
-    @@index([workspaceId, email])
-    @@map("subscribers")
+  @@unique([workspaceId, externalId])
+  @@index([workspaceId])
+  @@index([workspaceId, email])
+  @@map("subscribers")
 }
 
 model Template {
-    id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId   String         @map("workspace_id") @db.Uuid
-    name          String
-    description   String?
-    channels      Json
-    digestConfig  Json?          @map("digest_config")
-    aiPersonalize Boolean?       @default(false) @map("ai_personalize")
-    isActive      Boolean?       @default(true) @map("is_active")
-    createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-    workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-    notifications Notification[]
-    digestBatches DigestBatch[]
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String         @map("workspace_id") @db.Uuid
+  name          String
+  description   String?
+  channels      Json
+  digestConfig  Json?          @map("digest_config")
+  aiPersonalize Boolean?       @default(false) @map("ai_personalize")
+  isActive      Boolean?       @default(true) @map("is_active")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+  digestBatches DigestBatch[]
 
-    @@unique([workspaceId, name])
-    @@index([workspaceId])
-    @@map("templates")
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("templates")
 }
 
 model RoutingRule {
-    id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId     String    @map("workspace_id") @db.Uuid
-    name            String
-    naturalLanguage String?   @map("natural_language")
-    ruleAst         Json      @map("rule_ast")
-    priority        Int       @default(0)
-    isActive        Boolean   @default(true) @map("is_active")
-    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
-    workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  name            String
+  naturalLanguage String?   @map("natural_language")
+  ruleAst         Json      @map("rule_ast")
+  priority        Int       @default(0)
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-    @@index([workspaceId, priority])
-    @@map("routing_rules")
+  @@index([workspaceId, priority])
+  @@map("routing_rules")
 }
 
 enum NotificationStatus {
-    PENDING
-    ENQUEUED
-    PARTIAL
-    DELIVERED
-    FAILED
+  PENDING
+  ENQUEUED
+  PARTIAL
+  DELIVERED
+  FAILED
 
-    @@map("notification_status")
+  @@map("notification_status")
 }
 
 enum DeliveryStatus {
-    PENDING
-    RUNNING
-    SUCCESS
-    FAILED
-    DLQ
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  DLQ
 
-    @@map("delivery_status")
+  @@map("delivery_status")
 }
 
 enum NotificationPriority {
-    LOW
-    NORMAL
-    HIGH
+  LOW
+  NORMAL
+  HIGH
 }
 
 model Notification {
-    id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId          String               @map("workspace_id") @db.Uuid
-    templateId           String               @map("template_id") @db.Uuid
-    subscriberId         String               @map("subscriber_id") @db.Uuid
-    idempotencyKey       String               @map("idempotency_key")
-    triggerPayload       Json?                @default("{}") @map("trigger_payload")
-    channels             String[]
-    status               NotificationStatus   @default(PENDING)
-    priority             NotificationPriority @default(NORMAL)
-    smartTimingRequested Boolean              @default(false) @map("smart_timing_requested")
-    scheduledAt          DateTime?            @map("scheduled_at") @db.Timestamptz
-    readAt               DateTime?            @map("read_at") @db.Timestamptz
-    triggeredAt          DateTime?            @default(now()) @map("triggered_at") @db.Timestamptz
-    createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz
-    workspace            Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-    template             Template             @relation(fields: [templateId], references: [id])
-    subscriber           Subscriber           @relation(fields: [subscriberId], references: [id])
-    deliveryAttempts     DeliveryAttempt[]
-    engagements          EngagementEvent[]
-    pendingInApp         PendingInApp[]
-    digestAggregateBatch DigestBatch?     @relation("DigestAggregateNotification")
-    digestSourceItems    DigestBatchItem[] @relation("DigestSourceNotification")
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId          String               @map("workspace_id") @db.Uuid
+  templateId           String               @map("template_id") @db.Uuid
+  subscriberId         String               @map("subscriber_id") @db.Uuid
+  idempotencyKey       String               @map("idempotency_key")
+  triggerPayload       Json?                @default("{}") @map("trigger_payload")
+  channels             String[]
+  status               NotificationStatus   @default(PENDING)
+  priority             NotificationPriority @default(NORMAL)
+  smartTimingRequested Boolean              @default(false) @map("smart_timing_requested")
+  scheduledAt          DateTime?            @map("scheduled_at") @db.Timestamptz
+  readAt               DateTime?            @map("read_at") @db.Timestamptz
+  triggeredAt          DateTime?            @default(now()) @map("triggered_at") @db.Timestamptz
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  workspace            Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  template             Template             @relation(fields: [templateId], references: [id])
+  subscriber           Subscriber           @relation(fields: [subscriberId], references: [id])
+  deliveryAttempts     DeliveryAttempt[]
+  deliveries           Delivery[]
+  engagements          EngagementEvent[]
+  pendingInApp         PendingInApp[]
+  digestAggregateBatch DigestBatch?         @relation("DigestAggregateNotification")
+  digestSourceItems    DigestBatchItem[]    @relation("DigestSourceNotification")
 
-    @@unique([workspaceId, idempotencyKey])
-    @@index([workspaceId])
-    @@index([subscriberId])
-    @@index([status])
-    @@index([workspaceId, readAt])
-    @@map("notifications")
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId])
+  @@index([subscriberId])
+  @@index([status])
+  @@index([workspaceId, readAt])
+  @@map("notifications")
+}
+
+model Delivery {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId       String            @map("workspace_id") @db.Uuid
+  notificationId    String            @map("notification_id") @db.Uuid
+  channel           String
+  status            DeliveryStatus    @default(PENDING)
+  provider          String?
+  providerMessageId String?           @map("provider_message_id")
+  scheduledAt       DateTime?         @map("scheduled_at") @db.Timestamptz
+  lastError         String?           @map("last_error")
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  notification      Notification      @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  attempts          DeliveryAttempt[]
+  outboxIntent      OutboxIntent?
+
+  @@unique([notificationId, channel])
+  @@index([workspaceId, status])
+  @@index([status, scheduledAt])
+  @@map("deliveries")
+}
+
+enum OutboxStatus {
+  PENDING
+  LEASED
+  PUBLISHED
+  FAILED
+
+  @@map("outbox_status")
+}
+
+model OutboxIntent {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String       @map("workspace_id") @db.Uuid
+  deliveryId  String       @unique @map("delivery_id") @db.Uuid
+  eventType   String       @map("event_type")
+  payload     Json         @default("{}")
+  status      OutboxStatus @default(PENDING)
+  availableAt DateTime     @default(now()) @map("available_at") @db.Timestamptz
+  leaseOwner  String?      @map("lease_owner")
+  leaseUntil  DateTime?    @map("lease_until") @db.Timestamptz
+  attempts    Int          @default(0)
+  publishedAt DateTime?    @map("published_at") @db.Timestamptz
+  lastError   String?      @map("last_error")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  delivery    Delivery     @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt])
+  @@index([leaseUntil])
+  @@map("outbox_intents")
 }
 
 model DeliveryAttempt {
-    id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    notificationId    String          @map("notification_id") @db.Uuid
-    channel           String
-    attemptNumber     Int             @map("attempt_number")
-    deliveryId        String?         @map("delivery_id")
-    status            DeliveryStatus? @default(PENDING)
-    provider          String?
-    providerMessageId String?         @map("provider_message_id")
-    renderedContent   Json?           @map("rendered_content")
-    providerResponse  Json?           @map("provider_response")
-    errorMessage      String?         @map("error_message")
-    enqueuedAt        DateTime?       @map("enqueued_at") @db.Timestamptz
-    startedAt         DateTime?       @map("started_at") @db.Timestamptz
-    finishedAt        DateTime?       @map("finished_at") @db.Timestamptz
-    durationMs        Int?            @map("duration_ms")
-    notification      Notification    @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificationId    String          @map("notification_id") @db.Uuid
+  channel           String
+  attemptNumber     Int             @map("attempt_number")
+  deliveryId        String          @map("delivery_id") @db.Uuid
+  status            DeliveryStatus? @default(PENDING)
+  provider          String?
+  providerMessageId String?         @map("provider_message_id")
+  renderedContent   Json?           @map("rendered_content")
+  providerResponse  Json?           @map("provider_response")
+  errorMessage      String?         @map("error_message")
+  enqueuedAt        DateTime?       @map("enqueued_at") @db.Timestamptz
+  startedAt         DateTime?       @map("started_at") @db.Timestamptz
+  finishedAt        DateTime?       @map("finished_at") @db.Timestamptz
+  durationMs        Int?            @map("duration_ms")
+  notification      Notification    @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  delivery          Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
 
-    @@unique([notificationId, channel, attemptNumber])
-    @@index([notificationId])
-    @@index([status])
-    @@index([notificationId, channel, deliveryId])
-    @@map("delivery_attempts")
+  @@unique([deliveryId, attemptNumber])
+  @@index([notificationId])
+  @@index([status])
+  @@index([notificationId, channel, deliveryId])
+  @@map("delivery_attempts")
+}
+
+model ProviderWebhookEvent {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider          String
+  eventId           String   @map("event_id")
+  eventType         String   @map("event_type")
+  providerMessageId String?  @map("provider_message_id")
+  payloadHash       String   @map("payload_hash")
+  matchedAttemptId  String?  @map("matched_attempt_id") @db.Uuid
+  receivedAt        DateTime @default(now()) @map("received_at") @db.Timestamptz
+
+  @@unique([provider, eventId])
+  @@index([providerMessageId])
+  @@map("provider_webhook_events")
 }
 
 enum DigestBatchStatus {
-    OPEN
-    PROCESSING
-    DELIVERED
-    FAILED
+  OPEN
+  PROCESSING
+  DELIVERED
+  FAILED
 
-    @@map("digest_batch_status")
+  @@map("digest_batch_status")
 }
 
 model DigestBatch {
-    id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId           String           @map("workspace_id") @db.Uuid
-    subscriberId          String           @map("subscriber_id") @db.Uuid
-    templateId            String           @map("template_id") @db.Uuid
-    channel               String
-    aggregationKey        String           @map("aggregation_key")
-    windowStartedAt       DateTime         @map("window_started_at") @db.Timestamptz
-    windowExpiresAt       DateTime         @map("window_expires_at") @db.Timestamptz
-    status                DigestBatchStatus @default(OPEN)
-    claimedBy             String?          @map("claimed_by")
-    claimedAt             DateTime?        @map("claimed_at") @db.Timestamptz
-    leaseUntil            DateTime?        @map("lease_until") @db.Timestamptz
-    aggregateNotificationId String?        @unique @map("aggregate_notification_id") @db.Uuid
-    createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
-    updatedAt             DateTime         @updatedAt @map("updated_at") @db.Timestamptz
-    workspace             Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-    subscriber            Subscriber      @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
-    template              Template        @relation(fields: [templateId], references: [id])
-    aggregateNotification Notification?   @relation("DigestAggregateNotification", fields: [aggregateNotificationId], references: [id])
-    items                 DigestBatchItem[]
+  id                      String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId             String            @map("workspace_id") @db.Uuid
+  subscriberId            String            @map("subscriber_id") @db.Uuid
+  templateId              String            @map("template_id") @db.Uuid
+  channel                 String
+  aggregationKey          String            @map("aggregation_key")
+  windowStartedAt         DateTime          @map("window_started_at") @db.Timestamptz
+  windowExpiresAt         DateTime          @map("window_expires_at") @db.Timestamptz
+  status                  DigestBatchStatus @default(OPEN)
+  claimedBy               String?           @map("claimed_by")
+  claimedAt               DateTime?         @map("claimed_at") @db.Timestamptz
+  leaseUntil              DateTime?         @map("lease_until") @db.Timestamptz
+  aggregateNotificationId String?           @unique @map("aggregate_notification_id") @db.Uuid
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  workspace               Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscriber              Subscriber        @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  template                Template          @relation(fields: [templateId], references: [id])
+  aggregateNotification   Notification?     @relation("DigestAggregateNotification", fields: [aggregateNotificationId], references: [id])
+  items                   DigestBatchItem[]
 
-    @@index([workspaceId, status, windowExpiresAt])
-    @@index([aggregationKey, status])
-    @@map("digest_batches")
+  @@index([workspaceId, status, windowExpiresAt])
+  @@index([aggregationKey, status])
+  @@map("digest_batches")
 }
 
 model DigestBatchItem {
-    id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    batchId              String       @map("batch_id") @db.Uuid
-    sourceNotificationId String       @map("source_notification_id") @db.Uuid
-    channel              String
-    content              Json
-    createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz
-    batch                DigestBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
-    sourceNotification   Notification @relation("DigestSourceNotification", fields: [sourceNotificationId], references: [id], onDelete: Cascade)
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  batchId              String       @map("batch_id") @db.Uuid
+  sourceNotificationId String       @map("source_notification_id") @db.Uuid
+  channel              String
+  content              Json
+  createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  batch                DigestBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  sourceNotification   Notification @relation("DigestSourceNotification", fields: [sourceNotificationId], references: [id], onDelete: Cascade)
 
-    @@unique([batchId, sourceNotificationId, channel])
-    @@index([sourceNotificationId])
-    @@map("digest_batch_items")
+  @@unique([batchId, sourceNotificationId, channel])
+  @@index([sourceNotificationId])
+  @@map("digest_batch_items")
 }
 
 model PendingInApp {
-    id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId    String       @map("workspace_id") @db.Uuid
-    subscriberId   String       @map("subscriber_id") @db.Uuid
-    notificationId String       @map("notification_id") @db.Uuid
-    content        Json
-    createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
-    deliveredAt    DateTime?    @map("delivered_at") @db.Timestamptz
-    workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-    subscriber     Subscriber   @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
-    notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String       @map("workspace_id") @db.Uuid
+  subscriberId   String       @map("subscriber_id") @db.Uuid
+  notificationId String       @map("notification_id") @db.Uuid
+  content        Json
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  deliveredAt    DateTime?    @map("delivered_at") @db.Timestamptz
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscriber     Subscriber   @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 
-    @@index([workspaceId, subscriberId, deliveredAt])
-    @@index([notificationId])
-    @@map("pending_inapp")
+  @@unique([notificationId])
+  @@index([workspaceId, subscriberId, deliveredAt])
+  @@map("pending_inapp")
 }
 
 model EngagementEvent {
-    id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    workspaceId    String       @map("workspace_id") @db.Uuid
-    subscriberId   String       @map("subscriber_id") @db.Uuid
-    notificationId String       @map("notification_id") @db.Uuid
-    eventType      String       @map("event_type")
-    channel        String
-    occurredAt     DateTime?    @default(now()) @map("occurred_at") @db.Timestamptz
-    metadata       Json?        @default("{}")
-    workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-    subscriber     Subscriber   @relation(fields: [subscriberId], references: [id])
-    notification   Notification @relation(fields: [notificationId], references: [id])
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String       @map("workspace_id") @db.Uuid
+  subscriberId   String       @map("subscriber_id") @db.Uuid
+  notificationId String       @map("notification_id") @db.Uuid
+  eventType      String       @map("event_type")
+  channel        String
+  occurredAt     DateTime?    @default(now()) @map("occurred_at") @db.Timestamptz
+  metadata       Json?        @default("{}")
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscriber     Subscriber   @relation(fields: [subscriberId], references: [id])
+  notification   Notification @relation(fields: [notificationId], references: [id])
 
-    @@index([workspaceId])
-    @@index([subscriberId, eventType])
-    @@index([occurredAt])
-    @@map("engagement_events")
+  @@index([workspaceId])
+  @@index([subscriberId, eventType])
+  @@index([occurredAt])
+  @@map("engagement_events")
 }
 
 model SubscriberEngagementVector {
-    subscriberId String                     @id @map("subscriber_id") @db.Uuid
-    workspaceId  String                     @map("workspace_id") @db.Uuid
-    embedding    Unsupported("vector(24)")?
-    sampleCount  Int                        @default(0) @map("sample_count")
-    computedAt   DateTime                   @default(now()) @map("computed_at") @db.Timestamptz
-    workspace    Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-    subscriber   Subscriber                 @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  subscriberId String                     @id @map("subscriber_id") @db.Uuid
+  workspaceId  String                     @map("workspace_id") @db.Uuid
+  embedding    Unsupported("vector(24)")?
+  sampleCount  Int                        @default(0) @map("sample_count")
+  computedAt   DateTime                   @default(now()) @map("computed_at") @db.Timestamptz
+  workspace    Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscriber   Subscriber                 @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
 
-    @@index([workspaceId])
-    @@map("subscriber_engagement_vectors")
+  @@index([workspaceId])
+  @@map("subscriber_engagement_vectors")
 }

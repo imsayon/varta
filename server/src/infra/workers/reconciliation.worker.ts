@@ -5,14 +5,20 @@ import { reconciliationService } from "@/modules/notifications/reconciliation.se
 import { logger } from "@/infra/observability/logger.ts"
 
 import { QueueNames } from "@/infra/queues/queue.constants.ts"
+import { ReconciliationJobSchema } from "@/infra/queues/payloads.ts"
 
-const reconciliationQueue = createQueue<{ run: boolean }>(
+type ReconciliationJob = { version: 1 }
+
+const reconciliationQueue = createQueue<ReconciliationJob>(
 	QueueNames.RECONCILIATION,
 )
 
-export const reconciliationWorker = new Worker(
+export const reconciliationWorker = new Worker<ReconciliationJob>(
 	"reconciliation-queue",
-	async () => reconciliationService.reconcileStuckNotifications(),
+	async (job) => {
+		ReconciliationJobSchema.parse(job.data)
+		return reconciliationService.reconcileStuckNotifications()
+	},
 	{ connection: getQueueConnection() },
 )
 
@@ -21,8 +27,9 @@ reconciliationWorker.on("failed", (job, error) =>
 )
 
 export async function startWorkerModule(): Promise<void> {
-	await reconciliationQueue.add("periodic", { run: true }, {
-		jobId: "reconciliation-periodic",
-		repeat: { every: 300_000 },
-	} as unknown as import("bullmq").JobsOptions)
+	await reconciliationQueue.upsertJobScheduler(
+		"reconciliation-periodic",
+		{ every: 300_000 },
+		{ name: "periodic", data: { version: 1 } },
+	)
 }

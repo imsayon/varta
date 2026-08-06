@@ -15,6 +15,7 @@ import {
 	realtimeConnectionKey,
 	type InAppDeliveryEvent,
 } from "./realtime.events.ts"
+import { realtimeStateService } from "@/modules/notifications/realtime-state.service.ts"
 
 const HEARTBEAT_INTERVAL_MS = 30_000
 const PRESENCE_TTL_SECONDS = 35
@@ -26,9 +27,10 @@ type Connection = {
 	connectionId: string
 	key: string
 	alive: boolean
+	expiresAt: number
 }
 
-const webSocketServer = new WebSocketServer({ noServer: true })
+const webSocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 })
 const pubsub = redis.duplicate()
 const connections = new Map<string, Connection>()
 const socketTokens = new WeakMap<WebSocket, SubscriberWebSocketTokenPayload>()
@@ -44,6 +46,10 @@ let upgradeHandler:
 
 function send(socket: WebSocket, message: unknown): boolean {
 	if (socket.readyState !== WebSocket.OPEN) return false
+	if (socket.bufferedAmount > 1024 * 1024) {
+		socket.close(1013, "Client is too slow")
+		return false
+	}
 	socket.send(JSON.stringify(message))
 	return true
 }
@@ -134,11 +140,18 @@ async function register(
 		connectionId,
 		key,
 		alive: true,
+		expiresAt: (token.exp ?? 0) * 1_000,
+	}
+	try {
+		await redis.sadd(key, connectionId)
+		await redis.expire(key, PRESENCE_TTL_SECONDS)
+	} catch (error) {
+		logger.warn({ err: error, connectionId }, "WebSocket presence registration failed")
+		socket.close(1013, "Realtime service unavailable")
+		return
 	}
 	connections.set(connectionId, connection)
 	activeWebSockets.inc()
-	await redis.sadd(key, connectionId)
-	await redis.expire(key, PRESENCE_TTL_SECONDS)
 	logger.info(
 		{
 			connectionId,
@@ -162,23 +175,19 @@ async function register(
 			return
 		}
 		if (message.type === "ack" && message.notificationId) {
-			void prisma.pendingInApp.updateMany({
-				where: {
-					workspaceId: connection.workspaceId,
-					subscriberId: connection.subscriberId,
-					notificationId: message.notificationId,
-					deliveredAt: null,
-				},
-				data: { deliveredAt: new Date() },
-			})
-			void prisma.notification.updateMany({
-				where: {
-					id: message.notificationId,
-					workspaceId: connection.workspaceId,
-					subscriberId: connection.subscriberId,
-				},
-				data: { readAt: new Date() },
-			})
+			void realtimeStateService.acknowledgeTransport(
+				connection.workspaceId,
+				connection.subscriberId,
+				message.notificationId,
+			)
+			return
+		}
+		if (message.type === "read" && message.notificationId) {
+			void realtimeStateService.markRead(
+				connection.workspaceId,
+				connection.subscriberId,
+				message.notificationId,
+			)
 		}
 	})
 	socket.on("close", () => {
@@ -274,6 +283,10 @@ export function startWebSocketServer(server: Server): void {
 	})
 	heartbeat = setInterval(() => {
 		for (const connection of connections.values()) {
+			if (connection.expiresAt <= Date.now()) {
+				connection.socket.close(1008, "Token expired")
+				continue
+			}
 			if (!connection.alive) {
 				connection.socket.terminate()
 				continue

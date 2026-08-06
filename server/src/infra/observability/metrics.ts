@@ -52,6 +52,25 @@ export const queueFailures = new Counter({
 	registers: [metricsRegistry],
 })
 
+export const outboxLagSeconds = new Gauge({
+	name: "varta_outbox_oldest_eligible_seconds",
+	help: "Age of the oldest outbox intent eligible for dispatch",
+	registers: [metricsRegistry],
+})
+
+export const outboxLeases = new Gauge({
+	name: "varta_outbox_leases_active",
+	help: "Outbox intents leased by the current dispatcher batch",
+	registers: [metricsRegistry],
+})
+
+export const outboxFailures = new Counter({
+	name: "varta_outbox_publish_failures_total",
+	help: "Outbox publication failures",
+	labelNames: ["channel"] as const,
+	registers: [metricsRegistry],
+})
+
 export const activeWorkerJobs = new Gauge({
 	name: "varta_worker_jobs_active",
 	help: "Active worker jobs",

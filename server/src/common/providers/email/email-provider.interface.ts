@@ -2,6 +2,7 @@ export interface ProviderResponse {
 	success: boolean
 	messageId?: string
 	error?: string
+	retryable?: boolean
 }
 
 export interface SendEmailPayload {
@@ -11,6 +12,7 @@ export interface SendEmailPayload {
 	html: string
 	text?: string
 	apiKey: string
+	idempotencyKey: string
 }
 
 export interface EmailProvider {

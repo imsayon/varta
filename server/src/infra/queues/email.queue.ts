@@ -3,21 +3,10 @@ import { QueueNames } from "./queue.constants.ts"
 
 // Shape of the data payload for each email delivery job
 export interface SendEmailJobDto {
+	version: 1
 	notificationId: string
 	deliveryId: string
 	workspaceId: string
-	subscriberEmail: string
-	renderedContent: {
-		subject: string
-		html: string
-		textBody?: string
-	}
-	providerConfig: {
-		providerName: string
-		apiKey: string
-		fromAddress: string
-	}
-	delayMs?: number
 }
 
 // The email delivery queue — consumed by the email worker

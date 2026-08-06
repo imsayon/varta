@@ -3,8 +3,10 @@ import { prisma } from "@/infra/database/prisma.ts"
 import { redis } from "@/infra/redis/redis.connection.ts"
 import { queueService } from "@/infra/queues/queue.service.ts"
 import type { PreparedDelivery } from "./delivery-preparation.service.ts"
-import { deliveryPreparationService } from "./delivery-preparation.service.ts"
-import { Prisma } from "@prisma/client"
+import { Prisma, type NotificationPriority } from "@prisma/client"
+import { acceptNotification } from "./notification-acceptance.service.ts"
+import { NotificationChannel } from "./notification.types.ts"
+import { logger } from "@/infra/observability/logger.ts"
 
 const DEFAULT_WINDOW_MS = 60_000
 const DEFAULT_MAX_ITEMS = 100
@@ -52,6 +54,117 @@ async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
 }
 
 export const digestService = {
+	async acceptNotification(input: {
+		workspaceId: string
+		templateId: string
+		subscriberId: string
+		idempotencyKey: string
+		payload: Record<string, unknown>
+		channels: NotificationChannel[]
+		priority: NotificationPriority
+		digestConfig: Prisma.JsonValue
+	}) {
+		const windowMs = Math.max(
+			1_000,
+			configValue(input.digestConfig, "windowMs") ?? DEFAULT_WINDOW_MS,
+		)
+		const maxItems = Math.max(
+			1,
+			Math.floor(configValue(input.digestConfig, "maxItems") ?? DEFAULT_MAX_ITEMS),
+		)
+		try {
+			const result = await prisma.$transaction(
+				async (tx) => {
+					const notification = await tx.notification.create({
+						data: {
+							workspaceId: input.workspaceId,
+							templateId: input.templateId,
+							subscriberId: input.subscriberId,
+							idempotencyKey: input.idempotencyKey,
+							triggerPayload: input.payload as Prisma.InputJsonValue,
+							channels: input.channels,
+							status: "ENQUEUED",
+							priority: input.priority,
+						},
+					})
+					const batches: Array<{ id: string; workspaceId: string; windowExpiresAt: Date }> = []
+					for (const channel of input.channels) {
+						const aggregationKey = [
+							input.workspaceId,
+							input.subscriberId,
+							input.templateId,
+							channel,
+						].join(":")
+						await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${aggregationKey}))`
+						const now = new Date()
+						let batch = await tx.digestBatch.findFirst({
+							where: {
+								aggregationKey,
+								status: "OPEN",
+								windowExpiresAt: { gt: now },
+							},
+							orderBy: { createdAt: "desc" },
+							include: { _count: { select: { items: true } } },
+						})
+						if (!batch || batch._count.items >= maxItems) {
+							batch = await tx.digestBatch.create({
+								data: {
+									workspaceId: input.workspaceId,
+									subscriberId: input.subscriberId,
+									templateId: input.templateId,
+									channel,
+									aggregationKey,
+									windowStartedAt: now,
+									windowExpiresAt: new Date(now.getTime() + windowMs),
+								},
+								include: { _count: { select: { items: true } } },
+							})
+						}
+						await tx.digestBatchItem.create({
+							data: {
+								batchId: batch.id,
+								sourceNotificationId: notification.id,
+								channel,
+								content: input.payload as Prisma.InputJsonValue,
+							},
+						})
+						batches.push({
+							id: batch.id,
+							workspaceId: batch.workspaceId,
+							windowExpiresAt: batch.windowExpiresAt,
+						})
+					}
+					return { notification, batches }
+				},
+				{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+			)
+			for (const batch of result.batches) {
+				try {
+					await queueService.enqueueDigest(
+						{ version: 1, workspaceId: batch.workspaceId, batchId: batch.id },
+						batch.windowExpiresAt.getTime() - Date.now(),
+					)
+				} catch (error) {
+					logger.warn({ err: error, batchId: batch.id }, "Digest scheduling deferred to reconciliation")
+				}
+			}
+			return { created: true, notification: result.notification }
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+				const existing = await prisma.notification.findUnique({
+					where: {
+						workspaceId_idempotencyKey: {
+							workspaceId: input.workspaceId,
+							idempotencyKey: input.idempotencyKey,
+						},
+					},
+				})
+				if (existing) return { created: false, notification: existing }
+			}
+			throw error
+		}
+	},
+
 	async addNotificationToBatches(input: DigestInput): Promise<void> {
 		const windowMs = Math.max(1_000, configValue(input.digestConfig, "windowMs") ?? DEFAULT_WINDOW_MS)
 		const maxItems = Math.max(1, Math.floor(configValue(input.digestConfig, "maxItems") ?? DEFAULT_MAX_ITEMS))
@@ -91,7 +204,7 @@ export const digestService = {
 					batchId = createdBatch.id
 					expiresAt = createdBatch.windowExpiresAt
 					await queueService.enqueueDigest(
-						{ batchId },
+						{ version: 1, workspaceId: input.workspaceId, batchId },
 						expiresAt.getTime() - Date.now(),
 					)
 				} else {
@@ -144,65 +257,31 @@ export const digestService = {
 		if (!batch) return
 
 		try {
-			const aggregateNotification = await prisma.notification.upsert({
-				where: { workspaceId_idempotencyKey: { workspaceId: batch.workspaceId, idempotencyKey: `digest:${batch.id}` } },
-				create: {
-					workspaceId: batch.workspaceId,
-					templateId: batch.templateId,
-					subscriberId: batch.subscriberId,
-					idempotencyKey: `digest:${batch.id}`,
-					triggerPayload: { digestBatchId: batch.id, sourceNotificationIds: batch.items.map((item) => item.sourceNotificationId) },
-					channels: [batch.channel],
-					status: "ENQUEUED",
-				},
-				update: {},
-			})
-			await prisma.digestBatch.update({
-				where: { id: batch.id },
-				data: { aggregateNotificationId: aggregateNotification.id },
-			})
-
-			const items = batch.items.map((item) => item.content as Record<string, unknown>)
-			const prepared = await deliveryPreparationService.prepare(
-				batch.workspaceId,
-				batch.channel as "EMAIL" | "IN_APP" | "WEBHOOK",
-				batch.template.channels,
-				batch.subscriber as unknown as Record<string, unknown>,
-				{},
-				items,
-			)
-			const deliveryId = `digest:${batch.id}:${batch.channel.toLowerCase()}`
-			if (prepared.channel === "EMAIL") {
-				await queueService.enqueueEmail({
-					notificationId: aggregateNotification.id,
-					deliveryId,
-					workspaceId: batch.workspaceId,
-					subscriberEmail: batch.subscriber.email ?? "",
-					renderedContent: prepared.renderedContent,
-					providerConfig: prepared.providerConfig,
-				})
-			} else if (prepared.channel === "IN_APP") {
-				await queueService.enqueueInApp({
-					notificationId: aggregateNotification.id,
-					deliveryId,
-					workspaceId: batch.workspaceId,
-					subscriberId: batch.subscriberId,
-					renderedContent: prepared.renderedContent,
-				})
-			} else {
-				await queueService.enqueueWebhook({
-					notificationId: aggregateNotification.id,
-					deliveryId,
-					workspaceId: batch.workspaceId,
-					url: prepared.providerConfig.url,
-					signingSecret: prepared.providerConfig.signingSecret,
-					eventType: prepared.eventType,
-					payload: prepared.payload,
-				})
+			const channel = batch.channel as NotificationChannel
+			if (!Object.values(NotificationChannel).includes(channel)) {
+				throw new Error(`Unsupported digest channel: ${batch.channel}`)
 			}
+			const accepted = await acceptNotification({
+				workspaceId: batch.workspaceId,
+				templateId: batch.templateId,
+				subscriberId: batch.subscriberId,
+				idempotencyKey: `digest:${batch.id}`,
+				payload: {
+					digestBatchId: batch.id,
+					sourceNotificationIds: batch.items.map((item) => item.sourceNotificationId),
+					digestItems: batch.items.map((item) => item.content),
+				},
+				channels: [channel],
+				priority: "NORMAL",
+				scheduledAt: null,
+				smartTimingRequested: false,
+			})
 			await prisma.digestBatch.update({
 				where: { id: batch.id },
-				data: { status: "DELIVERED", leaseUntil: null },
+				data: {
+					aggregateNotificationId: accepted.notification.id,
+					leaseUntil: null,
+				},
 			})
 		} catch (error) {
 			await prisma.digestBatch.update({

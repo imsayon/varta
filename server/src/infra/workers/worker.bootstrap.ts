@@ -19,6 +19,7 @@ export const workerState = {
 
 // Workers are imported for their BullMQ side effects.
 const defaultLoaders: WorkerModuleLoader[] = [
+	() => import("./outbox.worker.ts"),
 	() => import("./email.worker.ts"),
 	() => import("./inapp.worker.ts"),
 	() => import("./webhook.worker.ts"),

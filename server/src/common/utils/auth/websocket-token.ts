@@ -1,4 +1,5 @@
 import { jwtVerify, SignJWT, type JWTPayload } from "jose"
+import { randomUUID } from "node:crypto"
 import { env } from "@/common/config/env.ts"
 
 const websocketSecret = new TextEncoder().encode(env.JWT_WS_SECRET)
@@ -16,6 +17,7 @@ export async function generateSubscriberWebSocketToken(
 		.setProtectedHeader({ alg: "HS256", typ: "JWT" })
 		.setIssuer("varta")
 		.setAudience("varta-ws")
+		.setJti(randomUUID())
 		.setIssuedAt()
 		.setExpirationTime("5m")
 		.sign(websocketSecret)

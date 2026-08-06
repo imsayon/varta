@@ -1,74 +1,95 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import { queueService } from "@/infra/queues/queue.service.ts"
 import { logger } from "@/infra/observability/logger.ts"
+import { dispatchOutboxBatch } from "./outbox-dispatcher.service.ts"
 
 const RECONCILIATION_STALE_MINUTES = 10
 
 export const reconciliationService = {
-	/**
-	 * Finds notifications in ENQUEUED status created >10 mins ago that have zero delivery attempts.
-	 * Re-enqueues them to BullMQ queues so notifications never get stuck in ENQUEUED indefinitely.
-	 */
 	async reconcileStuckNotifications(): Promise<number> {
 		const cutoff = new Date(
 			Date.now() - RECONCILIATION_STALE_MINUTES * 60_000,
 		)
 
-		const stuckNotifications = await prisma.notification.findMany({
-			where: {
-				status: "ENQUEUED",
-				triggeredAt: { lte: cutoff },
-				deliveryAttempts: { none: {} },
-			},
+		await dispatchOutboxBatch(`reconciliation:${crypto.randomUUID()}`)
+		const expiredOpenBatches = await prisma.digestBatch.findMany({
+			where: { status: "OPEN", windowExpiresAt: { lte: new Date() } },
 			take: 100,
-			select: {
-				id: true,
-				workspaceId: true,
-				channels: true,
-				subscriberId: true,
-				subscriber: {
-					select: { email: true },
+			select: { id: true, workspaceId: true },
+		})
+		for (const batch of expiredOpenBatches) {
+			await queueService.enqueueDigest(
+				{ version: 1, workspaceId: batch.workspaceId, batchId: batch.id },
+				0,
+			)
+		}
+
+		const terminalDigests = await prisma.digestBatch.findMany({
+			where: {
+				status: "PROCESSING",
+				aggregateNotificationId: { not: null },
+				aggregateNotification: {
+					deliveries: { some: { status: { in: ["SUCCESS", "DLQ"] } } },
 				},
 			},
+			take: 100,
+			include: {
+				aggregateNotification: { include: { deliveries: true } },
+				items: { select: { sourceNotificationId: true } },
+			},
+		})
+		for (const batch of terminalDigests) {
+			const delivered = batch.aggregateNotification?.deliveries.every(
+				(delivery) => delivery.status === "SUCCESS",
+			)
+			await prisma.digestBatch.updateMany({
+				where: { id: batch.id, status: "PROCESSING" },
+				data: { status: delivered ? "DELIVERED" : "FAILED", leaseUntil: null },
+			})
+			for (const item of batch.items) {
+				const source = await prisma.notification.findUnique({
+					where: { id: item.sourceNotificationId },
+					select: {
+						digestSourceItems: { select: { batch: { select: { status: true } } } },
+					},
+				})
+				const statuses = source?.digestSourceItems.map((entry) => entry.batch.status) ?? []
+				const status = statuses.some((value) => value === "OPEN" || value === "PROCESSING")
+					? "ENQUEUED"
+					: statuses.every((value) => value === "DELIVERED")
+						? "DELIVERED"
+						: statuses.some((value) => value === "DELIVERED")
+							? "PARTIAL"
+							: "FAILED"
+				await prisma.notification.updateMany({
+					where: { id: item.sourceNotificationId },
+					data: { status },
+				})
+			}
+		}
+
+		const retryableDeliveries = await prisma.delivery.findMany({
+			where: { status: "FAILED", updatedAt: { lte: cutoff } },
+			take: 100,
+			select: { id: true, workspaceId: true, notificationId: true, channel: true },
 		})
 
 		let reconciledCount = 0
-		for (const notification of stuckNotifications) {
+		for (const delivery of retryableDeliveries) {
 			try {
-				const channels = notification.channels as string[]
-				for (const channel of channels) {
-					const deliveryId = crypto.randomUUID()
-					if (channel === "EMAIL") {
-						await queueService.enqueueEmail({
-							notificationId: notification.id,
-							deliveryId,
-							workspaceId: notification.workspaceId,
-							subscriberEmail:
-								notification.subscriber?.email ?? "",
-							renderedContent: {
-								subject: "Reconciled Notification",
-								html: "",
-							},
-							providerConfig: {
-								providerName: "resend",
-								fromAddress: "noreply@varta.dev",
-								apiKey: "",
-							},
-						})
-					} else if (channel === "IN_APP") {
-						await queueService.enqueueInApp({
-							notificationId: notification.id,
-							deliveryId,
-							workspaceId: notification.workspaceId,
-							subscriberId: notification.subscriberId,
-							renderedContent: {},
-						})
-					}
-				}
-				reconciledCount += 1
+				const replayed = await queueService.replayDelivery(
+					{
+						version: 1,
+						notificationId: delivery.notificationId,
+						deliveryId: delivery.id,
+						workspaceId: delivery.workspaceId,
+					},
+					delivery.channel,
+				)
+				if (replayed) reconciledCount += 1
 			} catch (error) {
 				logger.error(
-					{ err: error, notificationId: notification.id },
+					{ err: error, deliveryId: delivery.id },
 					"Failed to reconcile stuck notification",
 				)
 			}
