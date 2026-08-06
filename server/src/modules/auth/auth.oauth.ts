@@ -1,3 +1,4 @@
+import crypto from "node:crypto"
 import type { Request, Response } from "express"
 import { env } from "@/common/config/env.ts"
 import {
@@ -5,7 +6,7 @@ import {
 	generateRefreshToken,
 } from "@/common/utils/auth/jwt.ts"
 import { setRefreshTokenCookie } from "@/common/utils/auth/cookies.ts"
-import { hashPassword } from "@/common/utils/auth/password.ts"
+import { hashToken } from "@/common/utils/auth/token-hash.ts"
 import { authRepository } from "./auth.repository.ts"
 
 export const authOauth = {
@@ -42,14 +43,17 @@ export const authOauth = {
 			workspaceId: membership.workspaceId,
 		})
 
+		const refreshTokenId = crypto.randomUUID()
 		const refreshToken = await generateRefreshToken({
 			sub: user.id,
 			sessionId: session.id,
+			jti: refreshTokenId,
 		})
 
 		await authRepository.createRefreshToken({
+			id: refreshTokenId,
 			sessionId: session.id,
-			tokenHash: await hashPassword(refreshToken),
+			tokenHash: hashToken(refreshToken),
 			expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
 		})
 

@@ -31,7 +31,8 @@ export async function authenticate(
 		if (
 			typeof payload.sub !== "string" ||
 			typeof payload.sessionId !== "string" ||
-			typeof payload.workspaceId !== "string"
+			typeof payload.workspaceId !== "string" ||
+			payload.type !== "access"
 		) {
 			throw new UnauthorizedError("Invalid token claims")
 		}

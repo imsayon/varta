@@ -139,6 +139,7 @@ export const authRepository = {
 	// Refresh Tokens
 
 	async createRefreshToken(data: {
+		id: string
 		sessionId: string
 		tokenHash: string
 		expiresAt: Date
