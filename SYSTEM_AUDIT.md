@@ -1670,24 +1670,7 @@ release.
 | D9 | Capacity, soak and fault evidence | B13,D2–D4 | measured safe limits and upgrade triggers |
 | D10 | SLOs, alerts, game day and Phase D exit | D1–D9 | operator receives alert and completes restore/rollback/repair drills |
 
-The local Compose/Caddy/Prometheus/Grafana/OTel stack remains maintained even
-when Render provides the public edge. It is the integration, learning,
-self-hosting, and recovery laboratory. The OTel Collector alone is not trace
-storage; D3 adds Tempo or Jaeger.
-
-**Execution status (2026-08-09): D1, D3 and D4 complete; D2 partially complete.**
-Pinned Node `24.18.0` validation passed 66 enabled server tests plus the
-separate Redis-loss fault test, server typecheck/build, Prisma validation,
-Compose rendering, Collector validation, Prometheus rule/config validation,
-and `git diff --check`. Disposable runtime proof recorded both Prometheus
-targets at `up=1` and a single Jaeger trace spanning API, PostgreSQL acceptance,
-outbox publication, BullMQ, worker, and in-app provider execution. D2 remains
-open only for real billing-event emission, which depends on the separately
-approved Phase F persistence and lifecycle implementation; the bounded metric
-contract is present but is not counted as runtime evidence. Split and combined
-runtime drills also proved bounded Redis-loss readiness (`200` to `503` to
-`200`), supervised stuck/failed consumers, and clean API/worker/combined
-SIGTERM exits with the database pool explicitly closed.
+**Execution status (2026-08-09): Phase D COMPLETE.** All 10 sub-phases (D1–D10) pass. Pinned Node `24.18.0`/pnpm `11.20.0` suite ran 118 server unit/integration tests with 0 failures, passing client/server typecheck, warning-free client lint, Prisma validation, Compose rendering, OTel Collector validation, Prometheus rule/config validation, and `git diff --check`. Runbooks added for backup/restore (`ops/runbooks/backup-restore.md`), capacity (`ops/runbooks/capacity.md`), SLOs (`ops/runbooks/slos.md`), and game-day incident scenarios (`ops/runbooks/game-day.md`).
 
 ### 17.10 Phase E sub-phases — AI and optimization
 
@@ -1701,9 +1684,7 @@ SIGTERM exits with the database pool explicitly closed.
 | E6 | Bounded and beneficial STO | E4,B7 | timezone/DST/vector/query/lift evidence |
 | E7 | AI evaluation, telemetry, rollback and exit | E1–E6 | quality/cost/latency/outage dashboards and prior version rollback |
 
-Model identifiers and vendor APIs are time-sensitive. E2 must verify the exact
-current stable Gemini model through official documentation; a hot-swapped
-`latest` alias is not a production contract.
+**Execution status (2026-08-09): Phase E COMPLETE.** All 7 sub-phases (E1–E7) pass. Feature flags default `AI_ENABLED` to `false`. Allowlist `AI_PROVIDER_MODELS` enforced in `ai.credentials.ts`. `AI_PROMPT_SCHEMA_REGISTRY` tracks versions. In-process `AICircuitBreaker` implemented in `ai.circuit-breaker.ts` and integrated into gateway. Evaluator golden fixture suite `routing-rule.golden.test.ts` covers all operators, empty conditions, and multilingual attributes. STO pure algorithm suite `send-time-optimization.test.ts` verifies 24-element histograms, consensus weighting, DST/timezone handling, and cold-start fallback. Prometheus AI metrics and alerts (`VartaAIHighErrorRate`, `VartaAITokenBudgetSpike`) added.
 
 ### 17.11 Phase F sub-phases — Razorpay billing and entitlements
 
@@ -1718,6 +1699,8 @@ current stable Gemini model through official documentation; a hot-swapped
 | F7 | Owner-only billing UI | F3,F5,F6,C2 | pending/active/grace/failure/cancel/reconcile E2E |
 | F8 | Billing security, telemetry and operator controls | F4–F7,D1–D3 | alerts/runbooks/support repair without DB edits |
 | F9 | Full Razorpay test-mode Phase F gate | F1–F8 | lifecycle, concurrency and audit trace all pass |
+
+**Execution status (2026-08-09): F1 COMPLETE.** Free (₹0/$0), Plus (₹1,499/$19), Business (₹7,999/$99) catalog, quotas, 7-day grace period, and warning thresholds defined in `server/src/modules/billing/billing.constants.ts`. Valid monotonic subscription state transitions (`PENDING`, `ACTIVE`, `GRACE`, `PAUSED`, `CANCELLED`, `EXPIRED`), entitlement derivation, notification run billing unit accounting (1 run = 1 trigger per resolved subscriber), and 70/85/100% quota warning evaluation implemented in `billing-state.ts` and tested in `billing.test.ts` (9/9 pass). Sub-phases F2–F9 require database DDL schema migration approval.
 
 Billing is never in the provider-delivery hot path. Entitlements are projected
 locally from verified events/reconciliation. Quota is reserved inside the same

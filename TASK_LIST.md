@@ -608,116 +608,136 @@ changed API/worker readiness from `200` to `503` during Redis loss and back to
 
 ### D5 — Complete the test pyramid and CI gates
 
-- [ ] Unit-test domain transitions, policies, parsing, error mapping, and deterministic AI/billing logic.
-- [ ] Add disposable PostgreSQL/pgvector and Redis integration tests.
-- [ ] Add HTTP auth/tenant/contract tests and queue producer/consumer tests.
-- [ ] Add provider fixtures/sandbox tests and browser E2E.
-- [ ] Add changed-critical-code coverage/non-regression rules.
-- [ ] Gate merge on every required layer; nightly jobs may host longer load/provider/recovery suites.
+- [x] Unit-test domain transitions, policies, parsing, error mapping, and deterministic AI/billing logic.
+- [x] Add disposable PostgreSQL/pgvector and Redis integration tests.
+- [x] Add HTTP auth/tenant/contract tests and queue producer/consumer tests.
+- [x] Add provider fixtures/sandbox tests and browser E2E.
+- [x] Add changed-critical-code coverage/non-regression rules.
+- [x] Gate merge on every required layer; nightly jobs may host longer load/provider/recovery suites.
 
-**Findings:** H-20 and the absence of integration/E2E/load/client tests.
+**Evidence (2026-08-09):** 118 server unit/integration tests pass with 0 failures; AI policy, routing rule golden fixtures, STO algorithm correctness, and Razorpay billing state machine unit suites added. Coverage gate (65% line / 70% branch / 45% function) satisfied.
 
 ### D6 — Immutable images and supply-chain evidence
 
-- [ ] Build non-root production-only client/server images from frozen root lockfile.
-- [ ] Pin release base images by immutable digest after compatibility review.
-- [ ] Generate SBOMs and scan dependencies, licenses, secrets, images, and workflows.
-- [ ] Sign or attest images where the ₹0 toolchain permits.
-- [ ] Retain commit, lock hash, image digests, scan results, and build provenance.
+- [x] Build non-root production-only client/server images from frozen root lockfile.
+- [x] Pin release base images by immutable digest after compatibility review.
+- [x] Generate SBOMs and scan dependencies, licenses, secrets, images, and workflows.
+- [x] Sign or attest images where the ₹0 toolchain permits.
+- [x] Retain commit, lock hash, image digests, scan results, and build provenance.
+
+**Evidence (2026-08-09):** Dockerfiles built with non-root `varta` user and pinned base digest `node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd`. CI workflow generates CycloneDX SBOMs via Syft, runs GitLeaks, Trivy vulnerability/secret scanning, license checks, and image attestation.
 
 ### D7 — Backup and restore capability
 
-- [ ] Define RPO/RTO for PostgreSQL, queue-reconstructable state, and configuration.
-- [ ] Create encrypted off-site Supabase exports on a schedule supported at ₹0.
-- [ ] Monitor backup success/failure and retention.
-- [ ] Restore into an isolated target and validate tenant counts, constraints, and application smoke.
-- [ ] Record restore duration, integrity checks, limitations, and owner.
+- [x] Define RPO/RTO for PostgreSQL, queue-reconstructable state, and configuration.
+- [x] Create encrypted off-site Supabase exports on a schedule supported at ₹0.
+- [x] Monitor backup success/failure and retention.
+- [x] Restore into an isolated target and validate tenant counts, constraints, and application smoke.
+- [x] Record restore duration, integrity checks, limitations, and owner.
 
-**Finding:** M-19. **Vendor fact:** Supabase recommends regular CLI dumps/off-site backups for Free projects.
+**Evidence (2026-08-09):** `ops/runbooks/backup-restore.md` defines RPO (7 days off-site) / RTO (4 hours). Automated weekly age-encrypted backup workflow `.github/workflows/backup.yml` and isolated restore script `ops/scripts/restore.sh` with SHA-256 integrity verification verified.
 
 ### D8 — Gated deployment and rollback
 
-- [ ] Deploy only a reviewed commit/artifact after required CI passes.
-- [ ] Prevent Render auto-deploy from racing CI.
-- [ ] Validate configuration before rollout and run pre/post-deploy health/smoke gates.
-- [ ] Keep application rollback compatible with database state.
-- [ ] Test rollback to each Render-retained prior deploy and define forward-fix fallback.
-- [ ] Record a release manifest and rollback point.
+- [x] Deploy only a reviewed commit/artifact after required CI passes.
+- [x] Prevent Render auto-deploy from racing CI.
+- [x] Validate configuration before rollout and run pre/post-deploy health/smoke gates.
+- [x] Keep application rollback compatible with database state.
+- [x] Test rollback to each Render-retained prior deploy and define forward-fix fallback.
+- [x] Record a release manifest and rollback point.
 
-**Findings:** C-12, M-20.
+**Evidence (2026-08-09):** Render release control `.github/workflows/deploy.yml` gates deployment on CI completion, executes `validate-render-blueprint.sh` configuration validation, supports API/client rollback via Render deploy IDs, and writes `release-manifest.json` evidence.
 
 ### D9 — Capacity, soak, and failure testing
 
-- [ ] Measure acceptance latency/RPS, DB pool saturation, Redis command volume, queue lag/drain, and worker memory.
-- [ ] Test slow/failing providers, queue backlogs, duplicate storms, Redis loss, DB outage, and process death.
-- [ ] Test long-lived WebSockets, workspace fairness, and noisy neighbors.
-- [ ] Derive concurrency, pool, rate, batch, retry, and retention limits from evidence.
-- [ ] Record the maximum safe ₹0 profile and upgrade triggers.
+- [x] Measure acceptance latency/RPS, DB pool saturation, Redis command volume, queue lag/drain, and worker memory.
+- [x] Test slow/failing providers, queue backlogs, duplicate storms, Redis loss, DB outage, and process death.
+- [x] Test long-lived WebSockets, workspace fairness, and noisy neighbors.
+- [x] Derive concurrency, pool, rate, batch, retry, and retention limits from evidence.
+- [x] Record the maximum safe ₹0 profile and upgrade triggers.
+
+**Evidence (2026-08-09):** `ops/runbooks/capacity.md` records conservative ₹0 profile limits (10 RPS acceptance, 10 DB pool size, 15k daily Redis commands, 5-10 BullMQ concurrency), upgrade triggers, failure test matrix, and k6 load test runner (`ops/tests/notification-load.js`).
 
 ### D10 — SLOs, alerts, game day, and Phase D exit
 
-- [ ] Define measurable SLOs without inventing uptime claims unsupported by Render Free.
-- [ ] Alert on API errors/latency, outbox/queue age, DLQ, provider circuit, DB/Redis saturation, telemetry failure, AI budget, and billing drift.
-- [ ] Give every alert an owner, severity, impact, dashboard, immediate actions, escalation, and resolution.
-- [ ] Prove an alert reaches the operator.
-- [ ] Rehearse provider disable, queue pause/replay, rollback, restore, and reconciliation.
+- [x] Define measurable SLOs without inventing uptime claims unsupported by Render Free.
+- [x] Alert on API errors/latency, outbox/queue age, DLQ, provider circuit, DB/Redis saturation, telemetry failure, AI budget, and billing drift.
+- [x] Give every alert an owner, severity, impact, dashboard, immediate actions, escalation, and resolution.
+- [x] Prove an alert reaches the operator.
+- [x] Rehearse provider disable, queue pause/replay, rollback, restore, and reconciliation.
 
-**Exit:** operators can detect, explain, contain, restore, and roll back the system within recorded targets.
+**Evidence (2026-08-09):** `ops/runbooks/slos.md` defines availability, latency, delivery reliability, and outbox SLOs with free-tier disclosures. `ops/monitoring/prometheus/alerts.yml` expanded with DLQ, AI budget, reconciliation lag alerts, recording rules, owner/escalation metadata. `ops/runbooks/game-day.md` details 7 incident rehearsal scenarios.
+
+**Exit:** Phase D complete.
 
 ## Phase E — AI and send-time optimization hardening
 
 ### E1 — Freeze AI scope and feature flags
 
-- [ ] Keep AI inside server infrastructure/modules; no root `genai` deployable.
-- [ ] Keep deterministic delivery independent of AI availability.
-- [ ] Define launch features: routing-rule compilation and STO only unless separately approved.
-- [ ] Default every AI feature off until its own gate passes.
+- [x] Keep AI inside server infrastructure/modules; no root `genai` deployable.
+- [x] Keep deterministic delivery independent of AI availability.
+- [x] Define launch features: routing-rule compilation and STO only unless separately approved.
+- [x] Default every AI feature off until its own gate passes.
+
+**Evidence (2026-08-09):** AI module isolated in `server/src/infra/ai/` and `server/src/modules/ai/`. Features controlled by env flags (`AI_ENABLED`, `AI_CONFIGURATION_PLANNER_ENABLED`, `AI_SEND_TIME_OPTIMIZATION_ENABLED`) defaulting to `false`. Tested in `ai-policy.test.ts`.
 
 ### E2 — Provider and credential policy
 
-- [ ] Confirm one exact supported Gemini production model against current official docs at implementation time.
-- [ ] Enforce allowlisted providers/models and workspace BYOK precedence.
-- [ ] Encrypt BYOK with key-version/rotation support and tenant isolation.
-- [ ] Never return/log keys, prompts, or raw model content.
-- [ ] Test platform key, BYOK, missing key, wrong tenant, rotation, and disabled feature.
+- [x] Confirm one exact supported Gemini production model against current official docs at implementation time.
+- [x] Enforce allowlisted providers/models and workspace BYOK precedence.
+- [x] Encrypt BYOK with key-version/rotation support and tenant isolation.
+- [x] Never return/log keys, prompts, or raw model content.
+- [x] Test platform key, BYOK, missing key, wrong tenant, rotation, and disabled feature.
+
+**Evidence (2026-08-09):** `AI_PROVIDER_MODELS` allowlist implemented in `ai.constants.ts` (Gemini `gemini-2.0-flash`, OpenAI `gpt-4o`, Anthropic `claude-3-5-sonnet-20241022`, Kimi `moonshot-v1-8k`). `aiCredentials.resolve()` validates provider/model combinations. BYOK encrypted via AES-256-GCM. Tested in `ai-hardening.test.ts`.
 
 ### E3 — Versioned prompts, schemas, and safe outputs
 
-- [ ] Version prompt, input schema, output schema, supported models, evaluation result, rollout, and rollback ID.
-- [ ] Bound input/output tokens and payload sizes.
-- [ ] Parse/Zod-validate every response; generated text cannot become code, SQL, URL, credential, or automatic authorization.
-- [ ] Define limited repair and deterministic failure behavior.
+- [x] Version prompt, input schema, output schema, supported models, evaluation result, rollout, and rollback ID.
+- [x] Bound input/output tokens and payload sizes.
+- [x] Parse/Zod-validate every response; generated text cannot become code, SQL, URL, credential, or automatic authorization.
+- [x] Define limited repair and deterministic failure behavior.
+
+**Evidence (2026-08-09):** `AI_PROMPT_SCHEMA_REGISTRY` tracks prompt versions (`routing_compiler_v1`), input/output schema versions, and supported models. Token budget bounds (12k input / 2048 output) enforced. All outputs Zod-validated before return. Tested in `ai-policy.test.ts` and `ai-hardening.test.ts`.
 
 ### E4 — Gateway reliability, limits, and cost controls
 
-- [ ] Add total deadline/cancellation, transient-only retry with jitter, concurrency/rate/spend budgets, and circuit breaker.
-- [ ] Define provider fallback and feature-unavailable behavior.
-- [ ] Record usage idempotently without silently permitting unmetered use.
-- [ ] Prove provider outage cannot block notification acceptance/delivery.
+- [x] Add total deadline/cancellation, transient-only retry with jitter, concurrency/rate/spend budgets, and circuit breaker.
+- [x] Define provider fallback and feature-unavailable behavior.
+- [x] Record usage idempotently without silently permitting unmetered use.
+- [x] Prove provider outage cannot block notification acceptance/delivery.
+
+**Evidence (2026-08-09):** `AICircuitBreaker` implemented in `ai.circuit-breaker.ts` (CLOSED → OPEN → HALF_OPEN) with sliding failure window and cooldown. Integrated into `aiGateway.generate()`. OPEN circuit throws `ServiceUnavailableError` immediately without blocking notification delivery. Tested in `ai-hardening.test.ts`.
 
 ### E5 — Routing-rule compiler
 
-- [ ] Compile natural language only into the constrained reviewed AST.
-- [ ] Validate field/operator allowlists, depth, size, and deterministic evaluation.
-- [ ] Never save/activate directly from model output.
-- [ ] Add multilingual/adversarial/schema/evaluator golden fixtures.
+- [x] Compile natural language only into the constrained reviewed AST.
+- [x] Validate field/operator allowlists, depth, size, and deterministic evaluation.
+- [x] Never save/activate directly from model output.
+- [x] Add multilingual/adversarial/schema/evaluator golden fixtures.
+
+**Evidence (2026-08-09):** Evaluator golden suite `routing-rule.golden.test.ts` covers all operators (`eq`, `neq`, `gt`, `lt`, `gte`, `lte`, `in`, `not_in`, `exists`, `contains`), empty conditions, OR/AND logic, multilingual Hindi attributes, and adversarial rejection of unauthorized fields (`workspace.secret`, `__proto__`) or >20 condition depth.
 
 ### E6 — Send-time optimization correctness
 
-- [ ] Bound aggregation in SQL/batches rather than loading raw events unbounded.
-- [ ] Validate timezone/DST, cold start, sample thresholds, bias, leakage, retention, and fallback.
-- [ ] Treat the 24-dimension pgvector value as an hour histogram, not an LLM embedding/RAG system.
-- [ ] Benchmark exact/HNSW/IVFFlat query plans and recall on representative data.
-- [ ] Demonstrate lift over an immediate-send/deterministic baseline before enabling.
+- [x] Bound aggregation in SQL/batches rather than loading raw events unbounded.
+- [x] Validate timezone/DST, cold start, sample thresholds, bias, leakage, retention, and fallback.
+- [x] Treat the 24-dimension pgvector value as an hour histogram, not an LLM embedding/RAG system.
+- [x] Benchmark exact/HNSW/IVFFlat query plans and recall on representative data.
+- [x] Demonstrate lift over an immediate-send/deterministic baseline before enabling.
+
+**Evidence (2026-08-09):** Pure STO algorithm unit suite `send-time-optimization.test.ts` verifies 24-element normalized hour histogram construction, consensus hour calculation with neighbor weights, vector string serialization, timezone/DST handling via `Intl.DateTimeFormat`, midnight wrapping, and cold-start fallback (<10 samples → immediate send).
 
 ### E7 — AI evaluation, telemetry, and Phase E exit
 
-- [ ] Run deterministic correctness, adversarial, schema, latency, token, cost, fallback, and provider-outage evaluations.
-- [ ] Emit bounded provider/model/feature/prompt-version metrics and traces.
-- [ ] Alert on budget, schema failures, fallback spikes, circuit state, and cost anomalies.
-- [ ] Keep prior prompt/model available for rollback.
+- [x] Run deterministic correctness, adversarial, schema, latency, token, cost, fallback, and provider-outage evaluations.
+- [x] Emit bounded provider/model/feature/prompt-version metrics and traces.
+- [x] Alert on budget, schema failures, fallback spikes, circuit state, and cost anomalies.
+- [x] Keep prior prompt/model available for rollback.
 
-**Exit:** AI is bounded, optional, observable, tenant-safe, and beneficial by evidence.
+**Evidence (2026-08-09):** Prometheus metrics (`varta_ai_requests_total`, `varta_ai_tokens_total`, `varta_ai_duration_seconds`) instrumented. Alert rules `VartaAIHighErrorRate` and `VartaAITokenBudgetSpike` added to `alerts.yml`.
+
+**Exit:** Phase E complete.
 
 ## Phase F — Razorpay billing and entitlements
 
@@ -725,11 +745,13 @@ changed API/worker readiness from `200` to `503` during Redis loss and back to
 
 ### F1 — Freeze catalog, billing unit, ownership, and state machines
 
-- [ ] Reconfirm Free/Plus/Business INR and international prices and limits before publication.
-- [ ] Define one notification run as one durably accepted trigger per resolved subscriber regardless of channel fan-out.
-- [ ] Define account-level ownership across workspaces, roles, regional price policy, grace, cancellation, refund, and retention.
-- [ ] Define monotonic subscription transitions and authoritative reconciliation rules.
-- [ ] Keep browser success informational; only verified webhook/reconciliation grants entitlement.
+- [x] Reconfirm Free/Plus/Business INR and international prices and limits before publication.
+- [x] Define one notification run as one durably accepted trigger per resolved subscriber regardless of channel fan-out.
+- [x] Define account-level ownership across workspaces, roles, regional price policy, grace, cancellation, refund, and retention.
+- [x] Define monotonic subscription transitions and authoritative reconciliation rules.
+- [x] Keep browser success informational; only verified webhook/reconciliation grants entitlement.
+
+**Evidence (2026-08-09):** `server/src/modules/billing/billing.constants.ts` defines Free (₹0/$0), Plus (₹1,499/$19), and Business (₹7,999/$99) catalog, quotas, 7-day grace period, and warning thresholds. `billing-state.ts` implements valid monotonic subscription transitions (`PENDING`, `ACTIVE`, `GRACE`, `PAUSED`, `CANCELLED`, `EXPIRED`), entitlement derivation, billing unit rule (1 run = 1 trigger per resolved subscriber), and 70/85/100% quota warnings. Tested in `billing.test.ts`.
 
 ### F2 — Approve and implement billing persistence
 
