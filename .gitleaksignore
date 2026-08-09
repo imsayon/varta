@@ -1,0 +1,8 @@
+c8b1ef64fd093f2ba827277f2c1f9936cdddf8d8:server/src/modules/auth/auth.journey.unit.test.ts:jwt:57
+85365ec70fdc0c55b9b6bb368ecf71601132b6fb:.github/workflows/ci.yml:generic-api-key:87
+42f89f5689ed97b89819c552dfba8c00122054da:.github/workflows/ci.yml:generic-api-key:61
+42f89f5689ed97b89819c552dfba8c00122054da:ops/env/local.env:generic-api-key:11
+42f89f5689ed97b89819c552dfba8c00122054da:server/.env.example:generic-api-key:18
+42f89f5689ed97b89819c552dfba8c00122054da:server/src/infra/queues/payloads.test.ts:generic-api-key:18
+42f89f5689ed97b89819c552dfba8c00122054da:server/src/infra/queues/payloads.test.ts:generic-api-key:40
+eb5d741de7d5216f9a776834731261c5008c7715:server/.env.example:generic-api-key:41

@@ -16,6 +16,51 @@ export const AI_PROMPT_VERSIONS = {
 	ROUTING_COMPILER_V1: "routing_compiler_v1",
 } as const
 
+// E2: Allowlisted providers and their accepted models.
+// The openai-compatible provider accepts any model string (BYOK endpoint responsibility).
+// Add new models here after verifying sandbox compatibility.
+export const AI_PROVIDER_MODELS: Record<string, ReadonlyArray<string>> = {
+	[AI_PROVIDERS.GEMINI]: [
+		"gemini-2.0-flash",
+		"gemini-2.0-flash-lite",
+		"gemini-1.5-flash",
+		"gemini-1.5-pro",
+	],
+	[AI_PROVIDERS.OPENAI]: [
+		"gpt-4o",
+		"gpt-4o-mini",
+		"gpt-4-turbo",
+	],
+	[AI_PROVIDERS.ANTHROPIC]: [
+		"claude-3-5-sonnet-20241022",
+		"claude-3-5-haiku-20241022",
+		"claude-3-opus-20240229",
+	],
+	[AI_PROVIDERS.KIMI]: [
+		"moonshot-v1-8k",
+		"moonshot-v1-32k",
+		"moonshot-v1-128k",
+	],
+	// openai-compatible: model string is caller-supplied; no allowlist enforced here.
+}
+
+// E3: Prompt and output schema version registry for rollback.
+// Each entry names a prompt file, its input/output schema version, and supported models.
+export const AI_PROMPT_SCHEMA_REGISTRY = {
+	[AI_PROMPT_VERSIONS.ROUTING_COMPILER_V1]: {
+		promptFile: "routing_compiler_v1.system.md",
+		inputSchemaVersion: "1",
+		outputSchemaVersion: "1",
+		supportedModels: [
+			"gemini-2.0-flash",
+			"gemini-2.0-flash-lite",
+			"gemini-1.5-flash",
+			"gpt-4o",
+			"gpt-4o-mini",
+		],
+	},
+} as const
+
 export const AI_DEFAULTS = {
 	platformProvider: AI_PROVIDERS.GEMINI,
 	requestTimeoutMs: 30_000,

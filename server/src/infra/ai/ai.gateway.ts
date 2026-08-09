@@ -11,6 +11,7 @@ import { AIProviderError } from "./ai.errors.ts"
 import { BadRequestError } from "@/common/errors/app-error.ts"
 import type { AIProviderResponse, AIRequest, AIResponse } from "./ai.types.ts"
 import { AI_DEFAULTS, AI_RETRYABLE_STATUS_CODES } from "./ai.constants.ts"
+import { aiCircuitBreaker } from "./ai.circuit-breaker.ts"
 
 function parseJson<T>(text: string): T {
 	const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1]
@@ -53,6 +54,8 @@ export const aiGateway = {
 			() => controller.abort(),
 			env.AI_REQUEST_TIMEOUT_MS,
 		)
+		// E4: circuit breaker check — throws immediately if circuit is OPEN
+		aiCircuitBreaker.beforeRequest()
 		try {
 			let result: AIProviderResponse
 			for (let attempt = 0; ; attempt += 1) {
@@ -68,8 +71,10 @@ export const aiGateway = {
 					})
 					break
 				} catch (error) {
-					if (!isRetryable(error) || attempt >= env.AI_MAX_RETRIES)
+					if (!isRetryable(error) || attempt >= env.AI_MAX_RETRIES) {
+						aiCircuitBreaker.onFailure()
 						throw error
+					}
 					const delayMs = Math.min(
 						2 ** attempt * AI_DEFAULTS.retryBaseDelayMs,
 						AI_DEFAULTS.maxRetryDelayMs,
@@ -88,6 +93,7 @@ export const aiGateway = {
 				throw new BadRequestError(
 					"AI provider response failed schema validation",
 				)
+			aiCircuitBreaker.onSuccess()
 			const latencyMs = Date.now() - startedAt
 			await aiUsageService.record({
 				workspaceId: request.workspaceId,
