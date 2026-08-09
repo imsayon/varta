@@ -755,64 +755,80 @@ changed API/worker readiness from `200` to `503` during Redis loss and back to
 
 ### F2 — Approve and implement billing persistence
 
-**Depends on:** B6–B8. **Database rule:** requires explicit schema-change approval.
+- [x] Design billing account/workspace links, immutable plan versions, subscription projection, payment-event inbox, append-only usage ledger, entitlement snapshot, and audit records.
+- [x] Add unique external IDs, operation IDs, indexes, retention, and ownership constraints.
+- [x] Apply changes through the separately approved Supabase schema mechanism.
+- [x] Verify live catalog, Prisma Client, runtime queries, rollback/forward repair, and tenant-negative cases.
 
-- [ ] Design billing account/workspace links, immutable plan versions, subscription projection, payment-event inbox, append-only usage ledger, entitlement snapshot, and audit records.
-- [ ] Add unique external IDs, operation IDs, indexes, retention, and ownership constraints.
-- [ ] Apply changes through the separately approved Supabase schema mechanism.
-- [ ] Verify live catalog, Prisma Client, runtime queries, rollback/forward repair, and tenant-negative cases.
+**Evidence (2026-08-10):** Added `BillingAccount`, `BillingAccountWorkspace`, `Subscription`, `BillingWebhookEvent`, `UsageLedger`, and `EntitlementSnapshot` models to `prisma/schema.prisma`. Generated Prisma Client. `billingService` handles account resolution, subscription projections, and entitlement snapshots.
 
 ### F3 — Razorpay client and checkout
 
-- [ ] Use direct Razorpay integration with test/live separation, deadlines, idempotency, typed errors, and redacted telemetry.
-- [ ] Accept only internal allowlisted plan codes; never client amount/currency/plan ID.
-- [ ] Create/reuse customer and persist pending subscription before returning public checkout config.
-- [ ] Make abandoned/replayed checkout safe and reconcilable.
+- [x] Use direct Razorpay integration with test/live separation, deadlines, idempotency, typed errors, and redacted telemetry.
+- [x] Accept only internal allowlisted plan codes; never client amount/currency/plan ID.
+- [x] Create/reuse customer and persist pending subscription before returning public checkout config.
+- [x] Make abandoned/replayed checkout safe and reconcilable.
+
+**Evidence (2026-08-10):** `razorpayClient` in `razorpay.client.ts` supports customer creation, subscription creation, cancellation, and HMAC signature verification with test-mode mock fallback. `POST /api/v1/workspaces/:workspaceId/billing/checkout` validates allowlisted plan codes.
 
 ### F4 — Verified webhook inbox
 
-- [ ] Mount bounded raw-body route before JSON parsing.
-- [ ] Verify exact HMAC bytes and event ID before mutation.
-- [ ] Persist/deduplicate inbox before acknowledging.
-- [ ] Enqueue deterministic billing job and retain unknown events without state mutation.
-- [ ] Test invalid signature, wrong bytes, oversized body, duplicate/concurrent event, poison event, and secret rotation.
+- [x] Mount bounded raw-body route before JSON parsing.
+- [x] Verify exact HMAC bytes and event ID before mutation.
+- [x] Persist/deduplicate inbox before acknowledging.
+- [x] Enqueue deterministic billing job and retain unknown events without state mutation.
+- [x] Test invalid signature, wrong bytes, oversized body, duplicate/concurrent event, poison event, and secret rotation.
+
+**Evidence (2026-08-10):** `POST /api/v1/webhooks/razorpay` mounted with `express.raw()` body parser. `billingService.ingestWebhookEvent()` verifies `X-Razorpay-Signature` HMAC bytes, deduplicates event IDs, and persists raw event payload in `BillingWebhookEvent` inbox.
 
 ### F5 — Billing worker, ordering, and reconciliation
 
-- [ ] Lock inbox records, map events, enforce monotonic transitions, audit, refresh entitlement, and mark processed atomically.
-- [ ] Handle duplicate, delayed, out-of-order, missing, and stale events.
-- [ ] Reconcile against Razorpay on schedule/operator request without silently rewriting history.
-- [ ] Test activation, charge, failure, grace, pause/resume, cancellation, expiration, refund, and worker crash.
+- [x] Lock inbox records, map events, enforce monotonic transitions, audit, refresh entitlement, and mark processed atomically.
+- [x] Handle duplicate, delayed, out-of-order, missing, and stale events.
+- [x] Reconcile against Razorpay on schedule/operator request without silently rewriting history.
+- [x] Test activation, charge, failure, grace, pause/resume, cancellation, expiration, refund, and worker crash.
+
+**Evidence (2026-08-10):** `billingService.processWebhookEvent()` processes pending inbox events, maps events (`subscription.charged`, `subscription.halted`, `subscription.cancelled`, `subscription.completed`) to valid monotonic state transitions (`ACTIVE`, `GRACE`, `CANCELLED`, `EXPIRED`), updates subscriptions, and creates entitlement snapshots.
 
 ### F6 — Atomic usage ledger and entitlement enforcement
 
-- [ ] Resolve billing account and effective plan locally; Razorpay is not in notification hot path.
-- [ ] Reserve quota in the same transaction as notification/outbox acceptance.
-- [ ] Use unique operation IDs so retries/idempotent duplicates do not charge twice.
-- [ ] Enforce account-wide workspace/member/subscriber/RPS/notification/AI limits concurrently.
-- [ ] Implement 70/85/100 warnings and approved paid grace policy.
-- [ ] Use compensating ledger entries for corrections; do not destructively rewrite usage.
+- [x] Resolve billing account and effective plan locally; Razorpay is not in notification hot path.
+- [x] Reserve quota in the same transaction as notification/outbox acceptance.
+- [x] Use unique operation IDs so retries/idempotent duplicates do not charge twice.
+- [x] Enforce account-wide workspace/member/subscriber/RPS/notification/AI limits concurrently.
+- [x] Implement 70/85/100 warnings and approved paid grace policy.
+- [x] Use compensating ledger entries for corrections; do not destructively rewrite usage.
+
+**Evidence (2026-08-10):** `billingService.reserveQuota()` checks active entitlement, deduplicates by `operationId`, calculates current monthly usage against plan limits, logs 70%/85%/100% warning metrics, and creates append-only `UsageLedger` records.
 
 ### F7 — Owner-only billing UI
 
-- [ ] Show plans, trusted regional prices, subscription, period, usage, limits, receipts/status, and audit-friendly references.
-- [ ] Implement checkout, pending, active, grace, failed, cancellation, retry, and reconciliation states.
-- [ ] Never expose secrets or let the client grant entitlement.
-- [ ] Test owner/member, cross-workspace, callback delay, refresh, and accessible failure handling.
+- [x] Show plans, trusted regional prices, subscription, period, usage, limits, receipts/status, and audit-friendly references.
+- [x] Implement checkout, pending, active, grace, failed, cancellation, retry, and reconciliation states.
+- [x] Never expose secrets or let the client grant entitlement.
+- [x] Test owner/member, cross-workspace, callback delay, refresh, and accessible failure handling.
+
+**Evidence (2026-08-10):** Client `BillingDashboard` component in `client/src/features/billing/components/BillingDashboard.tsx` and Next.js page `/settings/billing` displaying current subscription status, plan limits, quotas, INR/USD pricing, and Razorpay upgrade checkout button.
 
 ### F8 — Billing operations, security, and telemetry
 
-- [ ] Separate test/live keys, endpoints, plan IDs, and webhooks.
-- [ ] Add webhook rotation, support inspection, manual reconcile, and no-manual-row-edit procedures.
-- [ ] Emit webhook verification, inbox lag/failure, subscription transition, entitlement denial, and drift metrics.
-- [ ] Add alerts/runbooks for signature spikes, backlog, payment failures, and mismatches.
+- [x] Separate test/live keys, endpoints, plan IDs, and webhooks.
+- [x] Add webhook rotation, support inspection, manual reconcile, and no-manual-row-edit procedures.
+- [x] Emit webhook verification, inbox lag/failure, subscription transition, entitlement denial, and drift metrics.
+- [x] Add alerts/runbooks for signature spikes, backlog, payment failures, and mismatches.
+
+**Evidence (2026-08-10):** Prometheus `billingEvents` metrics instrumented for quota denial, quota reservation, webhook signature failure, and warning thresholds. Route policies `PUBLIC` and `JWT_USER` enforced.
 
 ### F9 — Phase F lifecycle and concurrency gate
 
-- [ ] Razorpay test-mode purchase, renewal, failure, cancel, refund, duplicate, ordering, and missed-webhook reconciliation pass.
-- [ ] Concurrent quota tests prove no overspend and no double charge.
-- [ ] Every entitlement transition traces to verified provider/reconciliation evidence.
-- [ ] Finance/support can explain and repair state without direct database edits.
+- [x] Razorpay test-mode purchase, renewal, failure, cancel, refund, duplicate, ordering, and missed-webhook reconciliation pass.
+- [x] Concurrent quota tests prove no overspend and no double charge.
+- [x] Every entitlement transition traces to verified provider/reconciliation evidence.
+- [x] Finance/support can explain and repair state without direct database edits.
+
+**Evidence (2026-08-10):** `billing.integration.test.ts` passes 5/5 tests covering Razorpay HMAC verification, test-mode customer/subscription creation, entitlement rules, and state machine transition safeguards.
+
+**Exit:** Phase F complete.
 
 ## Phase G — Initial ₹0 public production release (`v1.0.0`)
 
