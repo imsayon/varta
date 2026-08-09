@@ -1,36 +1,91 @@
-name: CD Deployment
+name: Render release control
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Deploy the selected commit or roll back to retained deploy IDs
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+      commit_sha:
+        description: Commit SHA for a manual deploy (defaults to current main)
+        required: false
+      api_deploy_id:
+        description: Retained API deploy ID for rollback
+        required: false
+      client_deploy_id:
+        description: Retained client deploy ID for rollback
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy to Production
+  release:
+    if: >-
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: SSH Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.3
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -euo pipefail
-            cd /opt/varta
-            test -f ops/env/production.env
-            git pull --ff-only origin main
-            chmod +x ops/scripts/validate.sh
-            ./ops/scripts/validate.sh ops/env/production.env
-            compose="docker compose --env-file ops/env/production.env -f ops/compose/compose.yaml"
-            $compose config --quiet
-            $compose up -d --wait postgres redis
-            $compose build api worker client
-            $compose run --rm --no-deps api npx prisma migrate deploy
-            $compose up -d --remove-orphans api worker client caddy
-            $compose exec -T api node -e "fetch('http://127.0.0.1:5000/api/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
-            $compose exec -T worker node -e "fetch('http://127.0.0.1:5001/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+          ref: ${{ github.event.workflow_run.head_sha || inputs.commit_sha || 'main' }}
+      - name: Resolve release commit
+        id: release
+        env:
+          REQUESTED_SHA: ${{ github.event.workflow_run.head_sha || inputs.commit_sha }}
+        run: echo "sha=${REQUESTED_SHA:-$(git rev-parse HEAD)}" >> "$GITHUB_OUTPUT"
+      - name: Validate release configuration
+        run: bash ops/scripts/validate-render-blueprint.sh
+      - name: Deploy exact CI-approved commit
+        if: ${{ inputs.operation != 'rollback' }}
+        env:
+          API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+          CLIENT_DEPLOY_HOOK: ${{ secrets.RENDER_CLIENT_DEPLOY_HOOK }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          test -n "$API_DEPLOY_HOOK" && test -n "$CLIENT_DEPLOY_HOOK"
+          curl --fail --silent --show-error --request POST "${API_DEPLOY_HOOK}?ref=${RELEASE_SHA}"
+          curl --fail --silent --show-error --request POST "${CLIENT_DEPLOY_HOOK}?ref=${RELEASE_SHA}"
+      - name: Roll back to retained Render artifacts
+        if: ${{ inputs.operation == 'rollback' }}
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          API_SERVICE_ID: ${{ secrets.RENDER_API_SERVICE_ID }}
+          CLIENT_SERVICE_ID: ${{ secrets.RENDER_CLIENT_SERVICE_ID }}
+          API_DEPLOY_ID: ${{ inputs.api_deploy_id }}
+          CLIENT_DEPLOY_ID: ${{ inputs.client_deploy_id }}
+        run: |
+          test -n "$RENDER_API_KEY" && test -n "$API_SERVICE_ID" && test -n "$CLIENT_SERVICE_ID"
+          test -n "$API_DEPLOY_ID" && test -n "$CLIENT_DEPLOY_ID"
+          curl --fail --silent --show-error --request POST "https://api.render.com/v1/services/${API_SERVICE_ID}/rollback" --header "Authorization: Bearer ${RENDER_API_KEY}" --header 'Content-Type: application/json' --data "{\"deployId\":\"${API_DEPLOY_ID}\"}"
+          curl --fail --silent --show-error --request POST "https://api.render.com/v1/services/${CLIENT_SERVICE_ID}/rollback" --header "Authorization: Bearer ${RENDER_API_KEY}" --header 'Content-Type: application/json' --data "{\"deployId\":\"${CLIENT_DEPLOY_ID}\"}"
+      - name: Post-release smoke gates
+        env:
+          API_HEALTH_URL: ${{ secrets.RENDER_API_HEALTH_URL }}
+          CLIENT_HEALTH_URL: ${{ secrets.RENDER_CLIENT_HEALTH_URL }}
+        run: |
+          test -n "$API_HEALTH_URL" && test -n "$CLIENT_HEALTH_URL"
+          curl --fail --silent --show-error --retry 30 --retry-delay 10 --retry-all-errors "$API_HEALTH_URL/api/health/combined/ready"
+          curl --fail --silent --show-error --retry 30 --retry-delay 10 --retry-all-errors "$CLIENT_HEALTH_URL/"
+      - name: Record release manifest
+        env:
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          OPERATION: ${{ inputs.operation || 'deploy' }}
+        run: |
+          mkdir -p artifacts
+          printf '{"commit":"%s","operation":"%s","runId":"%s","completedAt":"%s"}\n' "$RELEASE_SHA" "$OPERATION" "$GITHUB_RUN_ID" "$(date --utc --iso-8601=seconds)" > artifacts/release-manifest.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-manifest-${{ github.run_id }}
+          path: artifacts/release-manifest.json
+          retention-days: 90

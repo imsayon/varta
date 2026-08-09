@@ -1,5 +1,5 @@
 # BUILD
-FROM node:24.18.0-alpine AS build
+FROM node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS build
 
 RUN npm install --global pnpm@11.20.0
 
@@ -12,11 +12,12 @@ COPY server/ ./server/
 WORKDIR /app/server
 RUN pnpm prisma:generate \
   && pnpm build \
-  && CI=true pnpm prune --prod \
-  && node node_modules/prisma/build/index.js generate
+  && pnpm --filter @varta/server deploy --prod --legacy /prod/server \
+  && cd /prod/server \
+  && /app/server/node_modules/.bin/prisma generate
 
 # RUN
-FROM node:24.18.0-alpine AS runtime
+FROM node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS runtime
 
 LABEL org.opencontainers.image.authors="Sayon sayn731@gmail.com"
 LABEL org.opencontainers.image.source="https://github.com/imsayon/varta"
@@ -26,13 +27,7 @@ WORKDIR /app/server
 
 RUN addgroup -S varta && adduser -S varta -G varta
 
-COPY --from=build /app/server/package.json ./package.json
-COPY --from=build /app/node_modules /app/node_modules
-COPY --from=build /app/server/node_modules ./node_modules
-COPY --from=build /app/server/dist ./dist
-COPY --from=build /app/server/prisma ./prisma
-COPY --from=build /app/server/prisma.config.ts ./prisma.config.ts
-COPY --from=build /app/server/certs ./certs
+COPY --from=build /prod/server/ ./
 
 RUN chown -R varta:varta /app
 

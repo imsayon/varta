@@ -6,19 +6,47 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16@sha256:a36250871de0833b8757561c72f2477ef1ddd1101afa4e617fb552e0de514c6b
+        env:
+          POSTGRES_USER: varta
+          POSTGRES_PASSWORD: varta-ci-password
+          POSTGRES_DB: varta
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U varta -d varta"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:7-alpine@sha256:e7723ff73d963f5cc6d9c4643ea3d989527a402a319239054e9472a7fb9219a2
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://varta:varta-ci-password@localhost:5432/varta
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci-access-secret-at-least-32-characters
+      JWT_REFRESH_SECRET: ci-refresh-secret-at-least-32-characters
+      JWT_WS_SECRET: ci-websocket-secret-at-least-32-characters
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 11.20.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
@@ -37,6 +65,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @varta/server exec prisma generate
 
+      - name: Initialize disposable integration schema
+        run: pnpm --filter @varta/server exec prisma db push
+
       - name: Lint client
         run: pnpm --filter @varta/web lint
 
@@ -53,12 +84,33 @@ jobs:
         run: pnpm --filter @varta/server typecheck
 
       - name: Test server
+        env:
+          RUN_AUTH_DATABASE_TESTS: 'true'
+          RUN_NOTIFICATION_DATABASE_TESTS: 'true'
+          RUN_TENANT_DATABASE_TESTS: 'true'
+          RUN_NOTIFICATION_QUEUE_TESTS: 'true'
+          RUN_CAPACITY_TESTS: 'true'
         run: |
           mkdir -p artifacts
           pnpm --filter @varta/server test > artifacts/server-test.tap
 
+      - name: Verify Redis-loss recovery
+        env:
+          RUN_NOTIFICATION_FAULT_TESTS: 'true'
+          REDIS_URL: redis://127.0.0.1:6399
+        run: pnpm --dir server exec tsx --test src/modules/notifications/outbox-redis-loss.integration.test.ts
+
       - name: Build server
         run: pnpm --filter @varta/server build
+
+      - name: Seed disposable browser environment
+        run: NODE_ENV=test pnpm --dir server exec tsx scripts/e2e-seed.ts
+
+      - name: Install browser runtime
+        run: pnpm --dir client exec playwright install --with-deps chromium
+
+      - name: Browser production journeys
+        run: pnpm --dir client test:e2e
 
       - name: Validate Compose configuration
         env:
@@ -73,10 +125,28 @@ jobs:
           docker compose -f ops/compose/compose.yaml config --quiet
 
       - name: Build server image
-        run: docker build -f ops/docker/server.Dockerfile .
+        run: docker build --label org.opencontainers.image.revision="$GITHUB_SHA" -t varta-server:ci -f ops/docker/server.Dockerfile .
 
       - name: Build client image
-        run: docker build -f ops/docker/client.Dockerfile .
+        run: docker build --label org.opencontainers.image.revision="$GITHUB_SHA" -t varta-client:ci -f ops/docker/client.Dockerfile .
+
+      - name: Generate image SBOMs
+        run: |
+          docker run --rm --user 0 -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/artifacts:/out" anchore/syft:v1.44.0@sha256:86fde6445b483d902fe011dd9f68c4987dd94e07da1e9edc004e3c2422650de6 varta-server:ci -o cyclonedx-json=/out/server-sbom.cdx.json
+          docker run --rm --user 0 -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/artifacts:/out" anchore/syft:v1.44.0@sha256:86fde6445b483d902fe011dd9f68c4987dd94e07da1e9edc004e3c2422650de6 varta-client:ci -o cyclonedx-json=/out/client-sbom.cdx.json
+
+      - name: Scan repository and images
+        run: |
+          docker run --rm --user 0 -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0@sha256:cdbb7c955abce02001a9f6c9f602fb195b7fadc1e812065883f695d1eeaba854 git /repo --no-banner --redact
+          docker run --rm --user root -v "$PWD:/repo" -v "$PWD/.trivy-cache:/root/.cache/trivy" aquasec/trivy:0.70.0@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e filesystem --scanners vuln,misconfig,secret --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed /repo
+          docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivy-cache:/root/.cache/trivy" aquasec/trivy:0.70.0@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed varta-server:ci
+          docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivy-cache:/root/.cache/trivy" aquasec/trivy:0.70.0@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed varta-client:ci
+
+      - name: Record license scan evidence
+        run: |
+          docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivy-cache:/root/.cache/trivy" -v "$PWD/artifacts:/out" aquasec/trivy:0.70.0@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e image --scanners license --format json --output /out/server-licenses.json varta-server:ci
+          docker run --rm --user root -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivy-cache:/root/.cache/trivy" -v "$PWD/artifacts:/out" aquasec/trivy:0.70.0@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e image --scanners license --format json --output /out/client-licenses.json varta-client:ci
+          node -e "const fs=require('node:fs'); for (const file of ['artifacts/server-licenses.json','artifacts/client-licenses.json']) { const report=JSON.parse(fs.readFileSync(file)); const critical=(report.Results??[]).flatMap(r=>r.Licenses??[]).filter(l=>l.Severity==='CRITICAL'); if (critical.length) { console.error(file+': forbidden licenses: '+critical.map(l=>l.Name).join(', ')); process.exitCode=1; } }"
 
       - name: Validate observability Compose configuration
         env:
@@ -92,11 +162,33 @@ jobs:
 
       - name: Write build evidence manifest
         run: |
-          node -e "const fs=require('node:fs'); const cp=require('node:child_process'); const exists=p=>fs.existsSync(p); const manifest={commit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),node:process.version,pnpm:cp.execFileSync('pnpm',['--version'],{encoding:'utf8'}).trim(),serverDist:exists('server/dist'),clientNext:exists('client/.next'),serverImageDockerfile:exists('ops/docker/server.Dockerfile'),clientImageDockerfile:exists('ops/docker/client.Dockerfile')}; fs.mkdirSync('artifacts',{recursive:true}); fs.writeFileSync('artifacts/build-manifest.json',JSON.stringify(manifest,null,2)+'\\n')"
+          node -e "const fs=require('node:fs'); const cp=require('node:child_process'); const crypto=require('node:crypto'); const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'); const image=n=>cp.execFileSync('docker',['image','inspect','--format={{.Id}}',n],{encoding:'utf8'}).trim(); const manifest={commit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),node:process.version,pnpm:cp.execFileSync('pnpm',['--version'],{encoding:'utf8'}).trim(),lockSha256:hash('pnpm-lock.yaml'),images:{server:image('varta-server:ci'),client:image('varta-client:ci')},sbomSha256:{server:hash('artifacts/server-sbom.cdx.json'),client:hash('artifacts/client-sbom.cdx.json')},serverDist:fs.existsSync('server/dist'),clientNext:fs.existsSync('client/.next')}; fs.writeFileSync('artifacts/build-manifest.json',JSON.stringify(manifest,null,2)+'\\n')"
+
+      - name: Record image subjects
+        id: image-subjects
+        run: |
+          echo "server=$(docker image inspect --format='{{.Id}}' varta-server:ci)" >> "$GITHUB_OUTPUT"
+          echo "client=$(docker image inspect --format='{{.Id}}' varta-client:ci)" >> "$GITHUB_OUTPUT"
+
+      - name: Attest server image and SBOM
+        if: github.event_name == 'push' && github.event.repository.visibility == 'public'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: varta-server
+          subject-digest: ${{ steps.image-subjects.outputs.server }}
+          sbom-path: artifacts/server-sbom.cdx.json
+
+      - name: Attest client image and SBOM
+        if: github.event_name == 'push' && github.event.repository.visibility == 'public'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: varta-client
+          subject-digest: ${{ steps.image-subjects.outputs.client }}
+          sbom-path: artifacts/client-sbom.cdx.json
 
       - name: Upload CI evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: varta-ci-evidence
           path: artifacts/

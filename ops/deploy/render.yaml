@@ -8,6 +8,7 @@ services:
       runtime: node
       plan: free
       branch: main
+      autoDeploy: false
       buildCommand: corepack pnpm@11.20.0 install --frozen-lockfile && corepack pnpm@11.20.0 --filter @varta/server prisma:generate && corepack pnpm@11.20.0 --filter @varta/server build
       startCommand: corepack pnpm@11.20.0 --filter @varta/server start:combined
       healthCheckPath: /api/health/combined/ready
@@ -42,6 +43,7 @@ services:
       runtime: node
       plan: free
       branch: main
+      autoDeploy: false
       buildCommand: corepack pnpm@11.20.0 install --frozen-lockfile && corepack pnpm@11.20.0 --filter @varta/web build
       startCommand: corepack pnpm@11.20.0 --filter @varta/web start
       healthCheckPath: /
