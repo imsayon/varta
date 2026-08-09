@@ -1,21 +1,13 @@
 import express, { type Request, type Response, type NextFunction } from "express"
 import { z } from "zod"
-import { requireAuth } from "@/common/middleware/auth.middleware.ts"
-import { requireWorkspaceRole } from "@/common/middleware/tenant-isolation.middleware.ts"
-import { declareRoutePolicy } from "@/common/auth/route-policy.ts"
-import { successResponse } from "@/common/utils/api-response.ts"
+import { authenticate } from "@/common/middleware/auth.middleware.ts"
+import { authorize } from "@/common/auth/route-policy.ts"
+import { sendSuccess } from "@/common/utils/response.ts"
 import { BadRequestError } from "@/common/errors/app-error.ts"
 import { billingService } from "./billing.service.ts"
 import { BILLING_CATALOG, BILLING_PLANS, type BillingPlanId } from "./billing.constants.ts"
 
 const router = express.Router()
-
-// Declare public webhook route policy
-declareRoutePolicy("/api/v1/webhooks/razorpay", {
-	method: "POST",
-	policy: "PUBLIC",
-	description: "Public verified Razorpay payment webhook endpoint",
-})
 
 /**
  * Public Webhook Ingestion for Razorpay
@@ -24,61 +16,43 @@ declareRoutePolicy("/api/v1/webhooks/razorpay", {
 router.post(
 	"/api/v1/webhooks/razorpay",
 	express.raw({ type: "application/json" }),
+	authorize("webhook.provider.razorpay"),
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const signature = (req.headers["x-razorpay-signature"] as string) || ""
 			const rawBody = typeof req.body === "string" ? req.body : req.body?.toString?.("utf-8") || ""
 
 			const result = await billingService.ingestWebhookEvent(rawBody, signature)
-			return res.status(200).json(successResponse(result, "Webhook processed"))
+			return sendSuccess(req, res, result)
 		} catch (err) {
 			next(err)
 		}
 	},
 )
-
-// Declare workspace owner billing policy
-declareRoutePolicy("/api/v1/workspaces/:workspaceId/billing", {
-	method: "GET",
-	policy: "JWT_USER",
-	description: "Owner-only workspace billing summary, entitlement, and quota usage",
-})
 
 /**
  * Owner-only billing overview
  */
 router.get(
 	"/api/v1/workspaces/:workspaceId/billing",
-	requireAuth,
-	requireWorkspaceRole(["OWNER"]),
+	authenticate,
+	authorize("billing.read"),
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { workspaceId } = req.params
 			const entitlement = await billingService.getWorkspaceEntitlements(workspaceId!)
 
-			return res.json(
-				successResponse(
-					{
-						plan: BILLING_CATALOG[entitlement.planId],
-						status: entitlement.status,
-						entitlements: entitlement,
-						catalog: Object.values(BILLING_CATALOG),
-					},
-					"Billing status retrieved",
-				),
-			)
+			return sendSuccess(req, res, {
+				plan: BILLING_CATALOG[entitlement.planId],
+				status: entitlement.status,
+				entitlements: entitlement,
+				catalog: Object.values(BILLING_CATALOG),
+			})
 		} catch (err) {
 			next(err)
 		}
 	},
 )
-
-// Declare workspace checkout policy
-declareRoutePolicy("/api/v1/workspaces/:workspaceId/billing/checkout", {
-	method: "POST",
-	policy: "JWT_USER",
-	description: "Owner-only checkout initiation for Razorpay subscription upgrade",
-})
 
 const checkoutSchema = z.object({
 	planId: z.enum([BILLING_PLANS.FREE, BILLING_PLANS.PLUS, BILLING_PLANS.BUSINESS]),
@@ -89,13 +63,13 @@ const checkoutSchema = z.object({
  */
 router.post(
 	"/api/v1/workspaces/:workspaceId/billing/checkout",
-	requireAuth,
-	requireWorkspaceRole(["OWNER"]),
+	authenticate,
+	authorize("billing.checkout"),
 	express.json(),
 	async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { workspaceId } = req.params
-			const userId = req.workspaceContext?.userId
+			const userId = (req as any).user?.id || (req as any).principal?.userId
 
 			if (!userId) {
 				throw new BadRequestError("User context missing")
@@ -107,7 +81,7 @@ router.post(
 			}
 
 			const checkout = await billingService.initiateCheckout(userId, workspaceId!, parsed.data.planId as BillingPlanId)
-			return res.json(successResponse(checkout, "Checkout initiated"))
+			return sendSuccess(req, res, checkout)
 		} catch (err) {
 			next(err)
 		}

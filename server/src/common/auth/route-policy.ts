@@ -99,7 +99,11 @@ export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 	{ id: "provider.upsert", method: "PUT", path: "/api/v1/workspaces/:workspaceId/providers/:channel", principalKinds: browser, roles: adminRoles, hideWorkspaceMismatch: true },
 	{ id: "provider.test", method: "POST", path: "/api/v1/workspaces/:workspaceId/providers/:channel/test", principalKinds: browser, roles: adminRoles, hideWorkspaceMismatch: true },
 
-	{ id: "webhook.provider.resend", method: "POST", path: "/api/v1/webhooks/resend", principalKinds: ["provider_webhook"] },
+	{ id: "billing.read", method: "GET", path: "/api/v1/workspaces/:workspaceId/billing", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
+	{ id: "billing.checkout", method: "POST", path: "/api/v1/workspaces/:workspaceId/billing/checkout", principalKinds: browser, roles: adminRoles, hideWorkspaceMismatch: true },
+
+	{ id: "webhook.provider.resend", method: "POST", path: "/api/v1/webhooks/resend", public: true },
+	{ id: "webhook.provider.razorpay", method: "POST", path: "/api/v1/webhooks/razorpay", public: true },
 	{ id: "websocket.subscriber", method: "GET", path: "/ws", principalKinds: ["subscriber_websocket"] },
 	{ id: "websocket.workspace", method: "GET", path: "/ws", principalKinds: browser },
 ] as const
