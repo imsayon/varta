@@ -6,6 +6,9 @@ export interface SendInAppJobDto {
 	notificationId: string
 	deliveryId: string
 	workspaceId: string
+	requestId?: string
+	correlationId?: string
+	traceparent?: string
 }
 
 export const inAppQueue = createQueue<SendInAppJobDto>(QueueNames.INAPP)

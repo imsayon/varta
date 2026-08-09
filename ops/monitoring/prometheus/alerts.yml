@@ -1,29 +1,44 @@
 groups:
-    - name: varta_alerts
+    - name: varta_slos
       rules:
-          - alert: HighQueueBacklog
-            expr: varta_queue_jobs{state="waiting"} > 1000
+          - record: varta:http_error_ratio_5m
+            expr: sum(rate(varta_http_requests_total{status_class="5xx"}[5m])) / clamp_min(sum(rate(varta_http_requests_total[5m])), 1)
+          - record: varta:delivery_terminal_failure_ratio_5m
+            expr: sum(rate(varta_delivery_attempts_total{outcome=~"FAILED|DLQ"}[5m])) / clamp_min(sum(rate(varta_delivery_attempts_total[5m])), 1)
+    - name: varta_operator_alerts
+      rules:
+          - alert: VartaMetricsTargetMissing
+            expr: up{job=~"varta-api|varta-worker"} == 0
+            for: 2m
+            labels: { severity: critical, owner: operator }
+            annotations: { summary: "Varta telemetry target is missing", impact: "Operators cannot determine application health", immediate_action: "Inspect service readiness and Prometheus target errors" }
+          - alert: VartaHighHttpErrorRate
+            expr: varta:http_error_ratio_5m > 0.01
             for: 5m
-            labels:
-                severity: warning
-            annotations:
-                summary: "High queue backlog detected"
-                description: "Queue {{ $labels.queue }} has over 1000 waiting jobs for 5 minutes."
-
-          - alert: HighDeliveryFailureRate
-            expr: sum(rate(varta_delivery_attempts_total{outcome=~"FAILED|DLQ"}[5m])) / clamp_min(sum(rate(varta_delivery_attempts_total[5m])), 1) > 0.05
+            labels: { severity: critical, owner: operator }
+            annotations: { summary: "HTTP 5xx ratio exceeds 1 percent", impact: "API requests are failing", immediate_action: "Inspect correlated request logs and recent release manifest" }
+          - alert: VartaHighHttpLatency
+            expr: histogram_quantile(0.95, sum(rate(varta_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+            for: 10m
+            labels: { severity: warning, owner: operator }
+            annotations: { summary: "API p95 latency exceeds one second", impact: "Interactive and trigger requests are degraded", immediate_action: "Inspect database, Redis, and process saturation" }
+          - alert: VartaOutboxLag
+            expr: varta_outbox_oldest_eligible_seconds > 60
             for: 5m
-            labels:
-                severity: critical
-            annotations:
-                summary: "High delivery failure rate"
-                description: "Notification delivery failure rate exceeded 5% in the last 5 minutes."
-
-          - alert: HighHttpServerErrorRate
-            expr: sum(rate(varta_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(varta_http_requests_total[5m])), 1) > 0.01
+            labels: { severity: critical, owner: operator }
+            annotations: { summary: "Outbox publication is delayed", impact: "Accepted notifications are not reaching queues", immediate_action: "Inspect Redis and outbox worker; do not replay before checking leases" }
+          - alert: VartaQueueBacklog
+            expr: sum by (queue) (varta_queue_jobs{state="waiting"}) > 1000
             for: 5m
-            labels:
-                severity: critical
-            annotations:
-                summary: "High HTTP 5xx error rate"
-                description: "HTTP 5xx server error rate exceeded 1% in the last 5 minutes."
+            labels: { severity: warning, owner: operator }
+            annotations: { summary: "Queue backlog exceeds the measured free-tier profile", impact: "Delivery latency is increasing", immediate_action: "Inspect worker failures and pause new bulk traffic if needed" }
+          - alert: VartaQueueFailures
+            expr: sum by (queue) (increase(varta_queue_failures_total[10m])) > 10
+            for: 2m
+            labels: { severity: critical, owner: operator }
+            annotations: { summary: "Worker failures are sustained", impact: "Deliveries may enter retry or dead-letter states", immediate_action: "Inspect attempt errors and disable the failing provider if isolated" }
+          - alert: VartaDependencyUnavailable
+            expr: varta_dependency_ready == 0
+            for: 2m
+            labels: { severity: critical, owner: operator }
+            annotations: { summary: "A required dependency is unavailable", impact: "Readiness is failing and work may be delayed", immediate_action: "Inspect the dependency named by the label and preserve durable state" }

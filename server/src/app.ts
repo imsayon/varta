@@ -22,18 +22,25 @@ import { routingRuleRouter } from "./modules/routing-rules/routing-rule.routes.t
 import { analyticsRouter } from "./modules/analytics/analytics.routes.ts"
 import { providerRouter } from "./modules/providers/provider.routes.ts"
 import { webhookInboundRoutes } from "./modules/webhooks/webhook-inbound.routes.ts"
-import { metricsRegistry, observeHttp } from "@/infra/observability/metrics.ts"
+import {
+	metricsRegistry,
+	observeDatabasePool,
+	observeHttp,
+} from "@/infra/observability/metrics.ts"
+import { getDatabasePoolStats } from "@/infra/database/prisma.ts"
 import { rateLimitGlobal } from "./common/middleware/rate-limit.middleware.ts"
 import { authenticateOperatorMetrics } from "./common/middleware/operator.middleware.ts"
 import { authorize } from "./common/auth/route-policy.ts"
 
 import { requestIdMiddleware } from "./common/middleware/request-id.middleware.ts"
+import { traceHttpRequest } from "@/infra/observability/tracing.ts"
 
 const app = express()
 
 // Global Middleware
 app.disable("x-powered-by")
 app.use(requestIdMiddleware)
+app.use(traceHttpRequest)
 app.use(
 	(
 		pinoHttp as unknown as (opts: {
@@ -92,6 +99,7 @@ app.use(passport.initialize())
 // Route Mounting
 app.use("/api/health", healthRouter)
 app.get("/api/metrics", authenticateOperatorMetrics, authorize("metrics.read"), async (_req, res) => {
+	observeDatabasePool(getDatabasePoolStats())
 	res.type(metricsRegistry.contentType).send(await metricsRegistry.metrics())
 })
 

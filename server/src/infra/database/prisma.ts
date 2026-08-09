@@ -12,6 +12,19 @@ const pool = new Pool({
 
 const adapter = new PrismaPg(pool)
 
+export function getDatabasePoolStats() {
+	return {
+		total: pool.totalCount,
+		idle: pool.idleCount,
+		waiting: pool.waitingCount,
+	}
+}
+
+export async function disconnectDatabase(): Promise<void> {
+	await prisma.$disconnect()
+	await pool.end()
+}
+
 export const prisma = new PrismaClient({
 	adapter,
 	log:

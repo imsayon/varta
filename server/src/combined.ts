@@ -4,7 +4,7 @@ import { createServer } from "node:http"
 import { app } from "./app.ts"
 import { env } from "./common/config/env.ts"
 import { logger } from "@/infra/observability/logger.ts"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase } from "@/infra/database/prisma.ts"
 import { redis } from "@/infra/redis/redis.connection.ts"
 import { stopTracing } from "@/infra/observability/tracing.ts"
 import { closeQueues } from "@/infra/queues/queue.factory.ts"
@@ -19,6 +19,7 @@ import {
 	listen,
 	shutdownResources,
 } from "@/runtime/shutdown.ts"
+import { beginDrain, markStarted } from "@/runtime/lifecycle.ts"
 
 const server = createServer(app)
 let shuttingDown = false
@@ -30,7 +31,7 @@ async function cleanup(): Promise<Awaited<ReturnType<typeof shutdownResources>>>
 			[() => stopWorkers()],
 			[() => closeQueues()],
 			[
-				() => prisma.$disconnect(),
+				() => disconnectDatabase(),
 				() => redis.quit().then(() => undefined),
 			],
 			[() => stopTracing()],
@@ -48,6 +49,7 @@ try {
 		listen: () => listen(server, env.PORT),
 		stopWorkers,
 	})
+	markStarted()
 	logger.info(
 		{ port: env.PORT, service: env.SERVICE_NAME },
 		"Varta combined backend started",
@@ -62,6 +64,7 @@ try {
 async function gracefulShutdown(signal: string): Promise<void> {
 	if (shuttingDown) return
 	shuttingDown = true
+	beginDrain()
 	logger.info({ signal }, "Combined backend shutdown started")
 	const result = await cleanup()
 	if (result.failures.length > 0)

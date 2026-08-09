@@ -1,11 +1,16 @@
 import { logger } from "@/infra/observability/logger.ts"
 import type { Worker } from "bullmq"
+import { activeWorkerJobs, queueFailures, queueJobs } from "@/infra/observability/metrics.ts"
+import { snapshotQueueMetrics } from "@/infra/queues/queue.factory.ts"
+import { env } from "@/common/config/env.ts"
 
-type WorkerHandle = Pick<Worker, "close" | "waitUntilReady">
+type WorkerHandle = Pick<Worker, "close" | "waitUntilReady"> & Partial<Pick<Worker, "on" | "name">>
 type WorkerModule = Record<string, unknown>
 export type WorkerModuleLoader = () => Promise<WorkerModule>
 
 const workers: WorkerHandle[] = []
+const workerReadiness = new Map<WorkerHandle, boolean>()
+let metricsTimer: NodeJS.Timeout | undefined
 export const workerState = {
 	status: "not_started" as
 		| "not_started"
@@ -15,6 +20,34 @@ export const workerState = {
 		| "stopping"
 		| "stopped",
 	error: null as string | null,
+}
+
+function recomputeWorkerState(): void {
+	if (["stopping", "stopped", "not_started"].includes(workerState.status)) return
+	if ([...workerReadiness.values()].every(Boolean)) {
+		workerState.status = "ready"
+		workerState.error = null
+	}
+}
+
+async function waitForWorker(
+	worker: WorkerHandle,
+	timeoutMs: number,
+): Promise<void> {
+	let timer: NodeJS.Timeout | undefined
+	try {
+		await Promise.race([
+			worker.waitUntilReady(),
+			new Promise<never>((_resolve, reject) => {
+				timer = setTimeout(
+					() => reject(new Error(`Worker startup exceeded ${timeoutMs}ms`)),
+					timeoutMs,
+				)
+			}),
+		])
+	} finally {
+		if (timer) clearTimeout(timer)
+	}
 }
 
 // Workers are imported for their BullMQ side effects.
@@ -41,6 +74,32 @@ function collectWorkers(module: WorkerModule): number {
 				typeof candidate.waitUntilReady === "function"
 			) {
 				workers.push(value as WorkerHandle)
+				const worker = value as WorkerHandle
+				workerReadiness.set(worker, false)
+				if (worker.on && worker.name) {
+					worker.on("ready", () => {
+						workerReadiness.set(worker, true)
+						recomputeWorkerState()
+					})
+					worker.on("error", (error: Error) => {
+						workerReadiness.set(worker, false)
+						workerState.status = "failed"
+						workerState.error = `${worker.name}: ${error.message}`
+					})
+					worker.on("active", () => {
+						activeWorkerJobs.inc({ queue: worker.name! })
+						queueJobs.inc({ queue: worker.name!, state: "active" })
+					})
+					worker.on("completed", () => {
+						activeWorkerJobs.dec({ queue: worker.name! })
+						queueJobs.dec({ queue: worker.name!, state: "active" })
+					})
+					worker.on("failed", () => {
+						activeWorkerJobs.dec({ queue: worker.name! })
+						queueJobs.dec({ queue: worker.name!, state: "active" })
+						queueFailures.inc({ queue: worker.name! })
+					})
+				}
 				collected += 1
 			}
 		}
@@ -50,6 +109,7 @@ function collectWorkers(module: WorkerModule): number {
 
 async function closeRegisteredWorkers(): Promise<unknown[]> {
 	const registeredWorkers = workers.splice(0)
+	for (const worker of registeredWorkers) workerReadiness.delete(worker)
 	const results = await Promise.allSettled(
 		registeredWorkers.map((worker) => worker.close()),
 	)
@@ -60,6 +120,7 @@ async function closeRegisteredWorkers(): Promise<unknown[]> {
 
 export async function startWorkers(
 	loaders: readonly WorkerModuleLoader[] = defaultLoaders,
+	startupTimeoutMs = env.STARTUP_TIMEOUT_MS,
 ): Promise<void> {
 	if (workerState.status === "ready") return
 	if (workerState.status === "starting")
@@ -75,7 +136,8 @@ export async function startWorkers(
 				throw new Error("Worker module did not export a BullMQ worker")
 			modules.push(module)
 		}
-		await Promise.all(workers.map((worker) => worker.waitUntilReady()))
+		await Promise.all(workers.map((worker) => waitForWorker(worker, startupTimeoutMs)))
+		for (const worker of workers) workerReadiness.set(worker, true)
 		for (const module of modules) {
 			const startWorkerModule = module.startWorkerModule
 			if (startWorkerModule !== undefined) {
@@ -85,6 +147,12 @@ export async function startWorkers(
 			}
 		}
 		workerState.status = "ready"
+		await snapshotQueueMetrics()
+		metricsTimer = setInterval(
+			() => void snapshotQueueMetrics().catch((error) =>
+				logger.warn({ err: error }, "Queue metric snapshot failed")),
+			15_000,
+		)
 		logger.info("Background workers started")
 	} catch (error: unknown) {
 		workerState.status = "failed"
@@ -99,6 +167,8 @@ export async function startWorkers(
 export async function stopWorkers(): Promise<void> {
 	if (workerState.status === "not_started" || workerState.status === "stopped") return
 	workerState.status = "stopping"
+	if (metricsTimer) clearInterval(metricsTimer)
+	metricsTimer = undefined
 	const failures = await closeRegisteredWorkers()
 	workerState.status = "stopped"
 	workerState.error = null

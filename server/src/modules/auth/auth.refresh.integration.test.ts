@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import test from "node:test"
 import { hashToken } from "@/common/utils/auth/token-hash.ts"
 import { generateRefreshToken } from "@/common/utils/auth/jwt.ts"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { authService } from "./auth.service.ts"
 
 const runDatabaseTests = process.env.RUN_AUTH_DATABASE_TESTS === "true"
@@ -79,7 +79,7 @@ test(
 			assert.notEqual(sessionAfterReuse.revokedAt, null)
 		} finally {
 			await prisma.user.delete({ where: { id: user.id } })
-			await prisma.$disconnect()
+			await disconnectDatabase()
 		}
 	},
 )

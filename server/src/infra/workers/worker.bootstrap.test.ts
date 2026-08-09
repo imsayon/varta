@@ -76,3 +76,39 @@ test("worker startup fails when a module exports no worker", async () => {
 	assert.equal(workerState.status, "failed")
 	await stopWorkers()
 })
+
+test("worker startup fails within its deadline when a consumer is stuck", async () => {
+	await assert.rejects(
+		() => startWorkers([async () => ({
+			worker: {
+				waitUntilReady: () => new Promise<void>(() => undefined),
+				close: async () => undefined,
+			},
+		})], 5),
+		/Worker startup exceeded 5ms/,
+	)
+	assert.equal(workerState.status, "failed")
+	await stopWorkers()
+})
+
+test("consumer errors fail readiness and a ready event restores it", async () => {
+	const listeners = new Map<string, (...args: any[]) => void>()
+	await startWorkers([async () => ({
+		worker: {
+			name: "test-queue",
+			waitUntilReady: async () => undefined,
+			close: async () => undefined,
+			on: (event: string, listener: (...args: any[]) => void) => {
+				listeners.set(event, listener)
+			},
+		},
+	})])
+	assert.equal(workerState.status, "ready")
+	listeners.get("error")?.(new Error("consumer lost"))
+	assert.equal(workerState.status, "failed")
+	assert.match(workerState.error ?? "", /test-queue: consumer lost/)
+	listeners.get("ready")?.()
+	assert.equal(workerState.status, "ready")
+	assert.equal(workerState.error, null)
+	await stopWorkers()
+})

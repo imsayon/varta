@@ -9,6 +9,14 @@ import { deliveryAttemptRepository } from "@/modules/notifications/delivery-atte
 import { recomputeAggregateStatus } from "@/modules/notifications/notification-status.service.ts"
 import { prepareDeliveryExecution } from "@/modules/notifications/delivery-execution.service.ts"
 import { deliveryRepository } from "@/modules/notifications/delivery.repository.ts"
+import { withRemoteTrace, withTrace } from "@/infra/observability/tracing.ts"
+import { compactLogIdentifiers, withLogContext } from "@/infra/observability/log-context.ts"
+import { logger, logEvent } from "@/infra/observability/logger.ts"
+import {
+	boundedProviderLabel,
+	providerDuration,
+	providerRequests,
+} from "@/infra/observability/metrics.ts"
 
 class EmailDeliveryError extends Error {
 	constructor(message: string, readonly retryable: boolean) {
@@ -19,6 +27,13 @@ class EmailDeliveryError extends Error {
 export const emailWorker = new Worker(
 	"email-queue",
 	async (job: Job<SendEmailJobDto>) => {
+		return withLogContext(compactLogIdentifiers({
+			requestId: job.data.requestId,
+			correlationId: job.data.correlationId,
+			notificationId: job.data.notificationId,
+			deliveryId: job.data.deliveryId,
+			jobId: String(job.id ?? "unknown"),
+		}), () => withRemoteTrace(job.data.traceparent, "worker.email", { "messaging.destination.name": "email-queue" }, async () => {
 		const payloadData = SendEmailJobSchema.parse(job.data)
 		const {
 			notificationId,
@@ -50,6 +65,14 @@ export const emailWorker = new Worker(
 			status: "RUNNING",
 			startedAt: new Date(),
 		})
+		const provider = boundedProviderLabel(providerConfig.providerName)
+		const providerStartedAt = Date.now()
+		logger.info(
+			logEvent("provider", "provider.delivery.started", {
+				attemptId: attempt.id,
+			}),
+			"Email provider attempt started",
+		)
 
 		try {
 			// 2. Fetch correct provider implementation
@@ -58,7 +81,10 @@ export const emailWorker = new Worker(
 			)
 
 			// 3. Send using Provider
-			const result = await emailProvider.send({
+			const result = await withTrace("provider.email.send", {
+				"server.address": provider,
+				"messaging.destination.name": "email",
+			}, () => emailProvider.send({
 				to: subscriberEmail,
 				from: providerConfig.fromAddress,
 				subject: renderedContent.subject,
@@ -66,10 +92,12 @@ export const emailWorker = new Worker(
 				text: renderedContent.textBody || "",
 				apiKey: providerConfig.apiKey,
 				idempotencyKey: deliveryId,
-			})
+			}))
 
 			// 4. Update status based on provider response
 			if (result.success) {
+				providerRequests.inc({ provider, channel: "email", outcome: "success" })
+				providerDuration.observe({ provider, channel: "email" }, (Date.now() - providerStartedAt) / 1_000)
 				await deliveryAttemptRepository.update(attempt.id, {
 					status: "SUCCESS",
 					providerMessageId: result.messageId ?? null,
@@ -88,6 +116,8 @@ export const emailWorker = new Worker(
 				)
 			}
 		} catch (error: unknown) {
+			providerRequests.inc({ provider, channel: "email", outcome: "failed" })
+			providerDuration.observe({ provider, channel: "email" }, (Date.now() - providerStartedAt) / 1_000)
 			const errorMessage =
 				error instanceof Error
 					? error.message
@@ -110,6 +140,7 @@ export const emailWorker = new Worker(
 
 			if (!terminal) throw error // Let BullMQ handle retry backoff
 		}
+		}))
 	},
 	{
 		connection: getQueueConnection(),
@@ -117,15 +148,31 @@ export const emailWorker = new Worker(
 	},
 )
 
-import { logger } from "@/infra/observability/logger.ts"
-
 emailWorker.on("completed", (job) => {
-	logger.info({ jobId: job.id }, "Email worker job completed")
+	logger.info(
+		logEvent("worker", "worker.job.completed", compactLogIdentifiers({
+			jobId: String(job.id ?? "unknown"),
+			notificationId: job.data.notificationId,
+			deliveryId: job.data.deliveryId,
+			requestId: job.data.requestId,
+			correlationId: job.data.correlationId,
+		}), "success"),
+		"Email worker job completed",
+	)
 })
 
 emailWorker.on("failed", (job, err) => {
 	logger.error(
-		{ jobId: job?.id, err: err.message },
+		{
+			...logEvent("worker", "worker.job.failed", compactLogIdentifiers({
+				jobId: String(job?.id ?? "unknown"),
+				notificationId: job?.data.notificationId,
+				deliveryId: job?.data.deliveryId,
+				requestId: job?.data.requestId,
+				correlationId: job?.data.correlationId,
+			}), "failed"),
+			err,
+		},
 		"Email worker job failed",
 	)
 })

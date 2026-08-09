@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import test from "node:test"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { acceptNotification } from "./notification-acceptance.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
 
@@ -104,7 +104,8 @@ test(
 			if (jobId) await (await inAppQueue.getJob(jobId))?.remove()
 			if (digestJobId) await (await digestQueue.getJob(digestJobId))?.remove()
 			await prisma.workspace.delete({ where: { id: workspace.id } })
-			await Promise.allSettled([closeQueues(), prisma.$disconnect()])
+			const { redis } = await import("@/infra/redis/redis.connection.ts")
+			await Promise.allSettled([closeQueues(), redis.quit(), disconnectDatabase()])
 		}
 	},
 )

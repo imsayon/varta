@@ -208,6 +208,19 @@ services:
         depends_on:
             api: { condition: service_healthy }
             worker: { condition: service_healthy }
+            alertmanager: { condition: service_started }
+        logging: *default-logging
+        networks: [varta]
+
+    alertmanager:
+        image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+        profiles: [observability]
+        restart: unless-stopped
+        command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+        volumes:
+            - ../monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+        secrets:
+            - alert_webhook_url
         logging: *default-logging
         networks: [varta]
 
@@ -239,6 +252,18 @@ services:
         logging: *default-logging
         networks: [varta]
 
+    jaeger:
+        image: jaegertracing/all-in-one:1.76.0@sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac
+        profiles: [observability]
+        restart: unless-stopped
+        environment:
+            COLLECTOR_OTLP_ENABLED: "true"
+            SPAN_STORAGE_TYPE: memory
+            MEMORY_MAX_TRACES: "10000"
+        ports: ["${JAEGER_UI_PORT:-16686}:16686"]
+        logging: *default-logging
+        networks: [varta]
+
 networks:
     varta:
         name: varta
@@ -254,3 +279,5 @@ volumes:
 secrets:
     metrics_auth_token:
         file: ${METRICS_AUTH_TOKEN_FILE:?METRICS_AUTH_TOKEN_FILE must point to the Prometheus metrics token}
+    alert_webhook_url:
+        file: ${ALERT_WEBHOOK_URL_FILE:-/dev/null}

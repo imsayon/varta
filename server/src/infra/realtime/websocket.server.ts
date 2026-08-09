@@ -3,7 +3,7 @@ import { WebSocket, WebSocketServer } from "ws"
 import { prisma } from "@/infra/database/prisma.ts"
 import { redis } from "@/infra/redis/redis.connection.ts"
 import { logger } from "@/infra/observability/logger.ts"
-import { activeWebSockets } from "@/infra/observability/metrics.ts"
+import { activeWebSockets, realtimeEvents } from "@/infra/observability/metrics.ts"
 import {
 	verifyWebSocketToken,
 	type SubscriberWebSocketTokenPayload,
@@ -34,6 +34,9 @@ type Connection = {
 
 const webSocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 })
 const pubsub = redis.duplicate()
+pubsub.on("error", (error) =>
+	logger.error({ err: error }, "Realtime Redis connection error"),
+)
 const connections = new Map<string, Connection>()
 const socketTokens = new WeakMap<WebSocket, SubscriberWebSocketTokenPayload | WorkspaceWebSocketTokenPayload>()
 const socketCapabilities = new WeakMap<WebSocket, AuthorizationCapability>()
@@ -47,12 +50,17 @@ let upgradeHandler:
 	| undefined
 
 function send(socket: WebSocket, message: unknown): boolean {
-	if (socket.readyState !== WebSocket.OPEN) return false
+	if (socket.readyState !== WebSocket.OPEN) {
+		realtimeEvents.inc({ event: "send", outcome: "not_open" })
+		return false
+	}
 	if (socket.bufferedAmount > 1024 * 1024) {
+		realtimeEvents.inc({ event: "send", outcome: "backpressure" })
 		socket.close(1013, "Client is too slow")
 		return false
 	}
 	socket.send(JSON.stringify(message))
+	realtimeEvents.inc({ event: "send", outcome: "success" })
 	return true
 }
 
@@ -156,12 +164,13 @@ async function register(
 	}
 	connections.set(connectionId, connection)
 	activeWebSockets.inc()
+	realtimeEvents.inc({ event: "connection", outcome: "accepted" })
 	logger.info(
 		{
 			connectionId,
 			workspaceId: token.workspaceId,
 			subscriberId: token.sub,
-			path: request.url,
+			path: "/ws",
 		},
 		"WebSocket connected",
 	)
@@ -199,6 +208,7 @@ async function register(
 	socket.on("close", () => {
 		connections.delete(connectionId)
 		activeWebSockets.dec()
+		realtimeEvents.inc({ event: "connection", outcome: "closed" })
 		void redis.srem(key, connectionId)
 		logger.info(
 			{

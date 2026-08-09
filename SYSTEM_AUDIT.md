@@ -1675,6 +1675,20 @@ when Render provides the public edge. It is the integration, learning,
 self-hosting, and recovery laboratory. The OTel Collector alone is not trace
 storage; D3 adds Tempo or Jaeger.
 
+**Execution status (2026-08-09): D1, D3 and D4 complete; D2 partially complete.**
+Pinned Node `24.18.0` validation passed 66 enabled server tests plus the
+separate Redis-loss fault test, server typecheck/build, Prisma validation,
+Compose rendering, Collector validation, Prometheus rule/config validation,
+and `git diff --check`. Disposable runtime proof recorded both Prometheus
+targets at `up=1` and a single Jaeger trace spanning API, PostgreSQL acceptance,
+outbox publication, BullMQ, worker, and in-app provider execution. D2 remains
+open only for real billing-event emission, which depends on the separately
+approved Phase F persistence and lifecycle implementation; the bounded metric
+contract is present but is not counted as runtime evidence. Split and combined
+runtime drills also proved bounded Redis-loss readiness (`200` to `503` to
+`200`), supervised stuck/failed consumers, and clean API/worker/combined
+SIGTERM exits with the database pool explicitly closed.
+
 ### 17.10 Phase E sub-phases — AI and optimization
 
 | ID | Objective | Depends on | Exact exit evidence |

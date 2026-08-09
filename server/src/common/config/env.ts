@@ -11,7 +11,11 @@ const envSchema = z.object({
 	PORT: z.coerce.number().default(5000),
 	METRICS_PORT: z.coerce.number().default(5001),
 	SERVICE_NAME: z.string().default("varta-api"),
-	LOG_LEVEL: z.string().default("info"),
+	LOG_LEVEL: z
+		.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
+		.default("info"),
+	LOG_DEBUG_ENABLED: booleanEnv.default(false),
+	LOG_DEBUG_TTL_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
 	NODE_ENV: z
 		.enum(["development", "production", "test"])
 		.default("development"),
@@ -23,6 +27,8 @@ const envSchema = z.object({
 	SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
 	OTEL_ENABLED: booleanEnv.default(false),
 	OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default("http://localhost:4318"),
+	OTEL_EXPORT_TIMEOUT_MS: z.coerce.number().int().min(100).max(10_000).default(3_000),
+	OTEL_SAMPLE_RATIO: z.coerce.number().min(0).max(1).default(0.1),
 
 	JWT_ACCESS_SECRET:
 		process.env.NODE_ENV === "production"

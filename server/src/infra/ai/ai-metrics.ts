@@ -1,58 +1,31 @@
-import { logger } from "@/infra/observability/logger.ts"
+import {
+	aiDuration,
+	aiRequests,
+	aiTokens,
+} from "@/infra/observability/metrics.ts"
 
 type CompileStatus = "success" | "invalid_output" | "error" | "rate_limited"
 type StoResult = "delayed" | "immediate" | "error"
 
-const counters = new Map<string, number>()
-
-function increment(name: string, labels: Record<string, string> = {}) {
-	const key = `${name}:${JSON.stringify(labels)}`
-	counters.set(key, (counters.get(key) ?? 0) + 1)
-}
-
 export const aiMetrics = {
-	compileRequest(status: CompileStatus, workspaceId: string) {
-		increment("varta_ai_compile_requests_total", {
-			workspace: workspaceId,
-			status,
-		})
+	compileRequest(status: CompileStatus, _workspaceId: string) {
+		aiRequests.inc({ feature: "routing_compile", outcome: status })
 	},
 	compileDuration(durationMs: number) {
-		logger.info(
-			{ metric: "varta_ai_compile_duration_ms", durationMs },
-			"AI compile completed",
-		)
+		aiDuration.observe({ feature: "routing_compile" }, durationMs / 1_000)
 	},
 	compileTokens(input: number, output: number) {
-		increment("varta_ai_tokens_total", { type: "input" })
-		increment("varta_ai_tokens_total", { type: "output" })
-		logger.info(
-			{ metric: "varta_ai_tokens", input, output },
-			"AI token usage recorded",
-		)
+		aiTokens.inc({ direction: "input" }, input)
+		aiTokens.inc({ direction: "output" }, output)
 	},
-	stoPrediction(result: StoResult, workspaceId: string) {
-		increment("varta_sto_predictions_total", {
-			workspace: workspaceId,
-			result,
-		})
+	stoPrediction(result: StoResult, _workspaceId: string) {
+		aiRequests.inc({ feature: "send_time_optimization", outcome: result })
 	},
 	stoVectorCompute(
 		durationMs: number,
-		workspaceId: string,
-		subscribers: number,
+		_workspaceId: string,
+		_subscribers: number,
 	) {
-		logger.info(
-			{
-				metric: "varta_sto_vector_compute_duration_ms",
-				durationMs,
-				workspaceId,
-				subscribers,
-			},
-			"STO vectors computed",
-		)
-	},
-	snapshot() {
-		return Object.fromEntries(counters)
+		aiDuration.observe({ feature: "sto_vector_compute" }, durationMs / 1_000)
 	},
 }

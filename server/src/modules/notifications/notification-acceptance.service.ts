@@ -1,6 +1,9 @@
 import { Prisma, type NotificationPriority } from "@prisma/client"
 import { prisma } from "@/infra/database/prisma.ts"
 import type { NotificationChannel } from "./notification.types.ts"
+import { notificationAcceptance } from "@/infra/observability/metrics.ts"
+import { currentTraceparent, withTrace } from "@/infra/observability/tracing.ts"
+import { currentLogContext } from "@/infra/observability/log-context.ts"
 
 type AcceptanceInput = {
 	workspaceId: string
@@ -26,8 +29,12 @@ export type AcceptanceResult = {
 export async function acceptNotification(
 	input: AcceptanceInput,
 ): Promise<AcceptanceResult> {
+	const { requestId, correlationId } = currentLogContext()
 	try {
-		const notification = await prisma.$transaction(async (tx) => {
+		const notification = await withTrace("db.notification.acceptance", {
+			"db.system.name": "postgresql",
+			"db.operation.name": "transaction",
+		}, () => prisma.$transaction(async (tx) => {
 			const created = await tx.notification.create({
 				data: {
 					workspaceId: input.workspaceId,
@@ -58,7 +65,12 @@ export async function acceptNotification(
 						workspaceId: input.workspaceId,
 						deliveryId: delivery.id,
 						eventType: "delivery.requested.v1",
-						payload: { version: 1 },
+						payload: {
+							version: 1,
+							requestId,
+							correlationId,
+							traceparent: currentTraceparent(),
+						},
 						availableAt: input.scheduledAt ?? new Date(),
 					},
 				})
@@ -69,7 +81,8 @@ export async function acceptNotification(
 				data: { status: "ENQUEUED" },
 				select: { id: true, status: true, channels: true },
 			})
-		})
+		}))
+		notificationAcceptance.inc({ outcome: "created" })
 		return { created: true, notification }
 	} catch (error) {
 		if (
@@ -85,8 +98,12 @@ export async function acceptNotification(
 				},
 				select: { id: true, status: true, channels: true },
 			})
-			if (existing) return { created: false, notification: existing }
+			if (existing) {
+				notificationAcceptance.inc({ outcome: "duplicate" })
+				return { created: false, notification: existing }
+			}
 		}
+		notificationAcceptance.inc({ outcome: "failed" })
 		throw error
 	}
 }

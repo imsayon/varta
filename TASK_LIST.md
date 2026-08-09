@@ -548,34 +548,61 @@ Parallelism is allowed only inside a phase when the listed dependencies do not o
 
 ### D1 — Correlated structured logging
 
-- [ ] Define redacted Pino schemas for API, worker, provider, AI, billing, and security events.
-- [ ] Propagate request/correlation, notification, delivery, attempt, job, and event IDs.
-- [ ] Prevent credentials, cookies, payload bodies, prompts, email addresses, and tokens from logs.
-- [ ] Add redaction regression tests and bounded debug activation.
+- [x] Define redacted Pino schemas for API, worker, provider, AI, billing, and security events.
+- [x] Propagate request/correlation, notification, delivery, attempt, job, and event IDs.
+- [x] Prevent credentials, cookies, payload bodies, prompts, email addresses, and tokens from logs.
+- [x] Add redaction regression tests and bounded debug activation.
+
+**Evidence (2026-08-09):** structured event fields and async request context now
+cross HTTP, outbox, BullMQ, workers, provider attempts, and inbound provider
+events. Redaction and bounded production debug tests pass; live request logs
+redacted URLs, authorization, bodies, identities, prompts, and credentials.
 
 ### D2 — Real application metrics
 
-- [ ] Instrument normalized API latency/error/throughput and dependency pools.
+- [x] Instrument normalized API latency/error/throughput and dependency pools.
 - [ ] Instrument acceptance, outbox, queue age, worker, provider, delivery, reconciliation, realtime, AI, and billing signals.
-- [ ] Eliminate high-cardinality labels such as workspace/request/entity IDs.
-- [ ] Verify Prometheus scraping and dashboards show generated test traffic.
+- [x] Eliminate high-cardinality labels such as workspace/request/entity IDs.
+- [x] Verify Prometheus scraping and dashboards show generated test traffic.
+
+**Evidence (2026-08-09):** disposable PostgreSQL/Redis API and worker processes
+were scraped by Prometheus with both targets at `up=1`; generated 2xx/4xx
+traffic, dependency readiness, database pool, queue, outbox, delivery,
+reconciliation, realtime, and AI series were queryable and the provisioned
+dashboard references them. Billing instrumentation remains unchecked until
+Phase F emits real lifecycle and entitlement events.
 
 **Findings:** H-19, M-15.
 
 ### D3 — End-to-end traces
 
-- [ ] Propagate trace context through HTTP, DB, outbox, BullMQ, worker, provider, webhook, and reconciliation.
-- [ ] Add Tempo or Jaeger to the local observability profile.
-- [ ] Prove one API request can be queried through its worker/provider attempt.
-- [ ] Define sampling, export failure, sanitization, and retention.
+- [x] Propagate trace context through HTTP, DB, outbox, BullMQ, worker, provider, webhook, and reconciliation.
+- [x] Add Tempo or Jaeger to the local observability profile.
+- [x] Prove one API request can be queried through its worker/provider attempt.
+- [x] Define sampling, export failure, sanitization, and retention.
+
+**Evidence (2026-08-09):** Jaeger trace
+`eca11819569a389cfe052c8889552443` joined `http.server.request`,
+`db.notification.acceptance`, `outbox.publish`, `worker.inapp`, and
+`provider.inapp.deliver` across `varta-api` and `varta-worker`. Sampling and
+export deadlines are bounded, the collector removes sensitive URL/query/DB/AI
+attributes, local retention is capped, and an unreachable collector did not
+block a successful health request.
 
 ### D4 — Truthful health and lifecycle
 
-- [ ] Separate liveness, readiness, and startup semantics.
-- [ ] Readiness checks real required dependencies and worker registration.
-- [ ] Fail readiness before draining on shutdown.
-- [ ] Supervise all queue consumers and expose partial failure.
-- [ ] Test SIGTERM, dependency loss/recovery, stuck worker, and combined/split modes.
+- [x] Separate liveness, readiness, and startup semantics.
+- [x] Readiness checks real required dependencies and worker registration.
+- [x] Fail readiness before draining on shutdown.
+- [x] Supervise all queue consumers and expose partial failure.
+- [x] Test SIGTERM, dependency loss/recovery, stuck worker, and combined/split modes.
+
+**Evidence (2026-08-09):** bounded startup/readiness/liveness probes check
+PostgreSQL, Redis, lifecycle drain state, and every registered BullMQ consumer.
+Unit tests cover stuck and partially failed workers, ordered cleanup, and bounded
+shutdown. Disposable split and combined processes returned truthful readiness,
+changed API/worker readiness from `200` to `503` during Redis loss and back to
+`200` after recovery, and exited `0` with complete SIGTERM shutdown logs.
 
 **Findings:** M-18, M-28.
 

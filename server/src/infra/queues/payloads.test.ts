@@ -9,10 +9,15 @@ describe("Queue Payload Validation Schemas", () => {
 			notificationId: "notif_123",
 			deliveryId: "del_123",
 			workspaceId: "ws_123",
+			requestId: "req_123",
+			correlationId: "corr_123",
+			traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
 		}
 
 		const parsed = SendEmailJobSchema.parse(validPayload)
 		assert.equal(parsed.notificationId, "notif_123")
+		assert.equal(parsed.requestId, "req_123")
+		assert.equal(parsed.correlationId, "corr_123")
 		assert.equal(parsed.version, 1)
 	})
 

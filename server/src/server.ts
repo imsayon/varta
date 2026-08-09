@@ -4,7 +4,7 @@ import { createServer } from "node:http"
 import { app } from "./app.ts"
 import { env } from "./common/config/env.ts"
 import { logger } from "@/infra/observability/logger.ts"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase } from "@/infra/database/prisma.ts"
 import { redis } from "@/infra/redis/redis.connection.ts"
 import { stopTracing } from "@/infra/observability/tracing.ts"
 import { closeQueues } from "@/infra/queues/queue.factory.ts"
@@ -17,6 +17,7 @@ import {
 	listen,
 	shutdownResources,
 } from "@/runtime/shutdown.ts"
+import { beginDrain, markStarted } from "@/runtime/lifecycle.ts"
 
 const server = createServer(app)
 let shuttingDown = false
@@ -25,6 +26,7 @@ startWebSocketServer(server)
 
 try {
 	await listen(server, env.PORT)
+	markStarted()
 	logger.info({ port: env.PORT, service: env.SERVICE_NAME }, "Varta API started")
 } catch (error: unknown) {
 	logger.fatal({ err: error }, "Varta API startup failed")
@@ -33,7 +35,7 @@ try {
 			[() => closeHttpServer(server), () => stopWebSocketServer(server)],
 			[() => closeQueues()],
 			[
-				() => prisma.$disconnect(),
+				() => disconnectDatabase(),
 				() => redis.quit().then(() => undefined),
 			],
 			[() => stopTracing()],
@@ -46,13 +48,14 @@ try {
 async function gracefulShutdown(signal: string): Promise<void> {
 	if (shuttingDown) return
 	shuttingDown = true
+	beginDrain()
 	logger.info({ signal }, "API shutdown started")
 	const result = await shutdownResources(
 		[
 			[() => closeHttpServer(server), () => stopWebSocketServer(server)],
 			[() => closeQueues()],
 			[
-				() => prisma.$disconnect(),
+				() => disconnectDatabase(),
 				() => redis.quit().then(() => undefined),
 			],
 			[() => stopTracing()],

@@ -2,11 +2,18 @@ import { prisma } from "@/infra/database/prisma.ts"
 import { queueService } from "@/infra/queues/queue.service.ts"
 import { logger } from "@/infra/observability/logger.ts"
 import { dispatchOutboxBatch } from "./outbox-dispatcher.service.ts"
+import { reconciliationRuns } from "@/infra/observability/metrics.ts"
+import { withTrace } from "@/infra/observability/tracing.ts"
 
 const RECONCILIATION_STALE_MINUTES = 10
 
 export const reconciliationService = {
 	async reconcileStuckNotifications(): Promise<number> {
+		const startedAt = Date.now()
+		try {
+		return await withTrace("reconciliation.run", {
+			"db.system.name": "postgresql",
+		}, async () => {
 		const cutoff = new Date(
 			Date.now() - RECONCILIATION_STALE_MINUTES * 60_000,
 		)
@@ -83,6 +90,7 @@ export const reconciliationService = {
 						notificationId: delivery.notificationId,
 						deliveryId: delivery.id,
 						workspaceId: delivery.workspaceId,
+						correlationId: `reconcile-${delivery.id}`,
 					},
 					delivery.channel,
 				)
@@ -102,6 +110,13 @@ export const reconciliationService = {
 			)
 		}
 
+		reconciliationRuns.inc({ outcome: reconciledCount > 0 ? "repaired" : "clean" })
 		return reconciledCount
+		})
+		} catch (error) {
+			reconciliationRuns.inc({ outcome: "failed" })
+			logger.error({ err: error, durationMs: Date.now() - startedAt }, "Reconciliation run failed")
+			throw error
+		}
 	},
 }

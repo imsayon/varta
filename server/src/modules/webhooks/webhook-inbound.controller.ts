@@ -3,6 +3,7 @@ import { createHash } from "node:crypto"
 import { prisma } from "@/infra/database/prisma.ts"
 import { Prisma } from "@prisma/client"
 import { sendSuccess } from "@/common/utils/response.ts"
+import { logger, logEvent } from "@/infra/observability/logger.ts"
 
 function objectValue(value: unknown): Record<string, unknown> {
 	return value && typeof value === "object" && !Array.isArray(value)
@@ -24,6 +25,10 @@ export const handleResendInboundWebhook = async (
 		const providerMessageId =
 			typeof data.email_id === "string" ? data.email_id : null
 		const rawBody = req.rawBody ?? Buffer.from(JSON.stringify(req.body))
+		logger.info(
+			logEvent("provider", "provider.webhook.received", { eventId }),
+			"Verified provider webhook received",
+		)
 		try {
 			await prisma.$transaction(async (tx) => {
 				const attempt = providerMessageId

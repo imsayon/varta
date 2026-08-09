@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import test from "node:test"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { acceptNotification } from "./notification-acceptance.service.ts"
 import { claimOutboxIntents } from "./outbox.repository.ts"
 import { recomputeAggregateStatus } from "./notification-status.service.ts"
@@ -90,7 +90,8 @@ test(
 			)
 		} finally {
 			await prisma.workspace.delete({ where: { id: workspace.id } })
-			await prisma.$disconnect()
+			const { redis } = await import("@/infra/redis/redis.connection.ts")
+			await Promise.allSettled([redis.quit(), disconnectDatabase()])
 		}
 	},
 )

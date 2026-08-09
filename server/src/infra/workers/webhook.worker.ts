@@ -12,6 +12,10 @@ import {
 	createWebhookSignature,
 	postSafeWebhook,
 } from "@/modules/providers/webhook.util.ts"
+import { withRemoteTrace, withTrace } from "@/infra/observability/tracing.ts"
+import { compactLogIdentifiers, withLogContext } from "@/infra/observability/log-context.ts"
+import { logger, logEvent } from "@/infra/observability/logger.ts"
+import { providerDuration, providerRequests } from "@/infra/observability/metrics.ts"
 
 const REQUEST_TIMEOUT_MS = 5_000
 const MAX_RESPONSE_BYTES = 64 * 1024
@@ -44,6 +48,13 @@ function isRetryableError(error: unknown): boolean {
 export const webhookWorker = new Worker(
 	"webhook-queue",
 	async (job: Job<SendWebhookJobDto>) => {
+		return withLogContext(compactLogIdentifiers({
+			requestId: job.data.requestId,
+			correlationId: job.data.correlationId,
+			notificationId: job.data.notificationId,
+			deliveryId: job.data.deliveryId,
+			jobId: String(job.id ?? "unknown"),
+		}), () => withRemoteTrace(job.data.traceparent, "worker.webhook", { "messaging.destination.name": "webhook-queue" }, async () => {
 		const jobPayload = SendWebhookJobSchema.parse(job.data)
 		const { notificationId, deliveryId, workspaceId } = jobPayload
 		const execution = await prepareDeliveryExecution(workspaceId, deliveryId)
@@ -66,6 +77,10 @@ export const webhookWorker = new Worker(
 			startedAt,
 			enqueuedAt: startedAt,
 		})
+		logger.info(
+			logEvent("provider", "provider.delivery.started", { attemptId: attempt.id }),
+			"Outbound webhook attempt started",
+		)
 
 		try {
 			const body = JSON.stringify({
@@ -80,7 +95,10 @@ export const webhookWorker = new Worker(
 				body,
 				providerConfig.signingSecret,
 			)
-			const response = await postSafeWebhook(
+			const response = await withTrace("provider.webhook.send", {
+				"server.address": new URL(providerConfig.url).hostname,
+				"messaging.destination.name": "webhook",
+			}, () => postSafeWebhook(
 				providerConfig.url,
 				body,
 				{
@@ -93,13 +111,15 @@ export const webhookWorker = new Worker(
 				},
 				REQUEST_TIMEOUT_MS,
 				MAX_RESPONSE_BYTES,
-			)
+			))
 			const providerResponse = {
 				status: response.status,
 				bodyBytes: Buffer.byteLength(response.body),
 				bodySha256: createHash("sha256").update(response.body).digest("hex"),
 			}
 			if (response.status >= 200 && response.status < 300) {
+				providerRequests.inc({ provider: "webhook", channel: "webhook", outcome: "success" })
+				providerDuration.observe({ provider: "webhook", channel: "webhook" }, (Date.now() - startedAt.getTime()) / 1_000)
 				await deliveryAttemptRepository.update(attempt.id, {
 					status: "SUCCESS",
 					providerResponse,
@@ -131,6 +151,8 @@ export const webhookWorker = new Worker(
 			})
 			await recomputeAggregateStatus(workspaceId, notificationId)
 		} catch (error: unknown) {
+			providerRequests.inc({ provider: "webhook", channel: "webhook", outcome: "failed" })
+			providerDuration.observe({ provider: "webhook", channel: "webhook" }, (Date.now() - startedAt.getTime()) / 1_000)
 			const retryable =
 				isRetryableError(error) || error instanceof TypeError
 			const terminal =
@@ -153,6 +175,7 @@ export const webhookWorker = new Worker(
 			if (!retryable || terminal) return
 			throw error
 		}
+		}))
 	},
 	{ connection: getQueueConnection(), concurrency: 10 },
 )

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import test from "node:test"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { apiKeyService } from "@/modules/api-keys/api-key.service.ts"
 import { notificationRepository } from "@/modules/notifications/notification.repository.ts"
 import { providerRepository } from "@/modules/providers/provider.repository.ts"
@@ -110,7 +110,7 @@ test(
 			await prisma.workspace.deleteMany({
 				where: { id: { in: [workspaceA.id, workspaceB.id] } },
 			})
-			await prisma.$disconnect()
+			await disconnectDatabase()
 		}
 	},
 )

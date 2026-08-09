@@ -6,6 +6,9 @@ export interface SendWebhookJobDto {
 	notificationId: string
 	deliveryId: string
 	workspaceId: string
+	requestId?: string
+	correlationId?: string
+	traceparent?: string
 }
 
 export const webhookQueue = createQueue<SendWebhookJobDto>(QueueNames.WEBHOOK)

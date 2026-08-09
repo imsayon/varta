@@ -3,14 +3,15 @@ import "./infra/observability/tracing.ts"
 import { createServer } from "node:http"
 import { env } from "./common/config/env.ts"
 import { logger } from "@/infra/observability/logger.ts"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { redis } from "@/infra/redis/redis.connection.ts"
 import {
 	startWorkers,
 	stopWorkers,
 	workerState,
 } from "@/infra/workers/worker.bootstrap.ts"
-import { metricsRegistry } from "@/infra/observability/metrics.ts"
+import { metricsRegistry, observeDatabasePool } from "@/infra/observability/metrics.ts"
+import { getDatabasePoolStats } from "@/infra/database/prisma.ts"
 import { stopTracing } from "@/infra/observability/tracing.ts"
 import { closeQueues } from "@/infra/queues/queue.factory.ts"
 import {
@@ -18,6 +19,21 @@ import {
 	listen,
 	shutdownResources,
 } from "@/runtime/shutdown.ts"
+import { beginDrain, lifecycleState, markStarted } from "@/runtime/lifecycle.ts"
+
+async function databaseReady(): Promise<boolean> {
+	let timer: NodeJS.Timeout | undefined
+	try {
+		return await Promise.race([
+			prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
+			new Promise<boolean>((resolve) => {
+				timer = setTimeout(() => resolve(false), 1_000)
+			}),
+		])
+	} finally {
+		if (timer) clearTimeout(timer)
+	}
+}
 
 const metricsServer = createServer(async (req, res) => {
 	if (req.url === "/health/live") {
@@ -27,13 +43,29 @@ const metricsServer = createServer(async (req, res) => {
 		return
 	}
 	if (req.url === "/health/ready") {
-		const ready = workerState.status === "ready" && redis.status === "ready"
+		const database = await databaseReady()
+		const ready = workerState.status === "ready" && redis.status === "ready" && database && lifecycleState.started && !lifecycleState.draining
 		res.writeHead(ready ? 200 : 503, {
 			"content-type": "application/json",
-		}).end(JSON.stringify({ status: ready ? "ok" : "not_ready" }))
+		}).end(JSON.stringify({
+			status: ready ? "ok" : "not_ready",
+			checks: {
+				worker: workerState.status,
+				database: database ? "ok" : "failed",
+				redis: redis.status === "ready" ? "ok" : "failed",
+			},
+		}))
+		return
+	}
+	if (req.url === "/health/startup") {
+		const started = lifecycleState.started
+		res.writeHead(started ? 200 : 503, {
+			"content-type": "application/json",
+		}).end(JSON.stringify({ status: started ? "started" : "starting" }))
 		return
 	}
 	if (req.url === "/metrics") {
+		observeDatabasePool(getDatabasePoolStats())
 		res.writeHead(200, { "content-type": metricsRegistry.contentType })
 		res.end(await metricsRegistry.metrics())
 		return
@@ -44,6 +76,7 @@ const metricsServer = createServer(async (req, res) => {
 try {
 	await startWorkers()
 	await listen(metricsServer, env.METRICS_PORT)
+	markStarted()
 	logger.info({ port: env.METRICS_PORT }, "Worker metrics server started")
 	logger.info({ service: "varta-worker" }, "Worker process started")
 } catch (error: unknown) {
@@ -54,7 +87,7 @@ try {
 			[() => stopWorkers()],
 			[() => closeQueues()],
 			[
-				() => prisma.$disconnect(),
+				() => disconnectDatabase(),
 				() => redis.quit().then(() => undefined),
 			],
 			[() => stopTracing()],
@@ -69,6 +102,7 @@ let shuttingDown = false
 async function gracefulShutdown(signal: string): Promise<void> {
 	if (shuttingDown) return
 	shuttingDown = true
+	beginDrain()
 	logger.info({ signal }, "Worker shutdown started")
 	const result = await shutdownResources(
 		[
@@ -76,7 +110,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
 			[() => stopWorkers()],
 			[() => closeQueues()],
 			[
-				() => prisma.$disconnect(),
+				() => disconnectDatabase(),
 				() => redis.quit().then(() => undefined),
 			],
 			[() => stopTracing()],

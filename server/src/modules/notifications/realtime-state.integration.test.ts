@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import test from "node:test"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { realtimeStateService } from "./realtime-state.service.ts"
 
 const runDatabaseTests = process.env.RUN_NOTIFICATION_DATABASE_TESTS === "true"
@@ -76,7 +76,7 @@ test(
 			)
 		} finally {
 			await prisma.workspace.deleteMany({ where: { id: { in: workspaces.map((w) => w.id) } } })
-			await prisma.$disconnect()
+			await disconnectDatabase()
 		}
 	},
 )

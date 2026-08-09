@@ -12,7 +12,7 @@ collectDefaultMetrics({ register: metricsRegistry, prefix: "varta_process_" })
 export const httpRequests = new Counter({
 	name: "varta_http_requests_total",
 	help: "Total HTTP requests",
-	labelNames: ["method", "route", "status"] as const,
+	labelNames: ["method", "route", "status_class"] as const,
 	registers: [metricsRegistry],
 })
 
@@ -48,7 +48,14 @@ export const queueJobs = new Gauge({
 export const queueFailures = new Counter({
 	name: "varta_queue_failures_total",
 	help: "BullMQ jobs that failed",
-	labelNames: ["queue", "reason"] as const,
+	labelNames: ["queue"] as const,
+	registers: [metricsRegistry],
+})
+
+export const queueOldestJobSeconds = new Gauge({
+	name: "varta_queue_oldest_job_seconds",
+	help: "Age of the oldest waiting or delayed job",
+	labelNames: ["queue"] as const,
 	registers: [metricsRegistry],
 })
 
@@ -84,12 +91,126 @@ export const activeWebSockets = new Gauge({
 	registers: [metricsRegistry],
 })
 
+export const notificationAcceptance = new Counter({
+	name: "varta_notification_acceptance_total",
+	help: "Durable notification acceptance outcomes",
+	labelNames: ["outcome"] as const,
+	registers: [metricsRegistry],
+})
+
+export const dependencyReady = new Gauge({
+	name: "varta_dependency_ready",
+	help: "Required dependency readiness (1 ready, 0 unavailable)",
+	labelNames: ["dependency"] as const,
+	registers: [metricsRegistry],
+})
+
+export const databasePoolConnections = new Gauge({
+	name: "varta_database_pool_connections",
+	help: "PostgreSQL pool connections by state",
+	labelNames: ["state"] as const,
+	registers: [metricsRegistry],
+})
+
+export const providerRequests = new Counter({
+	name: "varta_provider_requests_total",
+	help: "Provider requests by bounded provider, channel, and outcome",
+	labelNames: ["provider", "channel", "outcome"] as const,
+	registers: [metricsRegistry],
+})
+
+export const providerDuration = new Histogram({
+	name: "varta_provider_request_duration_seconds",
+	help: "Provider request duration in seconds",
+	labelNames: ["provider", "channel"] as const,
+	buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10],
+	registers: [metricsRegistry],
+})
+
+export const reconciliationRuns = new Counter({
+	name: "varta_reconciliation_runs_total",
+	help: "Reconciliation runs by outcome",
+	labelNames: ["outcome"] as const,
+	registers: [metricsRegistry],
+})
+
+export const realtimeEvents = new Counter({
+	name: "varta_realtime_events_total",
+	help: "Realtime events by bounded event and outcome",
+	labelNames: ["event", "outcome"] as const,
+	registers: [metricsRegistry],
+})
+
+export const aiRequests = new Counter({
+	name: "varta_ai_requests_total",
+	help: "AI requests by feature and outcome",
+	labelNames: ["feature", "outcome"] as const,
+	registers: [metricsRegistry],
+})
+
+export const aiDuration = new Histogram({
+	name: "varta_ai_request_duration_seconds",
+	help: "AI request duration by feature",
+	labelNames: ["feature"] as const,
+	registers: [metricsRegistry],
+})
+
+export const aiTokens = new Counter({
+	name: "varta_ai_tokens_total",
+	help: "AI tokens by direction",
+	labelNames: ["direction"] as const,
+	registers: [metricsRegistry],
+})
+
+export const billingEvents = new Counter({
+	name: "varta_billing_events_total",
+	help: "Billing events by bounded event and outcome",
+	labelNames: ["event", "outcome"] as const,
+	registers: [metricsRegistry],
+})
+
+const IDENTIFIER_SEGMENT = /^(?:\d+|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|(?:req|ws|sub|tpl|notif|del|evt|key)_[A-Za-z0-9_-]+)$/i
+const PROVIDER_LABELS = new Set(["resend", "inapp", "webhook"])
+
+export function boundedProviderLabel(provider: string): string {
+	const candidate = provider.trim().toLowerCase()
+	return PROVIDER_LABELS.has(candidate) ? candidate : "other"
+}
+
+export function normalizeHttpRoute(path: string): string {
+	const normalized = path
+		.split("?")[0]!
+		.split("/")
+		.map((segment) => IDENTIFIER_SEGMENT.test(segment) ? ":id" : segment)
+		.join("/")
+	return normalized.length <= 160 ? normalized : "/__oversized__"
+}
+
+export function observeDatabasePool(stats: {
+	total: number
+	idle: number
+	waiting: number
+}): void {
+	databasePoolConnections.set({ state: "total" }, stats.total)
+	databasePoolConnections.set({ state: "idle" }, stats.idle)
+	databasePoolConnections.set({ state: "waiting" }, stats.waiting)
+}
+
 export function observeHttp(
 	method: string,
 	route: string,
 	status: number,
 	seconds: number,
 ): void {
-	httpRequests.inc({ method, route, status: String(status) })
-	httpDuration.observe({ method, route }, seconds)
+	const normalizedMethod = method.toUpperCase().slice(0, 12)
+	const normalizedRoute = normalizeHttpRoute(route)
+	const statusClass = status >= 100 && status <= 599
+		? `${Math.floor(status / 100)}xx`
+		: "unknown"
+	httpRequests.inc({
+		method: normalizedMethod,
+		route: normalizedRoute,
+		status_class: statusClass,
+	})
+	httpDuration.observe({ method: normalizedMethod, route: normalizedRoute }, seconds)
 }

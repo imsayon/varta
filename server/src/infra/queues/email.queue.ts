@@ -7,6 +7,9 @@ export interface SendEmailJobDto {
 	notificationId: string
 	deliveryId: string
 	workspaceId: string
+	requestId?: string
+	correlationId?: string
+	traceparent?: string
 }
 
 // The email delivery queue — consumed by the email worker

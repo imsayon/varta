@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import test from "node:test"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { authRepository } from "./auth.repository.ts"
 
 const runDatabaseTests = process.env.RUN_AUTH_DATABASE_TESTS === "true"
@@ -99,7 +99,7 @@ test(
 		} finally {
 			await prisma.user.delete({ where: { id: user.id } })
 			await prisma.workspace.delete({ where: { id: workspaceId } })
-			await prisma.$disconnect()
+			await disconnectDatabase()
 		}
 	},
 )

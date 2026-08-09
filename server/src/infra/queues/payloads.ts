@@ -5,6 +5,9 @@ const DeliveryJobSchema = z.object({
 	notificationId: z.string().min(1),
 	deliveryId: z.string().min(1),
 	workspaceId: z.string().min(1),
+	requestId: z.string().max(128).optional(),
+	correlationId: z.string().max(128).optional(),
+	traceparent: z.string().max(512).optional(),
 })
 
 export const SendEmailJobSchema = DeliveryJobSchema

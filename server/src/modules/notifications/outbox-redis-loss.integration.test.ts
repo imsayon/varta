@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import test from "node:test"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { acceptNotification } from "./notification-acceptance.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
 
@@ -46,7 +46,7 @@ test(
 			assert.ok(intent.availableAt > new Date())
 		} finally {
 			await prisma.workspace.delete({ where: { id: workspace.id } })
-			await Promise.allSettled([closeQueues(), prisma.$disconnect()])
+			await Promise.allSettled([closeQueues(), disconnectDatabase()])
 		}
 	},
 )

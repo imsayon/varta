@@ -1,4 +1,4 @@
-import { prisma } from "../src/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "../src/infra/database/prisma.ts"
 import { hashPassword } from "../src/common/utils/auth/password.ts"
 
 if (process.env.NODE_ENV !== "test") throw new Error("E2E seed is test-only")
@@ -27,4 +27,4 @@ await prisma.user.create({
 		},
 	},
 })
-await prisma.$disconnect()
+await disconnectDatabase()

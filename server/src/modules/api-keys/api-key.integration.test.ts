@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { randomUUID } from "node:crypto"
 import test from "node:test"
-import { prisma } from "@/infra/database/prisma.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { apiKeyService } from "./api-key.service.ts"
 
 const runDatabaseTests = process.env.RUN_AUTH_DATABASE_TESTS === "true"
@@ -48,7 +48,7 @@ test(
 			assert.equal(await apiKeyService.verify(expiring.fullKey), null)
 		} finally {
 			await prisma.workspace.delete({ where: { id: workspace.id } })
-			await prisma.$disconnect()
+			await disconnectDatabase()
 		}
 	},
 )
