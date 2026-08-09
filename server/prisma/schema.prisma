@@ -125,8 +125,111 @@ model Workspace {
   deliveries        Delivery[]
   outboxIntents     OutboxIntent[]
 
+  billingWorkspaces BillingAccountWorkspace[]
+
   @@map("workspaces")
 }
+
+// --- Phase F2 Billing Models ---
+
+model BillingAccount {
+  id                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId        String                    @map("owner_user_id") @db.Uuid
+  razorpayCustomerId String?                   @unique @map("razorpay_customer_id")
+  createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspaces         BillingAccountWorkspace[]
+  subscriptions      Subscription[]
+  usageLedger        UsageLedger[]
+  snapshots          EntitlementSnapshot[]
+
+  @@map("billing_accounts")
+}
+
+model BillingAccountWorkspace {
+  billingAccountId String         @map("billing_account_id") @db.Uuid
+  workspaceId      String         @unique @map("workspace_id") @db.Uuid
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+  workspace        Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([billingAccountId, workspaceId])
+  @@map("billing_account_workspaces")
+}
+
+enum SubscriptionState {
+  PENDING
+  ACTIVE
+  GRACE
+  PAUSED
+  CANCELLED
+  EXPIRED
+
+  @@map("subscription_state")
+}
+
+model Subscription {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingAccountId       String            @map("billing_account_id") @db.Uuid
+  planId                 String            @map("plan_id")
+  status                 SubscriptionState @default(PENDING)
+  razorpaySubscriptionId String?           @unique @map("razorpay_subscription_id")
+  currentPeriodStart     DateTime?         @map("current_period_start") @db.Timestamptz
+  currentPeriodEnd       DateTime?         @map("current_period_end") @db.Timestamptz
+  cancelAtPeriodEnd      Boolean           @default(false) @map("cancel_at_period_end")
+  graceExpiresAt         DateTime?         @map("grace_expires_at") @db.Timestamptz
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  billingAccount         BillingAccount    @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@index([billingAccountId, status])
+  @@map("subscriptions")
+}
+
+model BillingWebhookEvent {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId     String    @unique @map("event_id")
+  eventType   String    @map("event_type")
+  rawPayload  String    @map("raw_payload")
+  signature   String
+  status      String    @default("PENDING") // PENDING, PROCESSED, FAILED
+  error       String?
+  processedAt DateTime? @map("processed_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([eventType, status])
+  @@map("billing_webhook_events")
+}
+
+model UsageLedger {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingAccountId String         @map("billing_account_id") @db.Uuid
+  workspaceId      String?        @map("workspace_id") @db.Uuid
+  operationId      String         @unique @map("operation_id")
+  deltaUnits       Int            @map("delta_units")
+  balanceAfter     Int            @map("balance_after")
+  description      String?
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@index([billingAccountId, createdAt])
+  @@map("usage_ledger")
+}
+
+model EntitlementSnapshot {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingAccountId       String         @map("billing_account_id") @db.Uuid
+  planId                 String         @map("plan_id")
+  canAcceptNotifications Boolean        @map("can_accept_notifications")
+  canAccessAi            Boolean        @map("can_access_ai")
+  limitsJson             Json           @map("limits_json")
+  snapshotAt             DateTime       @default(now()) @map("snapshot_at") @db.Timestamptz
+  billingAccount         BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@index([billingAccountId, snapshotAt])
+  @@map("entitlement_snapshots")
+}
+
 
 model WorkspaceAiConfig {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid

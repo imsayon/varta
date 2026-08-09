@@ -121,6 +121,8 @@ app.use("/api/v1/workspaces/:workspaceId/notifications", notificationRouter)
 app.use("/api/v1/workspaces/:workspaceId/routing-rules", routingRuleRouter)
 app.use("/api/v1/workspaces/:workspaceId/analytics", analyticsRouter)
 app.use("/api/v1/workspaces/:workspaceId/providers", providerRouter)
+import billingRouter from "./modules/billing/billing.routes.ts"
+app.use(billingRouter)
 app.use("/api/v1/webhooks", webhookInboundRoutes)
 
 // Error Handling

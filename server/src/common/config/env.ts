@@ -144,6 +144,10 @@ const envSchema = z.object({
 						"ENCRYPTION_KEY must be at least 32 characters in production",
 					)
 			: z.string().default("0123456789abcdef0123456789abcdef"),
+
+	RAZORPAY_KEY_ID: z.string().default(""),
+	RAZORPAY_KEY_SECRET: z.string().default(""),
+	RAZORPAY_WEBHOOK_SECRET: z.string().default(""),
 })
 
 const parsed = envSchema.safeParse(process.env)
