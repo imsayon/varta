@@ -23,7 +23,7 @@ const authLimiter = new RateLimiterRedis({
 const globalLimiter = new RateLimiterRedis({
 	storeClient: redis,
 	keyPrefix: "rl_global",
-	points: 100, // 100 requests
+	points: 300, // Allow normal dashboard navigation and parallel asset/API loading.
 	duration: 60, // per minute by IP
 })
 

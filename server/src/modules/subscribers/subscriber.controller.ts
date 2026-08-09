@@ -46,18 +46,17 @@ export const list = async (
 		const workspaceId = req.params.workspaceId as string
 		const { limit, cursor } = parsePaginationQuery(req.query as Record<string, unknown>)
 		const decoded = decodeCursor(cursor)
-		const skip = decoded ? 0 : 0
 
 		const [subscribers, total] = await subscriberService.search(
 			workspaceId,
-			skip,
 			limit + 1,
+			decoded,
 		)
 
 		const hasMore = subscribers.length > limit
 		const items = hasMore ? subscribers.slice(0, limit) : subscribers
 		const lastItem = items.length > 0 ? items[items.length - 1] : undefined
-		const nextCursor = lastItem
+		const nextCursor = hasMore && lastItem
 			? encodeCursor({ id: lastItem.id, createdAt: lastItem.createdAt.toISOString() })
 			: null
 

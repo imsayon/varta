@@ -5,8 +5,9 @@ import { redis } from "@/infra/redis/redis.connection.ts"
 import { logger } from "@/infra/observability/logger.ts"
 import { activeWebSockets } from "@/infra/observability/metrics.ts"
 import {
-	verifySubscriberWebSocketToken,
+	verifyWebSocketToken,
 	type SubscriberWebSocketTokenPayload,
+	type WorkspaceWebSocketTokenPayload,
 } from "@/common/utils/auth/websocket-token.ts"
 import { getRoutePolicy } from "@/common/auth/route-policy.ts"
 import type { AuthorizationCapability, SubscriberWebSocketPrincipal } from "@/common/auth/principal.ts"
@@ -24,6 +25,7 @@ type Connection = {
 	socket: WebSocket
 	workspaceId: string
 	subscriberId: string
+	kind: "subscriber" | "workspace"
 	connectionId: string
 	key: string
 	alive: boolean
@@ -33,7 +35,7 @@ type Connection = {
 const webSocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 })
 const pubsub = redis.duplicate()
 const connections = new Map<string, Connection>()
-const socketTokens = new WeakMap<WebSocket, SubscriberWebSocketTokenPayload>()
+const socketTokens = new WeakMap<WebSocket, SubscriberWebSocketTokenPayload | WorkspaceWebSocketTokenPayload>()
 const socketCapabilities = new WeakMap<WebSocket, AuthorizationCapability>()
 let heartbeat: NodeJS.Timeout | undefined
 let upgradeHandler:
@@ -55,6 +57,7 @@ function send(socket: WebSocket, message: unknown): boolean {
 }
 
 async function flushPending(connection: Connection): Promise<void> {
+	if (connection.kind !== "subscriber") return
 	const pending = await prisma.pendingInApp.findMany({
 		where: {
 			workspaceId: connection.workspaceId,
@@ -90,7 +93,7 @@ async function deliverLive(event: InAppDeliveryEvent): Promise<void> {
 	for (const connection of connections.values()) {
 		if (
 			connection.workspaceId !== event.workspaceId ||
-			connection.subscriberId !== event.subscriberId
+			(connection.kind === "subscriber" && connection.subscriberId !== event.subscriberId)
 		)
 			continue
 		send(connection.socket, {
@@ -127,7 +130,7 @@ async function register(
 ): Promise<void> {
 	const token = socketTokens.get(socket)
 	const capability = socketCapabilities.get(socket)
-	if (!token || !token.sub || !capability) {
+	if (!token || !token.sub || (token.type === "subscriber_ws" && !capability)) {
 		socket.close(1008, "Invalid token")
 		return
 	}
@@ -139,6 +142,7 @@ async function register(
 		subscriberId: token.sub,
 		connectionId,
 		key,
+		kind: token.type === "workspace_ws" ? "workspace" : "subscriber",
 		alive: true,
 		expiresAt: (token.exp ?? 0) * 1_000,
 	}
@@ -175,6 +179,7 @@ async function register(
 			return
 		}
 		if (message.type === "ack" && message.notificationId) {
+			if (connection.kind !== "subscriber") return
 			void realtimeStateService.acknowledgeTransport(
 				connection.workspaceId,
 				connection.subscriberId,
@@ -183,6 +188,7 @@ async function register(
 			return
 		}
 		if (message.type === "read" && message.notificationId) {
+			if (connection.kind !== "subscriber") return
 			void realtimeStateService.markRead(
 				connection.workspaceId,
 				connection.subscriberId,
@@ -224,8 +230,19 @@ async function upgrade(
 		}
 		const token = url.searchParams.get("token")
 		if (!token) throw new Error("Missing WebSocket token")
-		const claims = await verifySubscriberWebSocketToken(token)
-		const policy = getRoutePolicy("websocket.subscriber")
+		const claims = await verifyWebSocketToken(token)
+		const policy = getRoutePolicy(claims.type === "workspace_ws" ? "websocket.workspace" : "websocket.subscriber")
+		if (claims.type === "workspace_ws") {
+			const membership = await prisma.workspaceMember.findUnique({
+				where: { userId_workspaceId: { userId: claims.sub, workspaceId: claims.workspaceId } },
+			})
+			if (!membership || !policy.principalKinds?.includes("browser_jwt")) throw new Error("Workspace WebSocket access denied")
+			webSocketServer.handleUpgrade(request, socket, head, (client) => {
+				socketTokens.set(client, claims)
+				webSocketServer.emit("connection", client, request)
+			})
+			return
+		}
 		const principal: SubscriberWebSocketPrincipal = {
 			kind: "subscriber_websocket",
 			actorId: claims.sub,

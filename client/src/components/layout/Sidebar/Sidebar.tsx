@@ -5,7 +5,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
+  Activity,
+  Bell,
+  Braces,
+  GitBranch,
+  KeyRound,
+  Send,
   Settings,
+  Users,
   LogOut, 
   ChevronRight,
   Plus,
@@ -26,6 +33,13 @@ export function Sidebar() {
   const [isCreatingWs, setIsCreatingWs] = useState(false);
 
   const navItems = [
+    { name: 'Analytics', href: '/analytics', icon: Activity },
+    { name: 'Notifications', href: '/notifications', icon: Bell },
+    { name: 'Studio', href: '/studio', icon: Send },
+    { name: 'Subscribers', href: '/subscribers', icon: Users },
+    { name: 'Templates', href: '/templates', icon: Braces },
+    { name: 'Routing Rules', href: '/rules', icon: GitBranch },
+    { name: 'API Keys', href: '/api-keys', icon: KeyRound },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 

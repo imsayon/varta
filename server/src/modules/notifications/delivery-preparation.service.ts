@@ -6,6 +6,12 @@ import { BadRequestError } from "@/common/errors/app-error.ts"
 
 export type DeliveryChannel = "EMAIL" | "IN_APP" | "WEBHOOK"
 
+const templateChannelKey: Record<DeliveryChannel, string> = {
+	EMAIL: "email",
+	IN_APP: "inapp",
+	WEBHOOK: "webhook",
+}
+
 export type RenderContext = {
 	subscriber: Record<string, unknown>
 	[key: string]: unknown
@@ -78,7 +84,7 @@ export const deliveryPreparationService = {
 			items: items ?? [],
 			digest: Boolean(items),
 		}
-		const channelKey = channel.toLowerCase()
+		const channelKey = templateChannelKey[channel]
 		const channelTemplate = asObject(channels[channelKey])
 
 		if (channel === "EMAIL") {

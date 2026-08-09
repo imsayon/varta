@@ -1,28 +1,29 @@
 import { z } from "zod"
 
 export const analyticsQuerySchema = z.object({
-	from: z.string().optional(),
-	to: z.string().optional(),
+	from: z.iso.datetime().optional(),
+	to: z.iso.datetime().optional(),
 	timeRange: z.enum(["7d", "30d", "90d"]).optional(),
 	granularity: z.enum(["hour", "day"]).default("day"),
 	limit: z.coerce.number().int().min(1).max(100).default(10),
-}).transform((data) => {
+}).transform((data, context) => {
 	const now = new Date()
-	let toDate = data.to ? new Date(data.to) : now
-	if (Number.isNaN(toDate.getTime())) toDate = now
+	const toDate = data.to ? new Date(data.to) : now
 
 	let fromDate: Date
 	if (data.from) {
 		fromDate = new Date(data.from)
-		if (Number.isNaN(fromDate.getTime())) {
-			fromDate = new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000)
-		}
 	} else if (data.timeRange === "7d") {
 		fromDate = new Date(toDate.getTime() - 7 * 24 * 60 * 60 * 1000)
 	} else if (data.timeRange === "90d") {
 		fromDate = new Date(toDate.getTime() - 90 * 24 * 60 * 60 * 1000)
 	} else {
 		fromDate = new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000)
+	}
+
+	if (fromDate >= toDate || toDate.getTime() - fromDate.getTime() > 90 * 24 * 60 * 60 * 1000) {
+		context.addIssue({ code: "custom", message: "Analytics range must be positive and no longer than 90 days" })
+		return z.NEVER
 	}
 
 	return {

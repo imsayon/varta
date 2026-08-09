@@ -3,14 +3,14 @@ import { jsonObjectSchema } from "@/common/types/json.ts"
 import { NotificationChannel } from "../notifications/notification.types.ts"
 
 export const routingRuleConditionSchema = z.object({
-	field: z.string().min(1),
+	field: z.string().regex(/^subscriber\.(attributes|preferences)\.[A-Za-z0-9_.-]+$/),
 	op: z.enum(["eq", "neq", "gt", "lt", "gte", "lte", "in", "not_in", "exists", "contains"]),
 	value: z.unknown().optional(),
 })
 
 export const routingRuleAstSchema = z.object({
 	logic: z.enum(["AND", "OR"]).default("AND"),
-	conditions: z.array(routingRuleConditionSchema).default([]),
+	conditions: z.array(routingRuleConditionSchema).max(20).default([]),
 	channels: z.array(z.enum(NotificationChannel)).min(1),
 	fallback: z
 		.object({

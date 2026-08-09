@@ -1,10 +1,5 @@
-import { FeatureUnavailable } from "@/components/feature-unavailable/FeatureUnavailable"
+import { NotificationLog } from "@/features/notifications/components/NotificationLog"
 
 export default function NotificationsPage() {
-	return (
-		<FeatureUnavailable
-			title="Notifications unavailable"
-			description="The dashboard notification feed is disabled until its identity and receipt contract is complete."
-		/>
-	)
+	return <NotificationLog />
 }

@@ -18,6 +18,8 @@ export default function ApiKeysPage() {
   const [name, setName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState('');
+  const [scopes, setScopes] = useState<string[]>(['notifications:trigger']);
 
   const fetchKeys = useCallback(async () => {
     if (!workspace) return;
@@ -33,7 +35,8 @@ export default function ApiKeysPage() {
   }, [workspace]);
 
   useEffect(() => {
-    fetchKeys();
+    const timer = window.setTimeout(() => void fetchKeys(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchKeys]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -45,7 +48,8 @@ export default function ApiKeysPage() {
 
     const res = await apiClient.post<IApiKeyCreateResponse>(`/api/v1/workspaces/${workspace.id}/api-keys`, {
       name: name.trim(),
-      permissions: ['notifications:trigger', 'notifications:retry', 'subscribers:read', 'subscribers:write'],
+      permissions: scopes,
+      ...(expiresAt ? { expiresAt: new Date(expiresAt).toISOString() } : {}),
     });
 
     setIsCreating(false);
@@ -54,12 +58,27 @@ export default function ApiKeysPage() {
       const newKey = res.data;
       setCreatedSecret(newKey.fullKey);
       setName('');
-      toast.success('API key created successfully!');
+      setExpiresAt('');
+      toast.success('API key created. Copy it now; Varta cannot show it again.');
       fetchKeys();
     } else {
       toast.error(res.error?.message || 'Failed to create API key');
     }
   };
+
+  const copySecret = async () => {
+    if (!createdSecret) return;
+    await navigator.clipboard.writeText(createdSecret);
+    toast.success('API key copied');
+  };
+
+  const availableScopes = [
+    'notifications:trigger',
+    'notifications:retry',
+    'subscribers:read',
+    'subscribers:write',
+    'subscribers:ws-token',
+  ];
 
   const handleRevoke = async (keyId: string) => {
     if (!workspace) return;
@@ -86,7 +105,7 @@ export default function ApiKeysPage() {
           <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1rem' }}>
             Create New API Key
           </h3>
-          <form onSubmit={handleCreate} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+          <form onSubmit={handleCreate} style={{ display: 'grid', gap: '1rem' }}>
             <div style={{ flex: 1 }}>
               <Input
                 type="text"
@@ -98,6 +117,29 @@ export default function ApiKeysPage() {
                 required
               />
             </div>
+            <Input
+              type="datetime-local"
+              label="Expiry (optional)"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              disabled={isCreating}
+            />
+            <fieldset style={{ border: 0, padding: 0 }}>
+              <legend style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Scopes</legend>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                {availableScopes.map((scope) => (
+                  <label key={scope} style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={scopes.includes(scope)}
+                      onChange={(event) => setScopes((current) => event.target.checked
+                        ? [...current, scope]
+                        : current.filter((item) => item !== scope))}
+                    />{' '}{scope}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <Button type="submit" variant="primary" loading={isCreating}>
               Create Key
             </Button>
@@ -111,6 +153,10 @@ export default function ApiKeysPage() {
               <code style={{ fontSize: '0.875rem', color: '#38bdf8', wordBreak: 'break-all' }}>
                 {createdSecret}
               </code>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                <Button type="button" size="sm" onClick={copySecret}>Copy</Button>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setCreatedSecret(null)}>I saved it</Button>
+              </div>
             </div>
           )}
         </Card>
@@ -144,6 +190,12 @@ export default function ApiKeysPage() {
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
                     Created: {new Date(k.createdAt).toLocaleDateString()}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                    Scopes: {k.permissions?.join(', ') || 'none'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                    Expires: {k.expiresAt ? new Date(k.expiresAt).toLocaleString() : 'never'} · Last used: {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : 'never'}
                   </div>
                 </div>
                 <Button variant="danger" size="sm" onClick={() => handleRevoke(k.id)}>

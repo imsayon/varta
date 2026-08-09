@@ -237,6 +237,7 @@ export const authService = {
 
 	// Refresh
 	async refresh(refreshToken: string) {
+		const refreshStartedAt = new Date()
 		let payload: RefreshTokenPayload
 		try {
 			const decoded = await verifyRefreshToken(refreshToken)
@@ -273,7 +274,17 @@ export const authService = {
 						return { kind: "invalid" as const }
 					}
 
-					if (storedToken.revokedAt || storedToken.session.revokedAt) {
+					if (storedToken.session.revokedAt) {
+						return { kind: "reuse" as const }
+					}
+
+					if (storedToken.revokedAt) {
+						// A request that began before this token was rotated is the expected
+						// loser of a concurrent refresh race. Reject it without destroying the
+						// winner's newly issued token. A request begun after rotation is replay.
+						if (refreshStartedAt <= storedToken.revokedAt) {
+							return { kind: "invalid" as const }
+						}
 						const revokedAt = new Date()
 						await tx.session.updateMany({
 							where: { id: storedToken.sessionId, revokedAt: null },

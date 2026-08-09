@@ -1,6 +1,7 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import { ConflictError, NotFoundError } from "@/common/errors/app-error.ts"
 import type { Prisma } from "@prisma/client"
+import type { DecodedCursor } from "@/common/utils/pagination.ts"
 
 export const subscriberRepository = {
 	async create(data: Prisma.SubscriberUncheckedCreateInput) {
@@ -31,13 +32,19 @@ export const subscriberRepository = {
 		})
 	},
 
-	async findMany(workspaceId: string, skip: number, take: number) {
+	async findMany(workspaceId: string, take: number, cursor: DecodedCursor | null) {
+		const cursorDate = cursor ? new Date(cursor.createdAt) : null
 		return Promise.all([
 			prisma.subscriber.findMany({
-				where: { workspaceId },
-				skip,
+				where: {
+					workspaceId,
+					...(cursorDate ? { OR: [
+						{ createdAt: { lt: cursorDate } },
+						{ createdAt: cursorDate, id: { lt: cursor!.id } },
+					] } : {}),
+				},
 				take,
-				orderBy: { createdAt: "desc" },
+				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 			}),
 			prisma.subscriber.count({ where: { workspaceId } }),
 		])

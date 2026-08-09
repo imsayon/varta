@@ -11,6 +11,9 @@ import { workspaceService } from "../workspaces/workspace.service.ts"
 import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
 import { sendSuccess } from "@/common/utils/response.ts"
 import { parsePaginationQuery } from "@/common/utils/pagination.ts"
+import { decodeCursor, encodeCursor } from "@/common/utils/pagination.ts"
+import type { NotificationStatus } from "@prisma/client"
+import { logger } from "@/infra/observability/logger.ts"
 
 function assertApiKeyWorkspace(req: Request, workspaceId: string) {
 	if (requireWorkspaceCapability(req).workspaceId !== workspaceId) {
@@ -54,20 +57,30 @@ export const list = async (
 		const userId = requireWorkspaceCapability(req).actorId
 		await workspaceService.assertMembership(workspaceId, userId)
 
-		const { page, limit } = parsePaginationQuery(req.query as Record<string, unknown>)
-		const skip = (page - 1) * limit
+		const { limit, cursor, search } = parsePaginationQuery(req.query as Record<string, unknown>)
+		const decodedCursor = decodeCursor(cursor)
+		const requestedStatus = typeof req.query.status === "string" ? req.query.status : undefined
+		const allowedStatuses = new Set(["PENDING", "ENQUEUED", "PARTIAL", "DELIVERED", "FAILED"])
+		const status = requestedStatus && allowedStatuses.has(requestedStatus)
+			? requestedStatus as NotificationStatus
+			: undefined
 
 		const [notifications, total] = await notificationRepository.findMany(
 			workspaceId,
-			skip,
-			limit,
+			{ ...(decodedCursor ? { cursorId: decodedCursor.id } : {}), take: limit + 1, ...(status ? { status } : {}), ...(search ? { search } : {}) },
 		)
+		const hasMore = notifications.length > limit
+		const items = hasMore ? notifications.slice(0, limit) : notifications
+		const last = items.at(-1)
+		const nextCursor = hasMore && last
+			? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+			: null
 
-		sendSuccess(req, res, { notifications, total, page, limit }, 200, {
-			page,
+		sendSuccess(req, res, items, 200, {
+			cursor: nextCursor,
 			limit,
 			total,
-			hasMore: page * limit < total,
+			hasMore,
 		})
 	} catch (err) {
 		next(err)
@@ -141,6 +154,13 @@ export const retry = async (
 				payload: (notification.triggerPayload as Record<string, unknown>) ?? {},
 			},
 		)
+		logger.info({
+			event: "notification.retry",
+			workspaceId,
+			notificationId,
+			retryNotificationId: result.notificationId,
+			actorId: requireWorkspaceCapability(req).actorId,
+		}, "Notification retry accepted")
 
 		sendSuccess(req, res, result, 202)
 	} catch (err) {

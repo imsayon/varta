@@ -170,6 +170,7 @@ export interface INotification {
 	scheduledAt?: string | null
 	triggeredAt: string
 	createdAt: string
+	readAt?: string | null
 	template?: { name: string }
 	subscriber?: {
 		name?: string | null
@@ -177,6 +178,13 @@ export interface INotification {
 		externalId: string
 	}
 	deliveryAttempts?: IDeliveryAttempt[]
+	deliveries?: Array<{
+		id: string
+		channel: string
+		status: DeliveryStatus
+		provider?: string | null
+		lastError?: string | null
+	}>
 }
 
 /* -------------------------------------------------------------------------- */
@@ -234,7 +242,7 @@ export interface IAuthResponse {
 	user: IUser
 }
 
-export type ChannelVariant = "email" | "inapp" | "push" | "webhook"
+export type ChannelVariant = "email" | "inapp" | "webhook"
 export type SubscriberPreferences = JsonObject &
 	Partial<Record<ChannelVariant, boolean>>
 
@@ -335,11 +343,13 @@ export interface ITriggerPayload {
 /* -------------------------------------------------------------------------- */
 
 export interface IWSNotification {
+	id: string
 	title: string
 	body: string
 	actionUrl?: string
 	avatarUrl?: string
 	timestamp?: string
+	readAt?: string | null
 }
 
 export interface IWSMessage {

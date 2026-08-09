@@ -16,7 +16,7 @@ export async function recomputeAggregateStatus(
 	workspaceId: string,
 	notificationId: string,
 ): Promise<NotificationStatus> {
-	return prisma.$transaction(async (tx) => {
+	const status = await prisma.$transaction(async (tx) => {
 		const notification = await tx.notification.findFirst({
 			where: { id: notificationId, workspaceId },
 			select: {
@@ -57,4 +57,7 @@ export async function recomputeAggregateStatus(
 
 		return status
 	})
+	const { invalidateAnalyticsCache } = await import("@/modules/analytics/analytics.service.ts")
+	await invalidateAnalyticsCache(workspaceId)
+	return status
 }

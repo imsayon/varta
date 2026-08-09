@@ -22,5 +22,6 @@ router.patch(
 )
 router.delete("/:workspaceId", authorize("workspace.delete"), workspaceController.remove)
 router.get("/:workspaceId/members", authorize("workspace.members.list"), workspaceController.listMembers)
+router.post("/:workspaceId/ws-token", authorize("workspace.wsToken"), workspaceController.issueWebSocketToken)
 
 export { router as workspaceRouter }

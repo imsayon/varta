@@ -49,6 +49,7 @@ export const apiKeyService = {
 				id: true,
 				name: true,
 				prefix: true,
+				permissions: true,
 				isActive: true,
 				createdAt: true,
 				lastUsedAt: true,

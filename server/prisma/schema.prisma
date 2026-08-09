@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [vector, pg_stat_statements, pgcrypto, supabase_vault, uuid_ossp(map: "uuid-ossp")]
+  extensions = [vector, pg_stat_statements, pgcrypto, uuid_ossp(map: "uuid-ossp")]
 }
 
 model User {

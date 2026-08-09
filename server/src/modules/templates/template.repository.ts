@@ -1,6 +1,7 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import { Prisma } from "@prisma/client"
 import { NotFoundError } from "@/common/errors/app-error.ts"
+import type { DecodedCursor } from "@/common/utils/pagination.ts"
 
 export const templateRepository = {
 	async create(data: Prisma.TemplateUncheckedCreateInput) {
@@ -19,13 +20,19 @@ export const templateRepository = {
 		})
 	},
 
-	async findMany(workspaceId: string, skip: number, take: number) {
+	async findMany(workspaceId: string, take: number, cursor: DecodedCursor | null) {
+		const cursorDate = cursor ? new Date(cursor.createdAt) : null
 		return Promise.all([
 			prisma.template.findMany({
-				where: { workspaceId },
-				skip,
+				where: {
+					workspaceId,
+					...(cursorDate ? { OR: [
+						{ createdAt: { lt: cursorDate } },
+						{ createdAt: cursorDate, id: { lt: cursor!.id } },
+					] } : {}),
+				},
 				take,
-				orderBy: { updatedAt: "desc" },
+				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 			}),
 			prisma.template.count({ where: { workspaceId } }),
 		])

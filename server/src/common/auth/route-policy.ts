@@ -27,6 +27,7 @@ const triggerRoles = ["OWNER", "ADMIN", "MEMBER", "API_KEY"] as const
 export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 	{ id: "health.read", method: "GET", path: "/api/health", public: true },
 	{ id: "health.live", method: "GET", path: "/api/health/live", public: true },
+	{ id: "health.startup", method: "GET", path: "/api/health/startup", public: true },
 	{ id: "health.ready", method: "GET", path: "/api/health/ready", public: true },
 	{ id: "health.combinedReady", method: "GET", path: "/api/health/combined/ready", public: true },
 	{ id: "health.workerReady", method: "GET", path: "/api/health/worker/ready", public: true },
@@ -57,6 +58,7 @@ export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 	{ id: "workspace.update", method: "PATCH", path: "/api/v1/workspaces/:workspaceId", principalKinds: browser, roles: adminRoles, hideWorkspaceMismatch: true },
 	{ id: "workspace.delete", method: "DELETE", path: "/api/v1/workspaces/:workspaceId", principalKinds: browser, roles: ["OWNER"], hideWorkspaceMismatch: true },
 	{ id: "workspace.members.list", method: "GET", path: "/api/v1/workspaces/:workspaceId/members", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
+	{ id: "workspace.wsToken", method: "POST", path: "/api/v1/workspaces/:workspaceId/ws-token", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
 
 	{ id: "subscriber.create", method: "POST", path: "/api/v1/workspaces/:workspaceId/subscribers", principalKinds: browserOrKey, roles: triggerRoles, scopes: ["subscribers:write"], hideWorkspaceMismatch: true },
 	{ id: "subscriber.list", method: "GET", path: "/api/v1/workspaces/:workspaceId/subscribers", principalKinds: browserOrKey, roles: triggerRoles, scopes: ["subscribers:read"], hideWorkspaceMismatch: true },
@@ -99,6 +101,7 @@ export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 
 	{ id: "webhook.provider.resend", method: "POST", path: "/api/v1/webhooks/resend", principalKinds: ["provider_webhook"] },
 	{ id: "websocket.subscriber", method: "GET", path: "/ws", principalKinds: ["subscriber_websocket"] },
+	{ id: "websocket.workspace", method: "GET", path: "/ws", principalKinds: browser },
 ] as const
 
 export const MOUNTED_ROUTE_POLICY_IDS = ROUTE_POLICY_MATRIX.map((policy) => policy.id)

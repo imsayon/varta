@@ -27,7 +27,6 @@ function getInitialSubscriberFormState(initialData?: ISubscriber | null) {
     locale: initialData?.locale ?? 'en-US',
     attributesStr: JSON.stringify(initialData?.attributes ?? { name: 'Jane Doe', plan: 'premium' }, null, 2),
     prefEmail: preferences?.email !== false,
-    prefPush: preferences?.push !== false,
     prefInApp: preferences?.inapp !== false,
     prefWebhook: preferences?.webhook !== false,
   };
@@ -44,7 +43,6 @@ export function SubscriberForm({ isOpen, onClose, onSubmit, initialData }: Subsc
   
   // Preferences
   const [prefEmail, setPrefEmail] = useState(initialState.prefEmail);
-  const [prefPush, setPrefPush] = useState(initialState.prefPush);
   const [prefInApp, setPrefInApp] = useState(initialState.prefInApp);
   const [prefWebhook, setPrefWebhook] = useState(initialState.prefWebhook);
 
@@ -68,7 +66,6 @@ export function SubscriberForm({ isOpen, onClose, onSubmit, initialData }: Subsc
 
     const preferences: SubscriberPreferences = {
       email: prefEmail,
-      push: prefPush,
       inapp: prefInApp,
       webhook: prefWebhook,
     };
@@ -157,15 +154,6 @@ export function SubscriberForm({ isOpen, onClose, onSubmit, initialData }: Subsc
                 disabled={loading}
               />
               <span>Email</span>
-            </label>
-            <label className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={prefPush}
-                onChange={e => setPrefPush(e.target.checked)}
-                disabled={loading}
-              />
-              <span>Push</span>
             </label>
             <label className={styles.checkboxLabel}>
               <input

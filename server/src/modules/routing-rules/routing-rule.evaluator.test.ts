@@ -1,33 +1,23 @@
-import { describe, it } from "node:test"
 import assert from "node:assert/strict"
+import test from "node:test"
+import { routingRuleAstSchema } from "./routing-rule.schema.ts"
+import { matchesRoutingRule } from "./routing-rule.evaluator.ts"
 
-function evaluateCondition(condition: { field: string; operator: string; value: unknown }, payload: Record<string, unknown>): boolean {
-	const val = payload[condition.field]
-	switch (condition.operator) {
-		case "EQUALS":
-			return val === condition.value
-		case "CONTAINS":
-			return typeof val === "string" && val.includes(String(condition.value))
-		case "GREATER_THAN":
-			return typeof val === "number" && val > Number(condition.value)
-		default:
-			return false
+test("routing rules are deterministic across supported operators", () => {
+	const ast = {
+		logic: "AND",
+		conditions: [
+			{ field: "subscriber.attributes.plan", op: "eq", value: "pro" },
+			{ field: "subscriber.attributes.age", op: "gte", value: 18 },
+			{ field: "subscriber.preferences.email", op: "neq", value: false },
+		],
+		channels: ["EMAIL", "IN_APP"],
 	}
-}
+	assert.equal(matchesRoutingRule(ast, { attributes: { plan: "pro", age: 21 }, preferences: { email: true } }), true)
+	assert.equal(matchesRoutingRule(ast, { attributes: { plan: "free", age: 21 }, preferences: { email: true } }), false)
+})
 
-describe("Routing Rule Evaluator", () => {
-	it("evaluates EQUALS condition correctly", () => {
-		const result = evaluateCondition({ field: "plan", operator: "EQUALS", value: "pro" }, { plan: "pro" })
-		assert.equal(result, true)
-	})
-
-	it("evaluates CONTAINS condition correctly", () => {
-		const result = evaluateCondition({ field: "email", operator: "CONTAINS", value: "@varta.dev" }, { email: "user@varta.dev" })
-		assert.equal(result, true)
-	})
-
-	it("evaluates GREATER_THAN condition correctly", () => {
-		const result = evaluateCondition({ field: "amount", operator: "GREATER_THAN", value: 100 }, { amount: 250 })
-		assert.equal(result, true)
-	})
+test("routing AST rejects unbounded and unauthorized fields", () => {
+	assert.equal(routingRuleAstSchema.safeParse({ logic: "AND", conditions: [{ field: "workspace.secret", op: "exists" }], channels: ["EMAIL"] }).success, false)
+	assert.equal(routingRuleAstSchema.safeParse({ logic: "AND", conditions: Array.from({ length: 21 }, (_, i) => ({ field: `subscriber.attributes.x${i}`, op: "exists" })), channels: ["EMAIL"] }).success, false)
 })

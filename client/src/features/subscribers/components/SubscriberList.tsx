@@ -44,7 +44,8 @@ export function SubscriberList() {
 	}, [workspace, searchQuery])
 
 	useEffect(() => {
-		fetchSubscribers()
+		const timer = window.setTimeout(() => void fetchSubscribers(), 0)
+		return () => window.clearTimeout(timer)
 	}, [fetchSubscribers])
 
 	const handleCreateOrUpdate = async (data: SubscriberUpsertInput) => {

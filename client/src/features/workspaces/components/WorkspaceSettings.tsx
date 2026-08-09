@@ -33,7 +33,6 @@ type WorkspaceSettingsShape = {
 	defaultTimezone?: string
 	rateLimits?: {
 		emailPerHour?: number
-		pushPerHour?: number
 	}
 }
 
@@ -82,7 +81,6 @@ export function WorkspaceSettings() {
 	const [name, setName] = useState("")
 	const [defaultTimezone, setDefaultTimezone] = useState("UTC")
 	const [emailLimit, setEmailLimit] = useState(1000)
-	const [pushLimit, setPushLimit] = useState(5000)
 	const [emailApiKey, setEmailApiKey] = useState("")
 	const [emailFromAddress, setEmailFromAddress] = useState("")
 	const [revealEmail, setRevealEmail] = useState(false)
@@ -125,7 +123,6 @@ export function WorkspaceSettings() {
 		setEmailLimit(
 			workspaceRes.data.settings?.rateLimits?.emailPerHour || 1000,
 		)
-		setPushLimit(workspaceRes.data.settings?.rateLimits?.pushPerHour || 5000)
 
 		if (apiKeysRes.success && apiKeysRes.data) {
 			setApiKeys(apiKeysRes.data)
@@ -196,7 +193,6 @@ export function WorkspaceSettings() {
 					defaultTimezone,
 					rateLimits: {
 						emailPerHour: emailLimit,
-						pushPerHour: pushLimit,
 					},
 				},
 			},
@@ -431,17 +427,6 @@ export function WorkspaceSettings() {
 								value={emailLimit}
 								onChange={(event) =>
 									setEmailLimit(
-										parseInt(event.target.value, 10) || 0,
-									)
-								}
-								disabled={saving}
-							/>
-							<Input
-								type="number"
-								label="Maximum Push Sends / Hour"
-								value={pushLimit}
-								onChange={(event) =>
-									setPushLimit(
 										parseInt(event.target.value, 10) || 0,
 									)
 								}

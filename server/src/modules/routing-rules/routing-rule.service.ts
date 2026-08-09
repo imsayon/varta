@@ -21,13 +21,17 @@ const preferenceKeys: Record<NotificationChannel, string> = {
 	[NotificationChannel.WEBHOOK]: "webhook",
 }
 
+const templateChannelKeys: Record<string, NotificationChannel> = {
+	email: NotificationChannel.EMAIL,
+	inapp: NotificationChannel.IN_APP,
+	webhook: NotificationChannel.WEBHOOK,
+}
+
 function availableChannels(templateChannels: unknown): NotificationChannel[] {
 	if (!templateChannels || typeof templateChannels !== "object" || Array.isArray(templateChannels)) return []
 	return Object.keys(templateChannels)
-		.map((channel) => channel.toUpperCase())
-		.filter((channel): channel is NotificationChannel =>
-			Object.values(NotificationChannel).includes(channel as NotificationChannel),
-		)
+		.map((channel) => templateChannelKeys[channel.toLowerCase()])
+		.filter((channel): channel is NotificationChannel => channel !== undefined)
 }
 
 function preferenceAllows(preferences: unknown, channel: NotificationChannel): boolean {

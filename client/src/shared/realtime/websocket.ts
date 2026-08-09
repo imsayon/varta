@@ -22,17 +22,23 @@ export function useWebSocket({ workspaceId, subscriberId, onNotification }: UseW
   const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(async () => {
-    if (!workspaceId || !subscriberId) return;
+    if (!workspaceId) return;
 
     try {
-      const tokenRes = await apiClient.post<{ token?: string }>(`/api/v1/workspaces/${workspaceId}/subscribers/${subscriberId}/ws-token`);
+      const tokenEndpoint = subscriberId
+        ? `/api/v1/workspaces/${workspaceId}/subscribers/${subscriberId}/ws-token`
+        : `/api/v1/workspaces/${workspaceId}/ws-token`;
+      const tokenRes = await apiClient.post<{ token?: string }>(tokenEndpoint);
       const token = tokenRes.success ? tokenRes.data.token : undefined;
 
       if (!token) return;
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`;
+      const configuredApi = process.env.NEXT_PUBLIC_API_URL;
+      const endpoint = configuredApi ? new URL(configuredApi) : new URL(window.location.origin);
+      endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:';
+      endpoint.pathname = '/ws';
+      endpoint.search = `token=${encodeURIComponent(token)}`;
+      const wsUrl = endpoint.toString();
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -48,7 +54,7 @@ export function useWebSocket({ workspaceId, subscriberId, onNotification }: UseW
             if (onNotification && message.data) {
               onNotification(message.data);
             }
-            if (message.data?.id && ws.readyState === WebSocket.OPEN) {
+            if (subscriberId && message.data?.id && ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ type: 'ack', notificationId: message.data.id }));
             }
           }

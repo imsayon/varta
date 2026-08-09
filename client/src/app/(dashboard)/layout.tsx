@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/Skeleton/Skeleton';
 import styles from './DashboardLayout.module.css';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {

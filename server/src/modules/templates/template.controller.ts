@@ -40,18 +40,17 @@ export const list = async (
 
 		const { limit, cursor } = parsePaginationQuery(req.query as Record<string, unknown>)
 		const decoded = decodeCursor(cursor)
-		const skip = decoded ? 0 : 0
 
 		const [templates, total] = await templateService.search(
 			workspaceId,
-			skip,
 			limit + 1,
+			decoded,
 		)
 
 		const hasMore = templates.length > limit
 		const items = hasMore ? templates.slice(0, limit) : templates
 		const lastItem = items.length > 0 ? items[items.length - 1] : undefined
-		const nextCursor = lastItem
+		const nextCursor = hasMore && lastItem
 			? encodeCursor({ id: lastItem.id, createdAt: lastItem.createdAt.toISOString() })
 			: null
 

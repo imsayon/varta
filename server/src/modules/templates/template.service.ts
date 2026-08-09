@@ -1,6 +1,7 @@
 import { templateRepository } from "./template.repository.ts"
 import { Prisma } from "@prisma/client"
 import { templateRendererService } from "@/common/template-engine/template-renderer.service.ts"
+import type { DecodedCursor } from "@/common/utils/pagination.ts"
 
 export const templateService = {
 	async create(data: Prisma.TemplateUncheckedCreateInput) {
@@ -19,8 +20,8 @@ export const templateService = {
 		return templateRepository.delete(workspaceId, id)
 	},
 
-	async search(workspaceId: string, skip: number, take: number) {
-		return templateRepository.findMany(workspaceId, skip, take)
+	async search(workspaceId: string, take: number, cursor: DecodedCursor | null) {
+		return templateRepository.findMany(workspaceId, take, cursor)
 	},
 	async findById(workspaceId: string, id: string) {
 		return templateRepository.findById(workspaceId, id)

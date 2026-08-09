@@ -1,77 +1,100 @@
 'use client';
 
-import { useState } from 'react';
-import { MoreHorizontal, Search } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/Button/Button';
+import { useAuth } from '@/shared/auth/auth-context';
+import { apiClient } from '@/shared/api/api';
+import type { INotification, NotificationStatus } from '@/shared/types/domain';
 
-const rows = [
-  { id: '1', event: 'user.signup', sub: 'usr_abc123', channel: 'Email', status: 'delivered', provider: 'Resend', time: '2m ago' },
-  { id: '2', event: 'payment.failed', sub: 'usr_xyz789', channel: 'Push', status: 'failed', provider: 'FCM', time: '15m ago' },
-  { id: '3', event: 'dunning.warning', sub: 'usr_xyz789', channel: 'Email', status: 'retrying', provider: 'Postmark', time: '1h ago' },
-  { id: '4', event: 'password.reset', sub: 'usr_def456', channel: 'Email', status: 'delivered', provider: 'Resend', time: '2h ago' },
-  { id: '5', event: 'order.shipped', sub: 'usr_ghi987', channel: 'SMS', status: 'queued', provider: 'Twilio', time: '3h ago' },
+const statuses: Array<{ label: string; value: '' | NotificationStatus }> = [
+  { label: 'All', value: '' },
+  { label: 'Accepted', value: 'PENDING' },
+  { label: 'Queued', value: 'ENQUEUED' },
+  { label: 'Partial', value: 'PARTIAL' },
+  { label: 'Delivered', value: 'DELIVERED' },
+  { label: 'Failed', value: 'FAILED' },
 ];
 
-function statusColor(status: string) {
-  if (status === 'delivered') return 'var(--color-green)';
-  if (status === 'failed') return 'var(--color-primary-500)';
-  if (status === 'retrying') return 'var(--color-amber)';
-  return 'var(--text-muted)';
-}
-
 export function NotificationLog() {
-  const [activeTab, setActiveTab] = useState('All');
+  const { workspace } = useAuth();
+  const [items, setItems] = useState<INotification[]>([]);
+  const [selected, setSelected] = useState<INotification | null>(null);
+  const [status, setStatus] = useState<'' | NotificationStatus>('');
+  const [search, setSearch] = useState('');
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (append = false, nextCursor?: string | null) => {
+    if (!workspace) return;
+    setLoading(true);
+    setError(null);
+    const res = await apiClient.get<INotification[]>(`/api/v1/workspaces/${workspace.id}/notifications`, {
+      params: { limit: 25, status: status || undefined, search: search || undefined, cursor: nextCursor || undefined },
+    });
+    if (res.success) {
+      setItems((current) => append ? [...current, ...res.data.filter((item) => !current.some((existing) => existing.id === item.id))] : res.data);
+      setCursor(typeof res.meta.cursor === 'string' ? res.meta.cursor : null);
+    } else {
+      setError(res.error.message);
+      if (!append) setItems([]);
+    }
+    setLoading(false);
+  }, [workspace, status, search]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  const openDetail = async (id: string) => {
+    if (!workspace) return;
+    const res = await apiClient.get<INotification>(`/api/v1/workspaces/${workspace.id}/notifications/${id}`);
+    if (res.success) setSelected(res.data);
+    else setError(res.error.message);
+  };
+
+  const retry = async (notification: INotification) => {
+    if (!workspace) return;
+    const res = await apiClient.post(`/api/v1/workspaces/${workspace.id}/notifications/${notification.id}/retry`);
+    if (res.success) await load();
+    else setError(res.error.message);
+  };
 
   return (
     <div className="dashboard-page">
       <div className="dashboard-header">
-        <div>
-          <h1 className="dashboard-title">Notifications</h1>
-          <p className="dashboard-subtitle">Inspect recent event deliveries and provider outcomes.</p>
-        </div>
+        <div><h1 className="dashboard-title">Notifications</h1><p className="dashboard-subtitle">Durably accepted notifications and their actual delivery outcomes.</p></div>
       </div>
-
       <div className="dashboard-toolbar">
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {['All', 'Delivered', 'Failed', 'Retrying'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className="dashboard-btn-secondary"
-              style={{
-                borderColor: activeTab === tab ? 'rgba(255,107,53,0.35)' : 'var(--border-subtle)',
-                color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: activeTab === tab ? 'rgba(192,57,43,0.1)' : 'rgba(255,255,255,0.02)',
-              }}
-            >
-              {tab}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {statuses.map((item) => <button key={item.label} type="button" className="dashboard-btn-secondary" aria-pressed={status === item.value} onClick={() => setStatus(item.value)}>{item.label}</button>)}
         </div>
-        <label style={{ position: 'relative', width: 300, maxWidth: '100%' }}>
-          <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input className="dashboard-input dashboard-mono" style={{ paddingLeft: 38 }} placeholder="Search event or subscriber..." />
-        </label>
+        <label><span className="sr-only">Search notifications</span><input className="dashboard-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Template, subscriber, or idempotency key" /></label>
       </div>
-
-      <div className="dashboard-table-card">
-        <table className="dashboard-table">
-          <thead><tr><th>Event</th><th>Subscriber</th><th>Channel</th><th>Status</th><th>Provider</th><th>Time</th><th /></tr></thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td className="dashboard-mono" style={{ color: 'var(--text-primary)' }}>{row.event}</td>
-                <td className="dashboard-mono">{row.sub}</td>
-                <td><span className="dashboard-chip">{row.channel}</span></td>
-                <td style={{ color: statusColor(row.status), textTransform: 'capitalize' }}>{row.status}</td>
-                <td>{row.provider}</td>
-                <td style={{ color: 'var(--text-muted)' }}>{row.time}</td>
-                <td><button className="dashboard-icon-btn"><MoreHorizontal size={16} /></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: 13 }}>Showing 1-5 of 142 events</div>
-      </div>
+      {error && <div role="alert" className="dashboard-error">{error}</div>}
+      {loading && items.length === 0 ? <p>Loading notifications…</p> : items.length === 0 ? <p>No notifications match this view.</p> : (
+        <div className="dashboard-table-card">
+          <table className="dashboard-table">
+            <thead><tr><th>Template</th><th>Subscriber</th><th>Channels</th><th>Status</th><th>Accepted</th><th>Action</th></tr></thead>
+            <tbody>{items.map((item) => <tr key={item.id}>
+              <td>{item.template?.name || item.templateId}</td><td>{item.subscriber?.externalId || item.subscriberId}</td><td>{item.channels.join(', ')}</td><td>{item.status}</td><td>{new Date(item.createdAt).toLocaleString()}</td>
+              <td><Button size="sm" variant="secondary" onClick={() => void openDetail(item.id)}>Details</Button>{item.status === 'FAILED' && <Button size="sm" onClick={() => void retry(item)}>Retry</Button>}</td>
+            </tr>)}</tbody>
+          </table>
+          {cursor && <div style={{ padding: 16 }}><Button variant="secondary" loading={loading} onClick={() => void load(true, cursor)}>Load more</Button></div>}
+        </div>
+      )}
+      {selected && <section aria-labelledby="notification-detail" className="dashboard-table-card" style={{ marginTop: 20, padding: 20 }}>
+        <h2 id="notification-detail">Notification detail</h2>
+        <p className="dashboard-mono">{selected.id}</p>
+        <p>Status: {selected.status}; read: {selected.readAt ? new Date(selected.readAt).toLocaleString() : 'not marked read'}</p>
+        <h3>Deliveries</h3>
+        {(selected.deliveries || []).map((delivery) => <div key={delivery.id}><strong>{delivery.channel}</strong>: {delivery.status}{delivery.provider ? ` via ${delivery.provider}` : ''}{delivery.lastError ? ` — ${delivery.lastError}` : ''}</div>)}
+        <h3>Attempts</h3>
+        {(selected.deliveryAttempts || []).map((attempt) => <div key={attempt.id}>#{attempt.attemptNumber} {attempt.channel}: {attempt.status}{attempt.errorMessage ? ` — ${attempt.errorMessage}` : ''}</div>)}
+        <Button variant="secondary" onClick={() => setSelected(null)}>Close detail</Button>
+      </section>}
     </div>
   );
 }

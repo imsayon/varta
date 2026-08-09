@@ -115,34 +115,6 @@ const Icons = {
   ),
 };
 
-// ─── ANIMATED COUNTER ──────────────────────────────────────────────────────
-
-function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: string }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const seen = useRef(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !seen.current) {
-        seen.current = true;
-        let start = 0;
-        const duration = 2000;
-        const increment = target / (duration / 16);
-        const timer = setInterval(() => {
-          start += increment;
-          if (start >= target) { setCount(target); clearInterval(timer); }
-          else setCount(Math.floor(start));
-        }, 16);
-      }
-    });
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [target]);
-
-  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
-}
-
 // ─── PULSE DOT ─────────────────────────────────────────────────────────────
 
 function PulseDot({ color = '#ff6b35', size = 6 }: { color?: string; size?: number }) {
@@ -244,13 +216,6 @@ export default function LandingPage() {
           <ul className={styles.navLinks}>
             <li><a href="#features">Features</a></li>
             <li><a href="#how-it-works">How It Works</a></li>
-            <li><a href="#pricing">Pricing</a></li>
-            <li><a href="#docs">Docs</a></li>
-            <li>
-              <a href="https://github.com" aria-label="GitHub">
-                <Icons.Github size={16} style={{ display: 'block' }} />
-              </a>
-            </li>
           </ul>
           <div className={styles.navActions}>
             <Link href="/login" className={styles.btnGhost}>Sign In</Link>
@@ -284,34 +249,31 @@ export default function LandingPage() {
             </h1>
 
             <p className={styles.heroSub}>
-              Varta is the orchestration layer between your application events and every message
-              your users receive. Queue, route, fan-out, retry, and deliver — across every channel —
-              without building it yourself.
+              Varta accepts application events durably, applies deterministic routing, and delivers
+              through email, in-app, and webhook channels with bounded retries and evidence.
             </p>
 
             <div className={styles.heroActions}>
               <Link href="/login" className={styles.btnLarge}>
                 Start Building Free <Icons.ArrowRight size={14} />
               </Link>
-              <a href="https://github.com" className={styles.btnOutlineLarge}>
-                <Icons.Github size={14} /> Star on GitHub
-              </a>
+              <a href="#how-it-works" className={styles.btnOutlineLarge}>How it works</a>
             </div>
 
             <div className={styles.heroStats}>
               <div className={styles.heroStat}>
                 <span className={styles.heroStatValue}>
-                  <AnimatedCounter target={8241094} />
+                  Durable
                 </span>
-                <span className={styles.heroStatLabel}>events routed today</span>
+                <span className={styles.heroStatLabel}>database acceptance</span>
               </div>
               <div className={styles.heroStat}>
-                <span className={styles.heroStatValue} style={{ color: 'var(--color-primary-400)' }}>50ms</span>
-                <span className={styles.heroStatLabel}>p99 latency</span>
+                <span className={styles.heroStatValue} style={{ color: 'var(--color-primary-400)' }}>Bounded</span>
+                <span className={styles.heroStatLabel}>retry policy</span>
               </div>
               <div className={styles.heroStat}>
-                <span className={styles.heroStatValue} style={{ color: 'var(--color-amber)' }}>99.97%</span>
-                <span className={styles.heroStatLabel}>delivery rate</span>
+                <span className={styles.heroStatValue} style={{ color: 'var(--color-amber)' }}>3</span>
+                <span className={styles.heroStatLabel}>verified channels</span>
               </div>
             </div>
           </div>
@@ -339,7 +301,7 @@ export default function LandingPage() {
                   <div className={styles.eventLabel}>▸ INCOMING EVENT</div>
                   <div className={styles.eventName}>user.payment_failed</div>
                   <div className={styles.eventDesc}>
-                    Workspace rule matched. Fan-out prepared for push, email, and in-app delivery.
+                    Workspace rule matched. Fan-out prepared for email, in-app, and webhook delivery.
                   </div>
                 </div>
 
@@ -349,9 +311,9 @@ export default function LandingPage() {
                 <div className={styles.pipelineSteps}>
                   {[
                     { Icon: Icons.Bolt, color: '#e74c3c', bg: 'rgba(192,57,43,0.15)', title: 'Event ingested & normalized', desc: 'Schema validated. Workspace rules applied.', badge: '12ms', active: true },
-                    { Icon: Icons.GitBranch, color: '#e67e22', bg: 'rgba(211,84,0,0.15)', title: 'Rule match: dunning-v2', desc: 'Push first, email if device offline.', badge: '3ms', active: true },
-                    { Icon: Icons.Clock, color: '#f39c12', bg: 'rgba(243,156,18,0.15)', title: 'Smart timing applied', desc: 'Subscriber send window: 09:00–21:00 local.', badge: '1ms', active: true },
-                    { Icon: Icons.Queue, color: '#27ae60', bg: 'rgba(39,174,96,0.15)', title: 'Fan-out to 3 workers', desc: 'Queue depth: 142. Processing rate: 800/s.', badge: 'queued', active: false },
+                    { Icon: Icons.GitBranch, color: '#e67e22', bg: 'rgba(211,84,0,0.15)', title: 'Rule match: dunning-v2', desc: 'Email and in-app channels selected.', badge: 'matched', active: true },
+                    { Icon: Icons.Clock, color: '#f39c12', bg: 'rgba(243,156,18,0.15)', title: 'Schedule evaluated', desc: 'Requested schedule and deterministic fallback applied.', badge: 'ready', active: true },
+                    { Icon: Icons.Queue, color: '#27ae60', bg: 'rgba(39,174,96,0.15)', title: 'Durably accepted', desc: 'Delivery work recorded before queue publication.', badge: 'queued', active: false },
                   ].map((s, i) => (
                     <div key={i} className={`${styles.pipelineStep} ${s.active ? styles.stepActive : ''}`}>
                       <div className={styles.stepIcon} style={{ background: s.bg }}>
@@ -417,14 +379,13 @@ export default function LandingPage() {
                 together.
               </h2>
               <p className={styles.sectionBody} style={{ marginTop: 24 }}>
-                Email lives in Resend. Push is somewhere in FCM. SMS is a Twilio wrapper
-                nobody remembers writing. Retries are a cron job. Timing is &ldquo;just send it now.&rdquo;
-                Analytics are guesses. And none of it talks to each other.
+                Email, in-app messages, and webhooks often grow into separate integrations.
+                Retries become cron jobs, timing becomes &ldquo;just send it now,&rdquo; and delivery
+                evidence is scattered across provider dashboards.
               </p>
               <p className={styles.sectionBody} style={{ marginTop: 16 }}>
                 Varta replaces all of it with one routing layer that handles orchestration,
-                queueing, provider failover, and real-time observability — without you writing
-                infrastructure code.
+                durable queueing, bounded retries, and delivery analytics in one system.
               </p>
             </div>
 
@@ -440,7 +401,7 @@ export default function LandingPage() {
                   ['PROVIDERS', 'per-SDK sprawl', 'Provider abstraction'],
                   ['TIMING', 'best guess', 'ML send windows'],
                   ['OBSERVABILITY', 'logs grep', 'Delivery analytics'],
-                  ['MULTI-CHANNEL', 'n × codebases', 'One event, any channel'],
+                  ['CHANNELS', 'separate code paths', 'Email, in-app, webhook'],
                 ] as [string, string, string][]).map(([label, before, after]) => (
                   <div key={label} className={styles.problemRow}>
                     <div className={styles.problemRowLabel}>{label}</div>
@@ -471,11 +432,11 @@ export default function LandingPage() {
               <p className={styles.sectionBody}>
                 Drop an event into Varta. Watch it get normalized, routed through your rule engine,
                 scheduled against subscriber timing windows, fanned out across workers, and delivered
-                to any number of channels — with retries, fallbacks, and analytics included.
+                to supported channels with bounded retries and analytics.
               </p>
               <div className={styles.statusRow} style={{ marginTop: 24 }}>
                 <PulseDot color="#27ae60" size={6} />
-                <span className={styles.monoLabel}>Pipeline throughput: 847 events/sec</span>
+                <span className={styles.monoLabel}>Measured locally before each release</span>
                 <Waveform bars={10} />
               </div>
             </div>
@@ -483,13 +444,13 @@ export default function LandingPage() {
 
           <div className={styles.journeyPipeline}>
             {[
-              { Icon: Icons.Activity, label: 'Ingest', count: '8.2M/day', active: true },
-              { Icon: Icons.Layers, label: 'Normalize', count: '100%', active: true },
-              { Icon: Icons.GitBranch, label: 'Route', count: '12 rules', active: true },
+              { Icon: Icons.Activity, label: 'Ingest', count: 'validate', active: true },
+              { Icon: Icons.Layers, label: 'Normalize', count: 'typed', active: true },
+              { Icon: Icons.GitBranch, label: 'Route', count: 'ordered', active: true },
               { Icon: Icons.Bolt, label: 'Fan-out', count: '1→N', active: true },
-              { Icon: Icons.Queue, label: 'Queue', count: '142 depth', active: false },
-              { Icon: Icons.Server, label: 'Workers', count: '48 active', active: false },
-              { Icon: Icons.CheckCircle, label: 'Delivered', count: '99.97%', active: false },
+              { Icon: Icons.Queue, label: 'Queue', count: 'durable', active: false },
+              { Icon: Icons.Server, label: 'Workers', count: 'bounded', active: false },
+              { Icon: Icons.CheckCircle, label: 'Outcome', count: 'recorded', active: false },
             ].map(({ Icon, label, count, active }, i) => (
               <div key={i} className={`${styles.journeyNode} ${active ? styles.journeyNodeActive : ''}`}>
                 <div className={`${styles.journeyNodeIcon} ${active ? styles.journeyIconActive : ''}`}>
@@ -562,8 +523,8 @@ export default function LandingPage() {
     plan: 'pro',
     attempts: { lte: 2 }
   },
-  channels: ['push', 'email'],
-  fallback: ['sms'],
+  channels: ['EMAIL', 'IN_APP'],
+  fallback: { channels: ['WEBHOOK'] },
   timing: 'smart',
 })`}</code></pre>
             </div>
@@ -684,14 +645,14 @@ export default function LandingPage() {
 
       {/* ─── SCALE METRICS ─── */}
       <section className={styles.sectionScale}>
-        <div className={styles.scaleBgNumber}>10M</div>
+        <div className={styles.scaleBgNumber}>₹0</div>
         <Reveal>
           <div className={styles.scaleGrid}>
             {[
-              { unit: 'Throughput', value: '10M+', desc: 'Events processed per day across all channels', color: 'var(--color-primary-500)' },
-              { unit: 'P99 Latency', value: '50ms', desc: 'End-to-end delivery from event ingestion to provider', color: 'var(--color-orange)' },
-              { unit: 'Delivery Rate', value: '99.97%', desc: 'Messages successfully delivered with automatic retry', color: 'var(--color-amber)' },
-              { unit: 'Channels', value: '5+', desc: 'Email, Push, SMS, Webhook, and In-App unified', color: 'var(--color-gold)' },
+              { unit: 'Acceptance', value: 'Durable', desc: 'Notification and outbox state commit atomically', color: 'var(--color-primary-500)' },
+              { unit: 'Retries', value: 'Bounded', desc: 'Transient failures use capped backoff and terminal states', color: 'var(--color-orange)' },
+              { unit: 'Evidence', value: 'Traceable', desc: 'Delivery attempts retain correlated provider outcomes', color: 'var(--color-amber)' },
+              { unit: 'Channels', value: '3', desc: 'Email, webhook, and in-app delivery', color: 'var(--color-gold)' },
             ].map((m, i) => (
               <div key={i} className={styles.scaleMetric} style={{ '--accent': m.color } as React.CSSProperties}>
                 <div className={styles.scaleMetricUnit}>{m.unit}</div>
@@ -708,7 +669,7 @@ export default function LandingPage() {
         <Reveal>
           <div className={styles.pricingHeader}>
             <div className={styles.sectionOverline}>Pricing</div>
-            <h2 className={styles.sectionHeadline}>Scale without limits.</h2>
+            <h2 className={styles.sectionHeadline}>No paid plan is published yet.</h2>
           </div>
 
           <div className={styles.pricingGrid}>
@@ -716,11 +677,11 @@ export default function LandingPage() {
             <div className={styles.pricingTier}>
               <div className={styles.pricingTierTag}>FREE</div>
               <div className={styles.pricingTierName}>STARTER</div>
-              <div className={styles.pricingPrice}>$0</div>
+              <div className={styles.pricingPrice}>₹0</div>
               <div className={styles.pricingPriceSub}>/month</div>
               <p className={styles.pricingDesc}>Everything you need to get started. No credit card required.</p>
               <div className={styles.pricingFeatures}>
-                {['Up to 10k events/mo', '2 channels', 'Community support', 'Self-hostable'].map(f => (
+                {['Email, in-app, and webhook', 'Deterministic routing', 'Delivery analytics', 'Self-hostable'].map(f => (
                   <div key={f} className={styles.pricingFeature}>
                     <Icons.Check size={12} style={{ color: '#ff6b35', flexShrink: 0, marginTop: 1 }} />
                     {f}
@@ -732,38 +693,38 @@ export default function LandingPage() {
 
             {/* Pro — featured */}
             <div className={`${styles.pricingTier} ${styles.pricingTierFeatured}`}>
-              <div className={styles.pricingTierTag}>MOST POPULAR</div>
-              <div className={styles.pricingTierName}>PRO</div>
-              <div className={styles.pricingPrice}>$29</div>
-              <div className={styles.pricingPriceSub}>/month</div>
-              <p className={styles.pricingDesc}>For teams shipping at scale with full observability and all channels.</p>
+              <div className={styles.pricingTierTag}>NOT PUBLISHED</div>
+              <div className={styles.pricingTierName}>PAID PLANS</div>
+              <div className={styles.pricingPrice}>—</div>
+              <div className={styles.pricingPriceSub}>no checkout</div>
+              <p className={styles.pricingDesc}>Billing and paid entitlements remain disabled until their production phase is verified.</p>
               <div className={styles.pricingFeatures}>
-                {['Up to 1M events/mo', 'All channels', 'Email support', '30-day retention', 'Smart send timing'].map(f => (
+                {['No fabricated limits', 'No unsupported channel claims', 'No automatic entitlement', 'No payment collection'].map(f => (
                   <div key={f} className={styles.pricingFeature}>
                     <Icons.Check size={12} style={{ color: '#ff6b35', flexShrink: 0, marginTop: 1 }} />
                     {f}
                   </div>
                 ))}
               </div>
-              <Link href="/login" className={`${styles.pricingCta} ${styles.pricingCtaFeatured}`}>Start Free Trial</Link>
+              <Link href="/login" className={`${styles.pricingCta} ${styles.pricingCtaFeatured}`}>Use the free build</Link>
             </div>
 
             {/* Enterprise */}
             <div className={styles.pricingTier}>
-              <div className={styles.pricingTierTag}>ENTERPRISE</div>
-              <div className={styles.pricingTierName}>CUSTOM</div>
+              <div className={styles.pricingTierTag}>LATER</div>
+              <div className={styles.pricingTierName}>SCALING</div>
               <div className={styles.pricingPrice}>—</div>
-              <div className={styles.pricingPriceSub}>custom pricing</div>
-              <p className={styles.pricingDesc}>Dedicated infrastructure, SLAs, and a success manager for your team.</p>
+              <div className={styles.pricingPriceSub}>out of current scope</div>
+              <p className={styles.pricingDesc}>Capacity upgrades and commercial commitments will be based on measured demand.</p>
               <div className={styles.pricingFeatures}>
-                {['Unlimited events', 'Custom integrations', 'Dedicated success manager', 'SLAs & SOC2', 'On-prem option'].map(f => (
+                {['Measured upgrade triggers', 'Explicit service limits', 'Evidence before claims'].map(f => (
                   <div key={f} className={styles.pricingFeature}>
                     <Icons.Check size={12} style={{ color: '#ff6b35', flexShrink: 0, marginTop: 1 }} />
                     {f}
                   </div>
                 ))}
               </div>
-              <Link href="/contact" className={styles.pricingCta}>Contact Sales</Link>
+              <Link href="/login" className={styles.pricingCta}>Use Varta</Link>
             </div>
           </div>
 
@@ -774,11 +735,9 @@ export default function LandingPage() {
             </div>
             <div>
               <div className={styles.selfHostTitle}>Prefer to self-host?</div>
-              <div className={styles.selfHostDesc}>
-                Run Varta on your own infrastructure. MIT licensed, Docker-ready, zero lock-in.
-              </div>
+              <div className={styles.selfHostDesc}>Run Varta with the included production Docker and Compose configuration.</div>
             </div>
-            <a href="https://github.com" className={styles.selfHostCta}>View Docs</a>
+            <a href="#how-it-works" className={styles.selfHostCta}>View architecture</a>
           </div>
         </Reveal>
       </section>
@@ -794,16 +753,13 @@ export default function LandingPage() {
             <span className={styles.heroAccent}>Start shipping.</span>
           </h2>
           <p className={styles.ctaSub}>
-            Join teams already routing millions of events through Varta.
-            Set up in minutes, scale to billions.
+            Build a verified notification pipeline with email, in-app, webhook, routing, and analytics.
           </p>
           <div className={styles.ctaActions}>
             <Link href="/login" className={styles.btnLarge}>
               Get Started for Free <Icons.ArrowRight size={14} />
             </Link>
-            <a href="https://github.com" className={styles.btnOutlineLarge}>
-              <Icons.Github size={14} /> Star on GitHub
-            </a>
+            <a href="#features" className={styles.btnOutlineLarge}>Explore features</a>
           </div>
         </Reveal>
       </section>
@@ -816,14 +772,13 @@ export default function LandingPage() {
           <span className={styles.footerTagline}>notification infrastructure</span>
         </div>
         <div className={styles.footerLinks}>
-          <a href="#" className={styles.footerLink}>Docs</a>
-          <a href="#" className={styles.footerLink}>GitHub</a>
-          <a href="#" className={styles.footerLink}>Twitter</a>
-          <a href="#" className={styles.footerLink}>Status</a>
+          <a href="#features" className={styles.footerLink}>Features</a>
+          <a href="#how-it-works" className={styles.footerLink}>How it works</a>
+          <Link href="/login" className={styles.footerLink}>Sign in</Link>
         </div>
         <div className={styles.footerRight}>
           <span className={styles.statusDot} />
-          All systems operational
+          Health is reported by the running deployment
         </div>
       </footer>
     </div>

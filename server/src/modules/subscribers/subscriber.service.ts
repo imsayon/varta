@@ -1,5 +1,6 @@
 import { subscriberRepository } from "./subscriber.repository.ts"
 import type { Prisma } from "@prisma/client"
+import type { DecodedCursor } from "@/common/utils/pagination.ts"
 
 export const subscriberService = {
 	async create(data: Prisma.SubscriberUncheckedCreateInput) {
@@ -22,8 +23,8 @@ export const subscriberService = {
 		return subscriberRepository.findById(workspaceId, id)
 	},
 
-	async search(workspaceId: string, skip: number, take: number) {
-		return subscriberRepository.findMany(workspaceId, skip, take)
+	async search(workspaceId: string, take: number, cursor: DecodedCursor | null) {
+		return subscriberRepository.findMany(workspaceId, take, cursor)
 	},
 
 	async update(

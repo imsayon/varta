@@ -43,7 +43,8 @@ export function AnalyticsDashboard() {
   }, [workspace, timeRange]);
 
   useEffect(() => {
-    fetchAnalytics();
+    const timer = window.setTimeout(() => void fetchAnalytics(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchAnalytics]);
 
   const totalSent = overview?.totalSent ?? 0;

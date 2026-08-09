@@ -16,6 +16,7 @@ export const notificationRepository = {
 					select: { name: true, email: true, externalId: true },
 				},
 				deliveryAttempts: { orderBy: { attemptNumber: "asc" } },
+				deliveries: { orderBy: { channel: "asc" } },
 			},
 		})
 	},
@@ -27,21 +28,37 @@ export const notificationRepository = {
 		})
 	},
 
-	async findMany(workspaceId: string, skip: number, take: number) {
+	async findMany(
+		workspaceId: string,
+		options: { cursorId?: string; take: number; status?: NotificationStatus; search?: string },
+	) {
+		const where: Prisma.NotificationWhereInput = {
+			workspaceId,
+			...(options.status ? { status: options.status } : {}),
+			...(options.search ? {
+				OR: [
+					{ idempotencyKey: { contains: options.search, mode: "insensitive" } },
+					{ subscriber: { externalId: { contains: options.search, mode: "insensitive" } } },
+					{ template: { name: { contains: options.search, mode: "insensitive" } } },
+				],
+			} : {}),
+		}
 		return Promise.all([
 			prisma.notification.findMany({
-				where: { workspaceId },
+				where,
 				include: {
 					template: { select: { name: true } },
 					subscriber: {
 						select: { name: true, email: true, externalId: true },
 					},
+					deliveryAttempts: { orderBy: { attemptNumber: "asc" } },
+					deliveries: { orderBy: { channel: "asc" } },
 				},
-				skip,
-				take,
-				orderBy: { triggeredAt: "desc" },
+				...(options.cursorId ? { cursor: { id: options.cursorId }, skip: 1 } : {}),
+				take: options.take,
+				orderBy: [{ triggeredAt: "desc" }, { id: "desc" }],
 			}),
-			prisma.notification.count({ where: { workspaceId } }),
+			prisma.notification.count({ where }),
 		])
 	},
 

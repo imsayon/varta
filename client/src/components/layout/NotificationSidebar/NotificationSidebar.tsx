@@ -78,8 +78,8 @@ export function NotificationSidebar({
                 </div>
               ) : (
                 <div className={styles.list}>
-                  {notifications.map((notif, index) => (
-                    <div key={index} className={styles.item}>
+                  {notifications.map((notif) => (
+                    <div key={notif.id} className={styles.item}>
                       <div className={styles.itemHeader}>
                         <span className={styles.itemTitle}>{notif.title}</span>
                         {notif.timestamp && (

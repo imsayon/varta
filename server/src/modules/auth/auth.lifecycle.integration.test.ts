@@ -52,9 +52,10 @@ test(
 		assert.equal(user.emailVerifications.length, 1)
 
 		try {
+			const activeVerificationHash = user.emailVerifications[0]!.tokenHash
 			const verificationResults = await Promise.all([
-				authRepository.consumeEmailVerification(verificationHash),
-				authRepository.consumeEmailVerification(verificationHash),
+				authRepository.consumeEmailVerification(activeVerificationHash),
+				authRepository.consumeEmailVerification(activeVerificationHash),
 			])
 			assert.equal(verificationResults.filter(Boolean).length, 1)
 			assert.equal(

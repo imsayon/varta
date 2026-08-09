@@ -44,7 +44,8 @@ export function TemplateList() {
 	}, [workspace])
 
 	useEffect(() => {
-		fetchTemplates()
+		const timer = window.setTimeout(() => void fetchTemplates(), 0)
+		return () => window.clearTimeout(timer)
 	}, [fetchTemplates])
 
 	const handleCreateOrUpdate = async (data: TemplateUpsertInput) => {

@@ -1,10 +1,5 @@
-import { FeatureUnavailable } from "@/components/feature-unavailable/FeatureUnavailable"
+import { AnalyticsDashboard } from "@/features/analytics/components/AnalyticsDashboard"
 
 export default function AnalyticsPage() {
-	return (
-		<FeatureUnavailable
-			title="Analytics unavailable"
-			description="Live analytics has not completed production verification."
-		/>
-	)
+	return <AnalyticsDashboard />
 }

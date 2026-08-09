@@ -17,7 +17,7 @@
 		"start:combined": "node dist/combined.js",
 		"lint": "tsc --noEmit",
 		"typecheck": "tsc --noEmit",
-		"test": "DATABASE_URL=postgresql://localhost/test JWT_ACCESS_SECRET=test JWT_REFRESH_SECRET=test NODE_ENV=test tsx --test $(find src -type f -name '*.test.ts' -print)",
+		"test": "DATABASE_URL=${DATABASE_URL:-postgresql://localhost/test} REDIS_URL=${REDIS_URL:-redis://localhost:6379} JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-test} JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-test} JWT_WS_SECRET=${JWT_WS_SECRET:-test} NODE_ENV=test tsx --test --test-concurrency=1 $(find src -type f -name '*.test.ts' -print)",
 		"prisma:generate": "prisma generate",
 		"prisma:migrate": "prisma migrate dev",
 		"prisma:deploy": "prisma migrate deploy",
