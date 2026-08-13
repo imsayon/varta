@@ -1,7 +1,7 @@
 import { Worker } from "bullmq"
 import type { Job } from "bullmq"
 import { createHash } from "node:crypto"
-import { getQueueConnection } from "../queues/queue.connection.ts"
+import { getQueueConnection, getQueuePrefix } from "../queues/queue.connection.ts"
 import type { SendWebhookJobDto } from "../queues/webhook.queue.ts"
 import { SendWebhookJobSchema } from "../queues/payloads.ts"
 import { deliveryAttemptRepository } from "@/modules/notifications/delivery-attempt.repository.ts"
@@ -177,5 +177,5 @@ export const webhookWorker = new Worker(
 		}
 		}))
 	},
-	{ connection: getQueueConnection(), concurrency: 10 },
+	{ connection: getQueueConnection(), prefix: getQueuePrefix(), concurrency: 10 },
 )

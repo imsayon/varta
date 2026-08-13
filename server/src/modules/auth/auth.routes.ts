@@ -14,7 +14,7 @@ import {
 import { rateLimitAuth } from "@/common/middleware/rate-limit.middleware.ts"
 import { authorize } from "@/common/auth/route-policy.ts"
 import { requireTrustedOrigin } from "@/common/utils/auth/cookies.ts"
-import { ServiceUnavailableError } from "@/common/errors/app-error.ts"
+import { completeOAuth, startOAuth } from "./auth.oauth-flow.ts"
 
 const router = Router()
 
@@ -75,32 +75,28 @@ router.get("/me", authenticate, authorize("auth.me"), authController.me)
 router.get("/sessions", authenticate, authorize("auth.sessions.list"), authController.getSessions)
 router.delete("/sessions/:id", authenticate, authorize("auth.sessions.revoke"), authController.revokeSession)
 
-const oauthUnavailable = () => {
-	throw new ServiceUnavailableError("OAuth sign-in is disabled until its security contract is complete")
-}
-
 router.get(
 	"/oauth/google",
 	authorize("auth.oauth.google.start"),
-	oauthUnavailable,
+	(req, res, next) => void startOAuth("google", req, res, next),
 )
 
 router.get(
 	"/oauth/google/callback",
 	authorize("auth.oauth.google.callback"),
-	oauthUnavailable,
+	(req, res) => void completeOAuth("google", req, res),
 )
 
 router.get(
 	"/oauth/github",
 	authorize("auth.oauth.github.start"),
-	oauthUnavailable,
+	(req, res, next) => void startOAuth("github", req, res, next),
 )
 
 router.get(
 	"/oauth/github/callback",
 	authorize("auth.oauth.github.callback"),
-	oauthUnavailable,
+	(req, res) => void completeOAuth("github", req, res),
 )
 
 export { router as authRouter }

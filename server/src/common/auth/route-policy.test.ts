@@ -37,10 +37,11 @@ test("every mounted Express leaf route uses the named policy middleware", () => 
 		"src/modules/analytics/analytics.routes.ts",
 		"src/modules/providers/provider.routes.ts",
 		"src/modules/webhooks/webhook-inbound.routes.ts",
+		"src/modules/billing/billing.routes.ts",
 	]
 	for (const relativePath of routeFiles) {
 		const source = readFileSync(resolve(import.meta.dirname, "../../..", relativePath), "utf8")
-		const mounts = source.match(/(?:app|router)\.(?:get|post|put|patch|delete)\s*\(/g) ?? []
+		const mounts = source.match(/(?:app|router|[A-Za-z]\w*Router)\.(?:get|post|put|patch|delete)\s*\(/g) ?? []
 		const policies = source.match(/authorize\("[^"]+"\)/g) ?? []
 		assert.equal(policies.length, mounts.length, `${relativePath} has an unclassified leaf route`)
 	}

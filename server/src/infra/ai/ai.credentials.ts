@@ -5,10 +5,10 @@ import { ServiceUnavailableError } from "@/common/errors/app-error.ts"
 import type { AICredentials } from "./ai.types.ts"
 import { AI_PROVIDERS, AI_PROVIDER_MODELS } from "./ai.constants.ts"
 
-// E2: Validate that the resolved provider/model combination is on the allowlist.
-// The openai-compatible provider bypasses the model allowlist (caller-supplied endpoint).
 function validateProviderModel(provider: string, model: string): void {
-	if (provider === AI_PROVIDERS.OPENAI_COMPATIBLE) return
+	if (provider !== AI_PROVIDERS.GEMINI) {
+		throw new ServiceUnavailableError("Only Gemini is enabled for the Phase E production launch")
+	}
 	const allowedModels = AI_PROVIDER_MODELS[provider]
 	if (!allowedModels) {
 		throw new ServiceUnavailableError(`AI provider is not on the allowlist: ${provider}`)
@@ -26,16 +26,14 @@ export const aiCredentials = {
 			where: { workspaceId },
 		})
 		if (workspaceConfig?.isEnabled) {
-			// BYOK: workspace supplies its own provider/model/key.
-			// Validate against allowlist before returning; tenant isolation is enforced by the workspaceId lookup.
 			validateProviderModel(workspaceConfig.provider, workspaceConfig.model)
+			if (workspaceConfig.baseUrl) {
+				throw new ServiceUnavailableError("Custom AI provider URLs are not permitted")
+			}
 			return {
 				provider: workspaceConfig.provider,
 				model: workspaceConfig.model,
 				apiKey: decrypt(workspaceConfig.encryptedApiKey),
-				...(workspaceConfig.baseUrl
-					? { baseUrl: workspaceConfig.baseUrl }
-					: {}),
 			}
 		}
 		if (
@@ -47,23 +45,11 @@ export const aiCredentials = {
 				"AI platform credentials are not configured",
 			)
 		}
-		if (
-			env.AI_PLATFORM_PROVIDER === AI_PROVIDERS.OPENAI_COMPATIBLE &&
-			!env.AI_PLATFORM_BASE_URL
-		) {
-			throw new ServiceUnavailableError(
-				"AI_PLATFORM_BASE_URL is required for the openai-compatible provider",
-			)
-		}
-		// Platform key: validate allowlist for non-compatible providers.
 		validateProviderModel(env.AI_PLATFORM_PROVIDER, env.AI_PLATFORM_MODEL)
 		return {
 			provider: env.AI_PLATFORM_PROVIDER,
 			model: env.AI_PLATFORM_MODEL,
 			apiKey: env.AI_PLATFORM_API_KEY,
-			...(env.AI_PLATFORM_BASE_URL
-				? { baseUrl: env.AI_PLATFORM_BASE_URL }
-				: {}),
 		}
 	},
 }

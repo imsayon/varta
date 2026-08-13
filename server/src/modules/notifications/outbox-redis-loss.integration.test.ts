@@ -4,6 +4,7 @@ import test from "node:test"
 import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { acceptNotification } from "./notification-acceptance.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
+import { createOwnedTestWorkspace } from "@/testing/billing-test-fixture.ts"
 
 const runFaultTests = process.env.RUN_NOTIFICATION_FAULT_TESTS === "true"
 
@@ -11,14 +12,14 @@ test(
 	"Redis loss leaves committed notification intent recoverable in PostgreSQL",
 	{ skip: !runFaultTests },
 	async () => {
-		const [{ closeQueues }, { dispatchOutboxBatch }] = await Promise.all([
+		const [{ closeQueues }, { disconnectRedis }, { dispatchOutboxBatch }] = await Promise.all([
 			import("@/infra/queues/queue.factory.ts"),
+			import("@/infra/redis/redis.connection.ts"),
 			import("./outbox-dispatcher.service.ts"),
 		])
 		const marker = randomUUID()
-		const workspace = await prisma.workspace.create({
-			data: { name: "Redis fault", slug: `redis-fault-${marker}` },
-		})
+		const fixture = await createOwnedTestWorkspace("Redis fault")
+		const { workspace } = fixture
 		try {
 			const template = await prisma.template.create({
 				data: { workspaceId: workspace.id, name: "Template", channels: {} },
@@ -42,11 +43,11 @@ test(
 				where: { delivery: { notificationId: accepted.notification.id } },
 			})
 			assert.equal(intent.status, "FAILED")
-			assert.match(intent.lastError ?? "", /timed out/i)
+			assert.match(intent.lastError ?? "", /(?:ECONNREFUSED|timed out)/i)
 			assert.ok(intent.availableAt > new Date())
 		} finally {
-			await prisma.workspace.delete({ where: { id: workspace.id } })
-			await Promise.allSettled([closeQueues(), disconnectDatabase()])
+			await fixture.cleanup()
+			await Promise.allSettled([closeQueues(), disconnectRedis(), disconnectDatabase()])
 		}
 	},
 )

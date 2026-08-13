@@ -1,6 +1,6 @@
 import { Worker } from "bullmq"
 import type { Job } from "bullmq"
-import { getQueueConnection } from "../queues/queue.connection.ts"
+import { getQueueConnection, getQueuePrefix } from "../queues/queue.connection.ts"
 import type { SendInAppJobDto } from "../queues/inapp.queue.ts"
 import { SendInAppJobSchema } from "../queues/payloads.ts"
 import { prisma } from "@/infra/database/prisma.ts"
@@ -75,7 +75,7 @@ export const inAppWorker = new Worker(
 					update: {},
 				})
 				const isOnline =
-					(await redis.scard(
+					(await redis.sCard(
 						realtimeConnectionKey(payload.workspaceId, subscriberId),
 					)) > 0
 				if (isOnline) {
@@ -127,5 +127,5 @@ export const inAppWorker = new Worker(
 		}
 		}))
 	},
-	{ connection: getQueueConnection(), concurrency: 10 },
+	{ connection: getQueueConnection(), prefix: getQueuePrefix(), concurrency: 10 },
 )

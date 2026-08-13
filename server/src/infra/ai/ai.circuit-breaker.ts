@@ -36,9 +36,11 @@ export class AICircuitBreaker {
 	private failures: number[] = [] // timestamps of recent failures
 	private openedAt: number | null = null
 	private readonly options: CircuitBreakerOptions
+	private readonly now: () => number
 
-	constructor(options: Partial<CircuitBreakerOptions> = {}) {
+	constructor(options: Partial<CircuitBreakerOptions> = {}, now: () => number = Date.now) {
 		this.options = { ...DEFAULT_OPTIONS, ...options }
+		this.now = now
 	}
 
 	getState(): CircuitState {
@@ -47,7 +49,7 @@ export class AICircuitBreaker {
 
 	/** Call before a provider request. Throws ServiceUnavailableError if circuit is OPEN. */
 	beforeRequest(): void {
-		const now = Date.now()
+		const now = this.now()
 		if (this.state === "OPEN") {
 			if (this.openedAt !== null && now - this.openedAt >= this.options.cooldownMs) {
 				this.state = "HALF_OPEN"
@@ -69,7 +71,7 @@ export class AICircuitBreaker {
 
 	/** Call after a provider failure. */
 	onFailure(): void {
-		const now = Date.now()
+		const now = this.now()
 		// Evict stale failures outside the window
 		this.failures = this.failures.filter((t) => now - t < this.options.windowMs)
 		this.failures.push(now)
@@ -92,6 +94,14 @@ export class AICircuitBreaker {
 	}
 }
 
-// Singleton circuit breaker for the AI gateway.
-// One circuit per process — acceptable for the single-combined-service topology.
-export const aiCircuitBreaker = new AICircuitBreaker()
+const circuits = new Map<string, AICircuitBreaker>()
+
+export function getAICircuitBreaker(provider: string, model: string): AICircuitBreaker {
+	const key = `${provider}:${model}`
+	let circuit = circuits.get(key)
+	if (!circuit) {
+		circuit = new AICircuitBreaker()
+		circuits.set(key, circuit)
+	}
+	return circuit
+}

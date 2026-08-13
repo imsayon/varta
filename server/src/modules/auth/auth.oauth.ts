@@ -10,7 +10,7 @@ import { hashToken } from "@/common/utils/auth/token-hash.ts"
 import { authRepository } from "./auth.repository.ts"
 
 export const authOauth = {
-	async handleOAuthCallback(req: Request, res: Response) {
+	async handleOAuthCallback(req: Request, res: Response, returnTo = "/analytics") {
 		const user = req.oauthUser
 		if (!user) {
 			return res.redirect(
@@ -60,6 +60,8 @@ export const authOauth = {
 		// Set cookie using shared utility for consistent SameSite behavior
 		setRefreshTokenCookie(res, refreshToken)
 
-		res.redirect(`${env.CLIENT_URL}/dashboard`)
+		const callback = new URL("/auth/callback", env.CLIENT_URL)
+		callback.searchParams.set("returnTo", returnTo)
+		res.redirect(303, callback.toString())
 	},
 }

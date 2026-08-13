@@ -13,14 +13,14 @@ test("structured logs redact credentials, identity, prompts, and request bodies"
 	const destination = { write(chunk: string) { output += chunk } }
 	const testLogger = pino({ redact: { paths: [...LOGGER_REDACTION_PATHS], censor: "[REDACTED]" } }, destination)
 	testLogger.info({
-		req: { headers: { authorization: "Bearer secret", cookie: "session=secret", "x-api-key": "key" }, body: { content: "private" } },
+		req: { headers: { authorization: "Bearer secret", cookie: "session=secret", "x-api-key": "key", "x-razorpay-signature": "razorpay-signature-secret" }, body: { content: "private" } },
 		providerConfig: { apiKey: "provider-secret", signingSecret: "signing-secret" },
 		password: "password-secret",
 		prompt: "private prompt",
 		email: "person@example.test",
 		accessToken: "access-secret",
 	}, "redaction probe")
-	assert.doesNotMatch(output, /Bearer secret|session=secret|private prompt|person@example\.test|access-secret|password-secret|provider-secret|signing-secret|private/)
+	assert.doesNotMatch(output, /Bearer secret|session=secret|private prompt|person@example\.test|access-secret|password-secret|provider-secret|signing-secret|razorpay-signature-secret|private/)
 	assert.match(output, /\[REDACTED\]/)
 })
 

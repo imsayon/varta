@@ -110,17 +110,8 @@ export const authService = {
 		providerUid: string
 		email: string
 		name: string
-		accessToken: string
-		refreshToken?: string
 	}) {
-		const {
-			provider,
-			providerUid,
-			email,
-			name,
-			accessToken,
-			refreshToken,
-		} = data
+		const { provider, providerUid, email, name } = data
 
 		// 1. Check if OAuth account exists
 		const existingOauth = await authRepository.findOauthAccount(
@@ -131,47 +122,38 @@ export const authService = {
 			return existingOauth.user
 		}
 
-		// 2. Check if user with email already exists (link account)
-		let user = await authRepository.findUserByEmail(email)
-
-		// 3. If user doesn't exist, create them
-		if (!user) {
-			user = await authRepository.createUser({
-				name,
-				email,
-				passwordHash: null,
-			})
-
-			// Create default workspace for new OAuth users
-			const workspaceName = `${name}'s Workspace`
-			const baseSlug = slugify(workspaceName, {
-				lower: true,
-				strict: true,
-				trim: true,
-			})
-			const randomSuffix = crypto.randomBytes(4).toString("hex")
-
-			const workspace = await authRepository.createWorkspace({
-				name: workspaceName,
-				slug: `${baseSlug}-${randomSuffix}`,
-			})
-			await authRepository.createWorkspaceMember({
-				userId: user.id,
-				workspaceId: workspace.id,
-			})
-
-			await authRepository.markUserEmailVerified(user.id)
+		// Never link accounts solely by matching an OAuth-provider email. Existing
+		// users must authenticate through their existing method before a future
+		// explicit account-linking flow can be permitted.
+		if (await authRepository.findUserByEmail(email)) {
+			throw new ConflictError("An account already uses this email. Sign in with the existing method.")
 		}
 
-		// 4. Create OAuth account record linked to the user
-		await authRepository.createOauthAccount({
-			userId: user.id,
-			provider,
-			providerUid,
-			accessToken,
-			...(refreshToken !== undefined && { refreshToken }),
-		})
-		return user
+		const workspaceName = `${name}'s Workspace`
+		const baseSlug = slugify(workspaceName, {
+			lower: true,
+			strict: true,
+			trim: true,
+		}) || "workspace"
+		const randomSuffix = crypto.randomBytes(4).toString("hex")
+
+		try {
+			return await authRepository.createOAuthRegistration({
+				name,
+				email,
+				provider,
+				providerUid,
+				workspaceName,
+				workspaceSlug: `${baseSlug}-${randomSuffix}`,
+			})
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+				const racedOauth = await authRepository.findOauthAccount(provider, providerUid)
+				if (racedOauth) return racedOauth.user
+				throw new ConflictError("An account already uses this email. Sign in with the existing method.")
+			}
+			throw error
+		}
 	},
 
 	// Login

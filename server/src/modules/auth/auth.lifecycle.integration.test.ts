@@ -97,8 +97,9 @@ test(
 				0,
 			)
 		} finally {
-			await prisma.user.delete({ where: { id: user.id } })
 			await prisma.workspace.delete({ where: { id: workspaceId } })
+			await prisma.billingAccount.deleteMany({ where: { ownerUserId: user.id } })
+			await prisma.user.delete({ where: { id: user.id } })
 			await disconnectDatabase()
 		}
 	},

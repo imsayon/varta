@@ -26,8 +26,8 @@ test("F1 Catalog: contains all defined plan IDs with positive limits and valid p
 		assert.equal(plan.id, id)
 		assert.ok(plan.name.length > 0)
 		assert.ok(plan.limits.maxWorkspaces >= 1)
-		assert.ok(plan.limits.maxMembersPerWorkspace >= 1)
-		assert.ok(plan.limits.maxSubscribersPerWorkspace >= 100)
+		assert.ok(plan.limits.maxMembers >= 1)
+		assert.ok(plan.limits.maxSubscribers >= 100)
 		assert.ok(plan.limits.maxNotificationRunsPerMonth >= 1_000)
 		assert.ok(plan.limits.maxRps >= 1)
 	}
@@ -37,25 +37,25 @@ test("F1 Catalog: contains all defined plan IDs with positive limits and valid p
 	assert.equal(BILLING_CATALOG.free.price.usdMonthly, 0)
 
 	// Plus plan pricing
-	assert.equal(BILLING_CATALOG.plus.price.inrMonthly, 1499)
-	assert.equal(BILLING_CATALOG.plus.price.usdMonthly, 19)
+	assert.equal(BILLING_CATALOG.plus.price.inrMonthly, 699)
+	assert.equal(BILLING_CATALOG.plus.price.usdMonthly, 9)
 
 	// Business plan pricing
-	assert.equal(BILLING_CATALOG.business.price.inrMonthly, 7999)
-	assert.equal(BILLING_CATALOG.business.price.usdMonthly, 99)
+	assert.equal(BILLING_CATALOG.business.price.inrMonthly, 4499)
+	assert.equal(BILLING_CATALOG.business.price.usdMonthly, 55)
 })
 
 test("F1 Catalog: AI limits match plan features", () => {
-	assert.equal(BILLING_CATALOG.free.limits.aiFeaturesEnabled, false)
-	assert.equal(BILLING_CATALOG.free.limits.maxAiRequestsPerMinute, 0)
+	assert.equal(BILLING_CATALOG.free.limits.aiFeaturesEnabled, true)
+	assert.equal(BILLING_CATALOG.free.limits.maxAiRequestsPerMonth, 50)
 
 	assert.equal(BILLING_CATALOG.plus.limits.aiFeaturesEnabled, true)
-	assert.ok(BILLING_CATALOG.plus.limits.maxAiRequestsPerMinute > 0)
+	assert.equal(BILLING_CATALOG.plus.limits.maxAiRequestsPerMonth, 1_000)
 
 	assert.equal(BILLING_CATALOG.business.limits.aiFeaturesEnabled, true)
 	assert.ok(
-		BILLING_CATALOG.business.limits.maxAiRequestsPerMinute >
-			BILLING_CATALOG.plus.limits.maxAiRequestsPerMinute,
+		BILLING_CATALOG.business.limits.maxAiRequestsPerMonth >
+			BILLING_CATALOG.plus.limits.maxAiRequestsPerMonth,
 	)
 })
 
@@ -102,7 +102,7 @@ test("F1 Entitlement: ACTIVE subscription gets full limits and AI access", () =>
 	assert.equal(ent.canAcceptNotifications, true)
 	assert.equal(ent.canAccessAi, true)
 	assert.equal(ent.isGracePeriodActive, false)
-	assert.equal(ent.limits.maxNotificationRunsPerMonth, 250_000)
+	assert.equal(ent.limits.maxNotificationRunsPerMonth, 200_000)
 })
 
 test("F1 Entitlement: GRACE period keeps access active while unexpired", () => {
@@ -138,34 +138,34 @@ test("F1 Billing Unit: 1 notification run = 1 trigger per resolved subscriber re
 // --- Phase F1 Quota Usage Evaluation & Warning Levels ---
 
 test("F1 Quota: evaluates 70%, 85%, 100% warning levels accurately", () => {
-	const limit = 10_000
+	const limit = 20_000
 
 	// Below 70% → none
-	const q50 = evaluateQuotaUsage(5_000, limit)
+	const q50 = evaluateQuotaUsage(10_000, limit)
 	assert.equal(q50.percentage, 50)
 	assert.equal(q50.isExceeded, false)
 	assert.equal(q50.warningLevel, "none")
 
 	// At 70% → 70 warning
-	const q70 = evaluateQuotaUsage(7_000, limit)
+	const q70 = evaluateQuotaUsage(14_000, limit)
 	assert.equal(q70.percentage, 70)
 	assert.equal(q70.isExceeded, false)
 	assert.equal(q70.warningLevel, "70")
 
 	// At 85% → 85 warning
-	const q85 = evaluateQuotaUsage(8_500, limit)
+	const q85 = evaluateQuotaUsage(17_000, limit)
 	assert.equal(q85.percentage, 85)
 	assert.equal(q85.isExceeded, false)
 	assert.equal(q85.warningLevel, "85")
 
 	// At 100% → 100 warning and exceeded
-	const q100 = evaluateQuotaUsage(10_000, limit)
+	const q100 = evaluateQuotaUsage(20_000, limit)
 	assert.equal(q100.percentage, 100)
-	assert.equal(q100.isExceeded, true)
+	assert.equal(q100.isExceeded, false)
 	assert.equal(q100.warningLevel, "100")
 
 	// Above limit → capped percentage 100, exceeded, 100 warning
-	const q120 = evaluateQuotaUsage(12_000, limit)
+	const q120 = evaluateQuotaUsage(24_000, limit)
 	assert.equal(q120.percentage, 100)
 	assert.equal(q120.isExceeded, true)
 	assert.equal(q120.warningLevel, "100")

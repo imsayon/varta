@@ -27,3 +27,7 @@ export const STOJobSchema = z.object({
 
 export const OutboxTickJobSchema = z.object({ version: z.literal(1) })
 export const ReconciliationJobSchema = z.object({ version: z.literal(1) })
+export const BillingWebhookJobSchema = z.discriminatedUnion("kind", [
+	z.object({ version: z.literal(1), kind: z.literal("event"), inboxRecordId: z.string().uuid() }),
+	z.object({ version: z.literal(1), kind: z.literal("recover") }),
+])

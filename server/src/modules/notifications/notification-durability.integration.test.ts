@@ -6,6 +6,7 @@ import { acceptNotification } from "./notification-acceptance.service.ts"
 import { claimOutboxIntents } from "./outbox.repository.ts"
 import { recomputeAggregateStatus } from "./notification-status.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
+import { createOwnedTestWorkspace } from "@/testing/billing-test-fixture.ts"
 
 const runDatabaseTests = process.env.RUN_NOTIFICATION_DATABASE_TESTS === "true"
 
@@ -13,10 +14,11 @@ test(
 	"notification acceptance, idempotency, leasing, and aggregation are durable",
 	{ skip: !runDatabaseTests },
 	async () => {
+		const { connectRedis, disconnectRedis } = await import("@/infra/redis/redis.connection.ts")
+		await connectRedis()
 		const marker = randomUUID()
-		const workspace = await prisma.workspace.create({
-			data: { name: "Durability", slug: `durability-${marker}` },
-		})
+		const fixture = await createOwnedTestWorkspace("Durability")
+		const { workspace } = fixture
 		try {
 			const template = await prisma.template.create({
 				data: { workspaceId: workspace.id, name: "Template", channels: {} },
@@ -48,6 +50,12 @@ test(
 					where: { delivery: { notificationId } },
 				}),
 				2,
+			)
+			assert.equal(
+				await prisma.usageLedger.count({
+					where: { operationId: `notification:${workspace.id}:${input.idempotencyKey}` },
+				}),
+				1,
 			)
 
 			const claims = await Promise.all([
@@ -88,10 +96,15 @@ test(
 				}),
 				0,
 			)
+			assert.equal(
+				await prisma.usageLedger.count({
+					where: { operationId: `notification:${workspace.id}:invalid-${marker}` },
+				}),
+				0,
+			)
 		} finally {
-			await prisma.workspace.delete({ where: { id: workspace.id } })
-			const { redis } = await import("@/infra/redis/redis.connection.ts")
-			await Promise.allSettled([redis.quit(), disconnectDatabase()])
+			await fixture.cleanup()
+			await Promise.allSettled([disconnectRedis(), disconnectDatabase()])
 		}
 	},
 )

@@ -233,6 +233,7 @@ export function WorkspaceSettings() {
 		setActiveWorkspace({
 			id: workspaceRes.data.id,
 			name: workspaceRes.data.name,
+			role: workspace.role,
 		})
 		toast.success("Workspace settings updated.")
 		await fetchSettings()

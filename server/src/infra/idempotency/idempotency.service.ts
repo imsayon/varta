@@ -16,9 +16,7 @@ export const idempotencyService = {
 			const set = await redis.set(
 				redisKey,
 				"locked",
-				"EX",
-				ttlSeconds,
-				"NX",
+				{ EX: ttlSeconds, NX: true },
 			)
 			return set === "OK"
 		} catch (error) {

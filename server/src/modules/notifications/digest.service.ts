@@ -7,6 +7,7 @@ import { Prisma, type NotificationPriority } from "@prisma/client"
 import { acceptNotification } from "./notification-acceptance.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
 import { logger } from "@/infra/observability/logger.ts"
+import { reserveNotificationQuotaTx } from "@/modules/billing/billing.service.ts"
 
 const DEFAULT_WINDOW_MS = 60_000
 const DEFAULT_MAX_ITEMS = 100
@@ -39,16 +40,14 @@ function serializeDelivery(delivery: PreparedDelivery): Prisma.InputJsonValue {
 
 async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
 	const token = randomUUID()
-	const acquired = await redis.set(key, token, "PX", 5_000, "NX")
+	const acquired = await redis.set(key, token, { PX: 5_000, NX: true })
 	if (acquired !== "OK") throw new Error("Digest batch is being updated; retry the request")
 	try {
 		return await fn()
 	} finally {
 		await redis.eval(
 			"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-			1,
-			key,
-			token,
+			{ keys: [key], arguments: [token] },
 		)
 	}
 }
@@ -75,6 +74,7 @@ export const digestService = {
 		try {
 			const result = await prisma.$transaction(
 				async (tx) => {
+					await reserveNotificationQuotaTx(tx, input.workspaceId, input.idempotencyKey, 1)
 					const notification = await tx.notification.create({
 						data: {
 							workspaceId: input.workspaceId,
@@ -275,6 +275,7 @@ export const digestService = {
 				priority: "NORMAL",
 				scheduledAt: null,
 				smartTimingRequested: false,
+				billable: false,
 			})
 			await prisma.digestBatch.update({
 				where: { id: batch.id },

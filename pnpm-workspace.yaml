@@ -12,6 +12,9 @@ minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 blockExoticSubdeps: true
 
+overrides:
+  'nanoid@3.3.17': 3.3.18
+
 allowBuilds:
   '@prisma/engines': true
   argon2: true

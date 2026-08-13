@@ -1,17 +1,20 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import type { Prisma, WorkspaceRole } from "@prisma/client"
+import { assertMemberCapacityTx, linkWorkspaceToBillingAccountTx } from "@/modules/billing/billing.service.ts"
 
 export const workspaceRepository = {
 	async create(data: { name: string; slug: string; ownerId: string }) {
-		return prisma.workspace.create({
-			data: {
-				name: data.name,
-				slug: data.slug,
-				members: {
-					create: { userId: data.ownerId, role: "OWNER" },
+		return prisma.$transaction(async (tx) => {
+			const workspace = await tx.workspace.create({
+				data: {
+					name: data.name,
+					slug: data.slug,
+					members: { create: { userId: data.ownerId, role: "OWNER" } },
 				},
-			},
-			include: { members: true },
+				include: { members: true },
+			})
+			await linkWorkspaceToBillingAccountTx(tx, data.ownerId, workspace.id)
+			return workspace
 		})
 	},
 
@@ -60,8 +63,11 @@ export const workspaceRepository = {
 	},
 
 	async addMember(workspaceId: string, userId: string, role: WorkspaceRole) {
-		return prisma.workspaceMember.create({
-			data: { workspaceId, userId, role },
+		return prisma.$transaction(async (tx) => {
+			await assertMemberCapacityTx(tx, workspaceId)
+			return tx.workspaceMember.create({
+				data: { workspaceId, userId, role },
+			})
 		})
 	},
 

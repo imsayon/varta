@@ -5,6 +5,7 @@ export interface IWorkspace {
 	settings: JsonObject
 	createdAt: string
 	updatedAt: string
+	role: "OWNER" | "ADMIN" | "MEMBER"
 }
 
 export interface IWorkspaceMember {

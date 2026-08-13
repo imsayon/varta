@@ -42,6 +42,14 @@ export interface AccountEntitlement {
 	canAcceptNotifications: boolean
 }
 
+export function notificationQuotaLimit(planId: BillingPlanId): number {
+	const plan = BILLING_CATALOG[planId]
+	return Math.floor(
+		plan.limits.maxNotificationRunsPerMonth *
+			(1 + plan.paidUsageGracePercent / 100),
+	)
+}
+
 /**
  * Derives current effective account entitlements based on plan and subscription status.
  */
@@ -100,7 +108,7 @@ export function evaluateQuotaUsage(
 	}
 
 	const percentage = (currentUsage / maxLimit) * 100
-	const isExceeded = currentUsage >= maxLimit
+	const isExceeded = currentUsage > maxLimit
 
 	let warningLevel: "none" | "70" | "85" | "100" = "none"
 	if (percentage >= 100) {

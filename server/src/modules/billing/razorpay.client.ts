@@ -1,7 +1,10 @@
 import crypto from "node:crypto"
+import { z } from "zod"
 import { env } from "@/common/config/env.ts"
-import { ServiceUnavailableError, BadRequestError } from "@/common/errors/app-error.ts"
+import { BadRequestError, ServiceUnavailableError } from "@/common/errors/app-error.ts"
 import { logger } from "@/infra/observability/logger.ts"
+
+const API_ORIGIN = "https://api.razorpay.com"
 
 export interface RazorpayCustomerOptions {
 	name: string
@@ -16,158 +19,139 @@ export interface RazorpaySubscriptionOptions {
 	notes?: Record<string, string>
 }
 
-export const razorpayClient = {
-	/**
-	 * Verify HMAC signature of inbound Razorpay webhook payload
-	 */
-	verifyWebhookSignature(rawBody: string, signature: string, webhookSecret: string): boolean {
-		if (!rawBody || !signature || !webhookSecret) return false
-		try {
-			const expectedSignature = crypto
-				.createHmac("sha256", webhookSecret)
-				.update(rawBody)
-				.digest("hex")
+const customerSchema = z.object({ id: z.string().min(1) })
+const subscriptionSchema = z.object({
+	id: z.string().min(1),
+	status: z.string().min(1),
+	current_start: z.number().int().nonnegative().optional(),
+	current_end: z.number().int().nonnegative().optional(),
+	ended_at: z.number().int().nonnegative().optional(),
+})
 
-			return crypto.timingSafeEqual(
-				Buffer.from(signature, "utf-8"),
-				Buffer.from(expectedSignature, "utf-8"),
-			)
-		} catch {
-			return false
+export type RazorpaySubscription = z.infer<typeof subscriptionSchema>
+export type RazorpayFetch = typeof fetch
+
+export interface RazorpayRuntimeConfig {
+	mode: "disabled" | "test" | "live"
+	keyId: string
+	keySecret: string
+	requestTimeoutMs: number
+}
+
+const productionRuntime: RazorpayRuntimeConfig = {
+	mode: env.RAZORPAY_MODE,
+	keyId: env.RAZORPAY_KEY_ID,
+	keySecret: env.RAZORPAY_KEY_SECRET,
+	requestTimeoutMs: env.RAZORPAY_REQUEST_TIMEOUT_MS,
+}
+
+function parseProviderResponse<T>(schema: z.ZodType<T>, payload: unknown): T {
+	const parsed = schema.safeParse(payload)
+	if (!parsed.success) {
+		logger.warn({ issues: parsed.error.issues.map((issue) => issue.code) }, "Razorpay returned an invalid response contract")
+		throw new ServiceUnavailableError("Razorpay returned an invalid response")
+	}
+	return parsed.data
+}
+
+function constantTimeHexEqual(received: string, expected: string): boolean {
+	if (!/^[0-9a-f]+$/i.test(received) || received.length !== expected.length) return false
+	return crypto.timingSafeEqual(Buffer.from(received, "hex"), Buffer.from(expected, "hex"))
+}
+
+export function createRazorpayClient(
+	fetchImpl: RazorpayFetch = fetch,
+	runtime: RazorpayRuntimeConfig = productionRuntime,
+) {
+	async function request(path: string, init: RequestInit): Promise<unknown> {
+		if (runtime.mode === "disabled") {
+			throw new ServiceUnavailableError("Razorpay billing is disabled")
 		}
-	},
-
-	/**
-	 * Creates or retrieves a Razorpay customer ID
-	 */
-	async createCustomer(options: RazorpayCustomerOptions): Promise<string> {
-		const keyId = env.RAZORPAY_KEY_ID
-		const keySecret = env.RAZORPAY_KEY_SECRET
-
-		if (!keyId || !keySecret) {
-			// In test mode without Razorpay credentials, return deterministic test customer ID
-			if (env.NODE_ENV === "test" || env.NODE_ENV === "development") {
-				return `cust_test_${crypto.randomBytes(6).toString("hex")}`
-			}
-			throw new ServiceUnavailableError("Razorpay API credentials not configured")
-		}
-
+		const controller = new AbortController()
+		const timer = setTimeout(() => controller.abort(), runtime.requestTimeoutMs)
 		try {
-			const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64")
-			const res = await fetch("https://api.razorpay.com/v1/customers", {
-				method: "POST",
+			const auth = Buffer.from(`${runtime.keyId}:${runtime.keySecret}`).toString("base64")
+			const response = await fetchImpl(`${API_ORIGIN}${path}`, {
+				...init,
+				signal: controller.signal,
 				headers: {
 					Authorization: `Basic ${auth}`,
 					"Content-Type": "application/json",
+					...init.headers,
 				},
+			})
+			if (!response.ok) {
+				logger.warn({ status: response.status, path }, "Razorpay API request rejected")
+				if (response.status >= 400 && response.status < 500) {
+					throw new BadRequestError("Razorpay rejected the billing request")
+				}
+				throw new ServiceUnavailableError("Razorpay payment gateway unavailable")
+			}
+			return await response.json()
+		} catch (error) {
+			if (error instanceof BadRequestError || error instanceof ServiceUnavailableError) throw error
+			logger.error({ err: error, path }, "Razorpay API transport failure")
+			throw new ServiceUnavailableError("Razorpay payment gateway unavailable")
+		} finally {
+			clearTimeout(timer)
+		}
+	}
+
+	return {
+		verifyWebhookSignature(rawBody: string, signature: string, webhookSecret: string): boolean {
+			if (!rawBody || !signature || !webhookSecret) return false
+			const expected = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("hex")
+			return constantTimeHexEqual(signature, expected)
+		},
+
+		verifyCheckoutSignature(paymentId: string, subscriptionId: string, signature: string): boolean {
+			if (!paymentId || !subscriptionId || !signature || !runtime.keySecret) return false
+			const expected = crypto
+				.createHmac("sha256", runtime.keySecret)
+				.update(`${paymentId}|${subscriptionId}`)
+				.digest("hex")
+			return constantTimeHexEqual(signature, expected)
+		},
+
+		async createCustomer(options: RazorpayCustomerOptions): Promise<string> {
+			const payload = await request("/v1/customers", {
+				method: "POST",
 				body: JSON.stringify({
 					name: options.name,
 					email: options.email,
 					fail_existing: options.failIfExist ? 1 : 0,
 				}),
 			})
+			return parseProviderResponse(customerSchema, payload).id
+		},
 
-			if (!res.ok) {
-				const errText = await res.text()
-				logger.warn({ status: res.status, err: errText }, "Razorpay create customer failed")
-				throw new BadRequestError(`Razorpay customer creation failed: ${res.statusText}`)
-			}
-
-			const data = (await res.json()) as { id: string }
-			return data.id
-		} catch (err) {
-			if (err instanceof BadRequestError || err instanceof ServiceUnavailableError) throw err
-			logger.error({ err }, "Razorpay API transport error")
-			throw new ServiceUnavailableError("Razorpay payment gateway unavailable")
-		}
-	},
-
-	/**
-	 * Creates a subscription in Razorpay
-	 */
-	async createSubscription(options: RazorpaySubscriptionOptions): Promise<{
-		subscriptionId: string
-		status: string
-	}> {
-		const keyId = env.RAZORPAY_KEY_ID
-		const keySecret = env.RAZORPAY_KEY_SECRET
-
-		if (!keyId || !keySecret) {
-			if (env.NODE_ENV === "test" || env.NODE_ENV === "development") {
-				return {
-					subscriptionId: `sub_test_${crypto.randomBytes(6).toString("hex")}`,
-					status: "created",
-				}
-			}
-			throw new ServiceUnavailableError("Razorpay API credentials not configured")
-		}
-
-		try {
-			const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64")
-			const res = await fetch("https://api.razorpay.com/v1/subscriptions", {
+		async createSubscription(options: RazorpaySubscriptionOptions): Promise<{ subscriptionId: string; status: string }> {
+			const payload = await request("/v1/subscriptions", {
 				method: "POST",
-				headers: {
-					Authorization: `Basic ${auth}`,
-					"Content-Type": "application/json",
-				},
 				body: JSON.stringify({
 					plan_id: options.planId,
-					total_count: options.totalCount ?? 12,
+					total_count: options.totalCount ?? 120,
 					quantity: 1,
 					customer_notify: options.customerNotify ? 1 : 0,
 					notes: options.notes ?? {},
 				}),
 			})
+			const subscription = parseProviderResponse(subscriptionSchema, payload)
+			return { subscriptionId: subscription.id, status: subscription.status }
+		},
 
-			if (!res.ok) {
-				const errText = await res.text()
-				logger.warn({ status: res.status, err: errText }, "Razorpay create subscription failed")
-				throw new BadRequestError("Razorpay subscription creation failed")
-			}
+		async fetchSubscription(subscriptionId: string): Promise<RazorpaySubscription> {
+			const payload = await request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, { method: "GET" })
+			return parseProviderResponse(subscriptionSchema, payload)
+		},
 
-			const data = (await res.json()) as { id: string; status: string }
-			return {
-				subscriptionId: data.id,
-				status: data.status,
-			}
-		} catch (err) {
-			if (err instanceof BadRequestError || err instanceof ServiceUnavailableError) throw err
-			logger.error({ err }, "Razorpay subscription call failed")
-			throw new ServiceUnavailableError("Razorpay payment gateway unavailable")
-		}
-	},
-
-	/**
-	 * Cancels a subscription in Razorpay
-	 */
-	async cancelSubscription(subscriptionId: string, cancelAtCycleEnd = true): Promise<boolean> {
-		const keyId = env.RAZORPAY_KEY_ID
-		const keySecret = env.RAZORPAY_KEY_SECRET
-
-		if (!keyId || !keySecret) {
-			if (process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development") {
-				return true
-			}
-			throw new ServiceUnavailableError("Razorpay API credentials not configured")
-		}
-
-		try {
-			const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64")
-			const res = await fetch(`https://api.razorpay.com/v1/subscriptions/${subscriptionId}/cancel`, {
+		async cancelSubscription(subscriptionId: string, cancelAtCycleEnd = true): Promise<void> {
+			await request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, {
 				method: "POST",
-				headers: {
-					Authorization: `Basic ${auth}`,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					cancel_at_cycle_end: cancelAtCycleEnd ? 1 : 0,
-				}),
+				body: JSON.stringify({ cancel_at_cycle_end: cancelAtCycleEnd ? 1 : 0 }),
 			})
-
-			return res.ok
-		} catch (err) {
-			logger.error({ err }, "Razorpay subscription cancellation error")
-			return false
-		}
-	},
+		},
+	}
 }
+
+export const razorpayClient = createRazorpayClient()

@@ -77,5 +77,28 @@
 }
 
 .oauthBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
+  min-height: 2.75rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transition: border-color var(--transition-base), background var(--transition-base), color var(--transition-base);
+}
+
+.oauthBtn:hover {
+  border-color: var(--color-primary-400);
+  background: var(--surface-3);
+}
+
+.oauthBtn:focus-visible {
+  outline: 2px solid var(--color-primary-400);
+  outline-offset: 2px;
 }

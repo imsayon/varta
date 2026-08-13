@@ -15,6 +15,7 @@ function LoginForm() {
 	const router = useRouter()
 	const searchParams = useSearchParams()
 	const { login } = useAuth()
+	const oauthReturnTo = encodeURIComponent(validateRedirectUrl(searchParams.get("from")))
 	const [email, setEmail] = useState("")
 	const [password, setPassword] = useState("")
 	const [isSubmitting, setIsSubmitting] = useState(false)
@@ -57,6 +58,24 @@ function LoginForm() {
 				<p className={styles.subtitle}>
 					Sign in to manage your notification pipeline
 				</p>
+			</div>
+
+			<div className={styles.divider} role="separator">
+				<span>or continue with</span>
+			</div>
+			<div className={styles.oauthProviders}>
+				<a
+					href={`/api/v1/auth/oauth/google?returnTo=${oauthReturnTo}`}
+					className={styles.oauthBtn}
+				>
+					Continue with Google
+				</a>
+				<a
+					href={`/api/v1/auth/oauth/github?returnTo=${oauthReturnTo}`}
+					className={styles.oauthBtn}
+				>
+					Continue with GitHub
+				</a>
 			</div>
 
 			<form onSubmit={handleSubmit} className={styles.form}>

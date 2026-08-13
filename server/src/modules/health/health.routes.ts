@@ -29,7 +29,7 @@ async function dependencyChecks(): Promise<{
 }> {
 	const checks = await Promise.all([
 		boundedCheck(prisma.$queryRaw`SELECT 1`),
-		boundedCheck(redis.ping()),
+		redis.isReady ? boundedCheck(redis.ping()) : Promise.resolve(false),
 	])
 	dependencyReady.set({ dependency: "postgres" }, checks[0] ? 1 : 0)
 	dependencyReady.set({ dependency: "redis" }, checks[1] ? 1 : 0)

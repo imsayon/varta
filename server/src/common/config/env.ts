@@ -22,7 +22,13 @@ const envSchema = z.object({
 	CORS_ORIGIN: z.string().default("http://localhost:3000"),
 	DATABASE_URL: z.string(),
 	REDIS_URL: z.string().default("redis://localhost:6379"),
-	REDIS_QUEUE_PREFIX: z.string().default("varta"),
+	REDIS_QUEUE_PREFIX: z
+		.string()
+		.trim()
+		.min(1)
+		.max(64)
+		.regex(/^[A-Za-z0-9._-]+$/, "REDIS_QUEUE_PREFIX may contain only letters, numbers, '.', '_' or '-'")
+		.default("varta"),
 	STARTUP_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
 	SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
 	OTEL_ENABLED: booleanEnv.default(false),
@@ -87,13 +93,9 @@ const envSchema = z.object({
 	EMAIL_VERIFY_TOKEN_TTL_HOURS: z.coerce.number().default(24),
 
 	AI_ENABLED: booleanEnv.default(false),
-	AI_PLATFORM_PROVIDER: z
-		.string()
-		.trim()
-		.default(AI_DEFAULTS.platformProvider),
+	AI_PLATFORM_PROVIDER: z.literal("gemini").default(AI_DEFAULTS.platformProvider),
 	AI_PLATFORM_MODEL: z.string().trim().default(""),
 	AI_PLATFORM_API_KEY: z.string().default(""),
-	AI_PLATFORM_BASE_URL: z.string().trim().default(""),
 	AI_REQUEST_TIMEOUT_MS: z.coerce
 		.number()
 		.int()
@@ -121,13 +123,13 @@ const envSchema = z.object({
 		.max(2)
 		.default(AI_DEFAULTS.temperature),
 	AI_LOG_PROMPT_CONTENT: booleanEnv.default(false),
-	AI_CONFIGURATION_PLANNER_ENABLED: booleanEnv.default(false),
 	AI_SEND_TIME_OPTIMIZATION_ENABLED: booleanEnv.default(false),
 	AI_REQUESTS_PER_MINUTE: z.coerce
 		.number()
 		.int()
 		.positive()
 		.default(AI_DEFAULTS.requestsPerMinute),
+	AI_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
 	AI_RATE_LIMIT_WINDOW_SECONDS: z.coerce
 		.number()
 		.int()
@@ -145,9 +147,53 @@ const envSchema = z.object({
 					)
 			: z.string().default("0123456789abcdef0123456789abcdef"),
 
+	RAZORPAY_MODE: z.enum(["disabled", "test", "live"]).default("disabled"),
 	RAZORPAY_KEY_ID: z.string().default(""),
 	RAZORPAY_KEY_SECRET: z.string().default(""),
 	RAZORPAY_WEBHOOK_SECRET: z.string().default(""),
+	RAZORPAY_WEBHOOK_SECRET_PREVIOUS: z.string().default(""),
+	RAZORPAY_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(500).max(15_000).default(5_000),
+	RAZORPAY_PLUS_PLAN_ID_INR: z.string().default(""),
+	RAZORPAY_BUSINESS_PLAN_ID_INR: z.string().default(""),
+}).superRefine((values, ctx) => {
+	for (const provider of ["GITHUB", "GOOGLE"] as const) {
+		const fields = [`${provider}_CLIENT_ID`, `${provider}_CLIENT_SECRET`, `${provider}_CALLBACK_URL`] as const
+		const configured = fields.filter((field) => Boolean(values[field]))
+		if (configured.length > 0 && configured.length !== fields.length) {
+			for (const field of fields) {
+				if (!values[field]) ctx.addIssue({ code: "custom", path: [field], message: `${field} is required when ${provider} OAuth is enabled` })
+			}
+		}
+		if (values[fields[2]]) {
+			try {
+				const callback = new URL(values[fields[2]])
+				const expectedPath = `/api/v1/auth/oauth/${provider.toLowerCase()}/callback`
+				if (callback.pathname !== expectedPath || (values.NODE_ENV === "production" && callback.protocol !== "https:")) {
+					ctx.addIssue({ code: "custom", path: [fields[2]], message: `${fields[2]} must use the exact ${expectedPath} path${values.NODE_ENV === "production" ? " over HTTPS" : ""}` })
+				}
+			} catch {
+				ctx.addIssue({ code: "custom", path: [fields[2]], message: `${fields[2]} must be an absolute URL` })
+			}
+		}
+	}
+
+	if (values.RAZORPAY_MODE === "disabled") return
+	const required: Array<keyof typeof values> = [
+		"RAZORPAY_KEY_ID",
+		"RAZORPAY_KEY_SECRET",
+		"RAZORPAY_WEBHOOK_SECRET",
+		"RAZORPAY_PLUS_PLAN_ID_INR",
+		"RAZORPAY_BUSINESS_PLAN_ID_INR",
+	]
+	for (const field of required) {
+		if (!values[field]) {
+			ctx.addIssue({ code: "custom", path: [field], message: `${field} is required when Razorpay is enabled` })
+		}
+	}
+	const expectedPrefix = values.RAZORPAY_MODE === "test" ? "rzp_test_" : "rzp_live_"
+	if (values.RAZORPAY_KEY_ID && !values.RAZORPAY_KEY_ID.startsWith(expectedPrefix)) {
+		ctx.addIssue({ code: "custom", path: ["RAZORPAY_KEY_ID"], message: `RAZORPAY_KEY_ID must match ${values.RAZORPAY_MODE} mode` })
+	}
 })
 
 const parsed = envSchema.safeParse(process.env)

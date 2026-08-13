@@ -16,7 +16,8 @@ export const workspaceService = {
 		// Append cryptographically random suffix to avoid slug collisions
 		const randomSuffix = crypto.randomBytes(4).toString("hex")
 		const slug = `${slugify(name)}-${randomSuffix}`
-		return workspaceRepository.create({ name, slug, ownerId })
+		const workspace = await workspaceRepository.create({ name, slug, ownerId })
+		return { ...workspace, role: "OWNER" as const }
 	},
 
 	async findById(workspaceId: string) {

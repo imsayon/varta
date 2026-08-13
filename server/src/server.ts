@@ -5,7 +5,7 @@ import { app } from "./app.ts"
 import { env } from "./common/config/env.ts"
 import { logger } from "@/infra/observability/logger.ts"
 import { disconnectDatabase } from "@/infra/database/prisma.ts"
-import { redis } from "@/infra/redis/redis.connection.ts"
+import { connectRedis, disconnectRedis } from "@/infra/redis/redis.connection.ts"
 import { stopTracing } from "@/infra/observability/tracing.ts"
 import { closeQueues } from "@/infra/queues/queue.factory.ts"
 import {
@@ -22,9 +22,9 @@ import { beginDrain, markStarted } from "@/runtime/lifecycle.ts"
 const server = createServer(app)
 let shuttingDown = false
 
-startWebSocketServer(server)
-
 try {
+	await connectRedis()
+	await startWebSocketServer(server)
 	await listen(server, env.PORT)
 	markStarted()
 	logger.info({ port: env.PORT, service: env.SERVICE_NAME }, "Varta API started")
@@ -36,7 +36,7 @@ try {
 			[() => closeQueues()],
 			[
 				() => disconnectDatabase(),
-				() => redis.quit().then(() => undefined),
+				() => disconnectRedis(),
 			],
 			[() => stopTracing()],
 		],
@@ -56,7 +56,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
 			[() => closeQueues()],
 			[
 				() => disconnectDatabase(),
-				() => redis.quit().then(() => undefined),
+				() => disconnectRedis(),
 			],
 			[() => stopTracing()],
 		],

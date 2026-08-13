@@ -1,11 +1,10 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider   = "postgresql"
-  extensions = [vector, pg_stat_statements, pgcrypto, uuid_ossp(map: "uuid-ossp")]
+  provider = "postgresql"
+  schemas  = ["varta"]
 }
 
 model User {
@@ -21,23 +20,24 @@ model User {
   passwordResetTokens PasswordResetToken[]
   sessions            Session[]
   workspaceMembers    WorkspaceMember[]
+  billingAccounts     BillingAccount[]
 
   @@map("users")
+  @@schema("varta")
 }
 
 model OauthAccount {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String    @map("user_id") @db.Uuid
-  provider     String
-  providerUid  String    @map("provider_uid")
-  accessToken  String    @map("access_token")
-  refreshToken String?   @map("refresh_token")
-  expiresAt    DateTime? @map("expires_at") @db.Timestamptz
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  provider    String
+  providerUid String   @map("provider_uid")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerUid])
+  @@index([userId])
   @@map("oauth_accounts")
+  @@schema("varta")
 }
 
 model Session {
@@ -53,6 +53,7 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+  @@schema("varta")
 }
 
 model RefreshToken {
@@ -66,6 +67,7 @@ model RefreshToken {
 
   @@index([sessionId])
   @@map("refresh_tokens")
+  @@schema("varta")
 }
 
 model EmailVerification {
@@ -79,6 +81,7 @@ model EmailVerification {
 
   @@index([userId])
   @@map("email_verifications")
+  @@schema("varta")
 }
 
 model PasswordResetToken {
@@ -92,6 +95,7 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+  @@schema("varta")
 }
 
 enum WorkspaceRole {
@@ -100,6 +104,7 @@ enum WorkspaceRole {
   MEMBER
 
   @@map("workspace_role")
+  @@schema("varta")
 }
 
 model Workspace {
@@ -128,13 +133,14 @@ model Workspace {
   billingWorkspaces BillingAccountWorkspace[]
 
   @@map("workspaces")
+  @@schema("varta")
 }
 
 // --- Phase F2 Billing Models ---
 
 model BillingAccount {
   id                 String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerUserId        String                    @map("owner_user_id") @db.Uuid
+  ownerUserId        String                    @unique @map("owner_user_id") @db.Uuid
   razorpayCustomerId String?                   @unique @map("razorpay_customer_id")
   createdAt          DateTime                  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -142,8 +148,11 @@ model BillingAccount {
   subscriptions      Subscription[]
   usageLedger        UsageLedger[]
   snapshots          EntitlementSnapshot[]
+  auditEvents        BillingAuditEvent[]
+  owner              User                      @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
 
   @@map("billing_accounts")
+  @@schema("varta")
 }
 
 model BillingAccountWorkspace {
@@ -155,6 +164,7 @@ model BillingAccountWorkspace {
 
   @@id([billingAccountId, workspaceId])
   @@map("billing_account_workspaces")
+  @@schema("varta")
 }
 
 enum SubscriptionState {
@@ -166,60 +176,103 @@ enum SubscriptionState {
   EXPIRED
 
   @@map("subscription_state")
+  @@schema("varta")
 }
 
 model Subscription {
   id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   billingAccountId       String            @map("billing_account_id") @db.Uuid
   planId                 String            @map("plan_id")
+  planVersion            String            @map("plan_version")
   status                 SubscriptionState @default(PENDING)
   razorpaySubscriptionId String?           @unique @map("razorpay_subscription_id")
+  checkoutOperationId    String?           @unique @map("checkout_operation_id")
   currentPeriodStart     DateTime?         @map("current_period_start") @db.Timestamptz
   currentPeriodEnd       DateTime?         @map("current_period_end") @db.Timestamptz
   cancelAtPeriodEnd      Boolean           @default(false) @map("cancel_at_period_end")
   graceExpiresAt         DateTime?         @map("grace_expires_at") @db.Timestamptz
+  providerStatus         String?           @map("provider_status")
+  providerUpdatedAt      DateTime?         @map("provider_updated_at") @db.Timestamptz
+  lastEventId            String?           @map("last_event_id")
   createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   billingAccount         BillingAccount    @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
 
   @@index([billingAccountId, status])
   @@map("subscriptions")
+  @@schema("varta")
+}
+
+enum BillingWebhookStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  IGNORED
+  FAILED
+
+  @@map("billing_webhook_status")
+  @@schema("varta")
 }
 
 model BillingWebhookEvent {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  eventId     String    @unique @map("event_id")
-  eventType   String    @map("event_type")
-  rawPayload  String    @map("raw_payload")
-  signature   String
-  status      String    @default("PENDING") // PENDING, PROCESSED, FAILED
-  error       String?
-  processedAt DateTime? @map("processed_at") @db.Timestamptz
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId           String               @unique @map("event_id")
+  eventType         String               @map("event_type")
+  payloadCiphertext String               @map("payload_ciphertext")
+  payloadHash       String               @map("payload_hash")
+  signatureHash     String               @map("signature_hash")
+  status            BillingWebhookStatus @default(PENDING)
+  attempts          Int                  @default(0)
+  availableAt       DateTime             @default(now()) @map("available_at") @db.Timestamptz
+  claimedAt         DateTime?            @map("claimed_at") @db.Timestamptz
+  leaseUntil        DateTime?            @map("lease_until") @db.Timestamptz
+  providerCreatedAt DateTime?            @map("provider_created_at") @db.Timestamptz
+  errorCode         String?              @map("error_code")
+  errorMessage      String?              @map("error_message")
+  processedAt       DateTime?            @map("processed_at") @db.Timestamptz
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
 
+  @@index([status, availableAt])
   @@index([eventType, status])
   @@map("billing_webhook_events")
+  @@schema("varta")
+}
+
+enum UsageLedgerKind {
+  NOTIFICATION_RESERVATION
+  NOTIFICATION_COMPENSATION
+  AI_RESERVATION
+  AI_COMPENSATION
+
+  @@map("usage_ledger_kind")
+  @@schema("varta")
 }
 
 model UsageLedger {
-  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  billingAccountId String         @map("billing_account_id") @db.Uuid
-  workspaceId      String?        @map("workspace_id") @db.Uuid
-  operationId      String         @unique @map("operation_id")
-  deltaUnits       Int            @map("delta_units")
-  balanceAfter     Int            @map("balance_after")
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingAccountId String          @map("billing_account_id") @db.Uuid
+  workspaceId      String?         @map("workspace_id") @db.Uuid
+  operationId      String          @unique @map("operation_id")
+  kind             UsageLedgerKind @default(NOTIFICATION_RESERVATION)
+  deltaUnits       Int             @map("delta_units")
+  balanceAfter     Int             @map("balance_after")
+  periodStart      DateTime        @map("period_start") @db.Timestamptz
+  periodEnd        DateTime        @map("period_end") @db.Timestamptz
   description      String?
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  billingAccount   BillingAccount  @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
 
-  @@index([billingAccountId, createdAt])
+  @@index([billingAccountId, kind, periodStart])
   @@map("usage_ledger")
+  @@schema("varta")
 }
 
 model EntitlementSnapshot {
   id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   billingAccountId       String         @map("billing_account_id") @db.Uuid
   planId                 String         @map("plan_id")
+  planVersion            String         @map("plan_version")
+  sourceEventId          String?        @map("source_event_id")
   canAcceptNotifications Boolean        @map("can_accept_notifications")
   canAccessAi            Boolean        @map("can_access_ai")
   limitsJson             Json           @map("limits_json")
@@ -228,8 +281,25 @@ model EntitlementSnapshot {
 
   @@index([billingAccountId, snapshotAt])
   @@map("entitlement_snapshots")
+  @@schema("varta")
 }
 
+model BillingAuditEvent {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  billingAccountId String         @map("billing_account_id") @db.Uuid
+  action           String
+  actorType        String         @map("actor_type")
+  actorId          String?        @map("actor_id")
+  sourceEventId    String?        @map("source_event_id")
+  details          Json           @default("{}")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@index([billingAccountId, createdAt])
+  @@index([sourceEventId])
+  @@map("billing_audit_events")
+  @@schema("varta")
+}
 
 model WorkspaceAiConfig {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -244,6 +314,7 @@ model WorkspaceAiConfig {
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("workspace_ai_configs")
+  @@schema("varta")
 }
 
 model AiUsage {
@@ -261,9 +332,11 @@ model AiUsage {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
   workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
+  @@unique([workspaceId, requestId])
   @@index([workspaceId, createdAt])
   @@index([workspaceId, provider, model])
   @@map("ai_usage")
+  @@schema("varta")
 }
 
 model WorkspaceMember {
@@ -278,6 +351,7 @@ model WorkspaceMember {
   @@unique([userId, workspaceId])
   @@index([workspaceId])
   @@map("workspace_members")
+  @@schema("varta")
 }
 
 model ApiKey {
@@ -295,6 +369,7 @@ model ApiKey {
 
   @@index([workspaceId])
   @@map("api_keys")
+  @@schema("varta")
 }
 
 model ProviderConfig {
@@ -310,6 +385,7 @@ model ProviderConfig {
 
   @@unique([workspaceId, channel])
   @@map("provider_configs")
+  @@schema("varta")
 }
 
 model Subscriber {
@@ -335,6 +411,7 @@ model Subscriber {
   @@index([workspaceId])
   @@index([workspaceId, email])
   @@map("subscribers")
+  @@schema("varta")
 }
 
 model Template {
@@ -355,6 +432,7 @@ model Template {
   @@unique([workspaceId, name])
   @@index([workspaceId])
   @@map("templates")
+  @@schema("varta")
 }
 
 model RoutingRule {
@@ -371,6 +449,7 @@ model RoutingRule {
 
   @@index([workspaceId, priority])
   @@map("routing_rules")
+  @@schema("varta")
 }
 
 enum NotificationStatus {
@@ -381,6 +460,7 @@ enum NotificationStatus {
   FAILED
 
   @@map("notification_status")
+  @@schema("varta")
 }
 
 enum DeliveryStatus {
@@ -391,12 +471,15 @@ enum DeliveryStatus {
   DLQ
 
   @@map("delivery_status")
+  @@schema("varta")
 }
 
 enum NotificationPriority {
   LOW
   NORMAL
   HIGH
+
+  @@schema("varta")
 }
 
 model Notification {
@@ -426,10 +509,12 @@ model Notification {
 
   @@unique([workspaceId, idempotencyKey])
   @@index([workspaceId])
+  @@index([templateId])
   @@index([subscriberId])
   @@index([status])
   @@index([workspaceId, readAt])
   @@map("notifications")
+  @@schema("varta")
 }
 
 model Delivery {
@@ -453,6 +538,7 @@ model Delivery {
   @@index([workspaceId, status])
   @@index([status, scheduledAt])
   @@map("deliveries")
+  @@schema("varta")
 }
 
 enum OutboxStatus {
@@ -462,6 +548,7 @@ enum OutboxStatus {
   FAILED
 
   @@map("outbox_status")
+  @@schema("varta")
 }
 
 model OutboxIntent {
@@ -484,7 +571,9 @@ model OutboxIntent {
 
   @@index([status, availableAt])
   @@index([leaseUntil])
+  @@index([workspaceId])
   @@map("outbox_intents")
+  @@schema("varta")
 }
 
 model DeliveryAttempt {
@@ -511,6 +600,7 @@ model DeliveryAttempt {
   @@index([status])
   @@index([notificationId, channel, deliveryId])
   @@map("delivery_attempts")
+  @@schema("varta")
 }
 
 model ProviderWebhookEvent {
@@ -526,6 +616,7 @@ model ProviderWebhookEvent {
   @@unique([provider, eventId])
   @@index([providerMessageId])
   @@map("provider_webhook_events")
+  @@schema("varta")
 }
 
 enum DigestBatchStatus {
@@ -535,6 +626,7 @@ enum DigestBatchStatus {
   FAILED
 
   @@map("digest_batch_status")
+  @@schema("varta")
 }
 
 model DigestBatch {
@@ -561,7 +653,10 @@ model DigestBatch {
 
   @@index([workspaceId, status, windowExpiresAt])
   @@index([aggregationKey, status])
+  @@index([subscriberId])
+  @@index([templateId])
   @@map("digest_batches")
+  @@schema("varta")
 }
 
 model DigestBatchItem {
@@ -577,6 +672,7 @@ model DigestBatchItem {
   @@unique([batchId, sourceNotificationId, channel])
   @@index([sourceNotificationId])
   @@map("digest_batch_items")
+  @@schema("varta")
 }
 
 model PendingInApp {
@@ -593,7 +689,9 @@ model PendingInApp {
 
   @@unique([notificationId])
   @@index([workspaceId, subscriberId, deliveredAt])
+  @@index([subscriberId])
   @@map("pending_inapp")
+  @@schema("varta")
 }
 
 model EngagementEvent {
@@ -611,8 +709,10 @@ model EngagementEvent {
 
   @@index([workspaceId])
   @@index([subscriberId, eventType])
+  @@index([notificationId])
   @@index([occurredAt])
   @@map("engagement_events")
+  @@schema("varta")
 }
 
 model SubscriberEngagementVector {
@@ -626,4 +726,5 @@ model SubscriberEngagementVector {
 
   @@index([workspaceId])
   @@map("subscriber_engagement_vectors")
+  @@schema("varta")
 }

@@ -59,8 +59,7 @@ async function getCachedOrFetch<T>(
 		await redis.set(
 			key,
 			JSON.stringify(data),
-			"EX",
-			ANALYTICS_CACHE_TTL_SECONDS,
+			{ EX: ANALYTICS_CACHE_TTL_SECONDS },
 		)
 	} catch (error) {
 		logger.warn(

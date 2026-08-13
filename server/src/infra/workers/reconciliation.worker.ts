@@ -1,5 +1,5 @@
 import { Worker } from "bullmq"
-import { getQueueConnection } from "@/infra/queues/queue.connection.ts"
+import { getQueueConnection, getQueuePrefix } from "@/infra/queues/queue.connection.ts"
 import { createQueue } from "@/infra/queues/queue.factory.ts"
 import { reconciliationService } from "@/modules/notifications/reconciliation.service.ts"
 import { logger } from "@/infra/observability/logger.ts"
@@ -19,7 +19,7 @@ export const reconciliationWorker = new Worker<ReconciliationJob>(
 		ReconciliationJobSchema.parse(job.data)
 		return reconciliationService.reconcileStuckNotifications()
 	},
-	{ connection: getQueueConnection() },
+	{ connection: getQueueConnection(), prefix: getQueuePrefix() },
 )
 
 reconciliationWorker.on("failed", (job, error) =>

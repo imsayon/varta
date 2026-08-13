@@ -4,6 +4,7 @@ import type { NotificationChannel } from "./notification.types.ts"
 import { notificationAcceptance } from "@/infra/observability/metrics.ts"
 import { currentTraceparent, withTrace } from "@/infra/observability/tracing.ts"
 import { currentLogContext } from "@/infra/observability/log-context.ts"
+import { reserveNotificationQuotaTx } from "@/modules/billing/billing.service.ts"
 
 type AcceptanceInput = {
 	workspaceId: string
@@ -15,6 +16,7 @@ type AcceptanceInput = {
 	priority: NotificationPriority
 	scheduledAt: Date | null
 	smartTimingRequested: boolean
+	billable?: boolean
 }
 
 export type AcceptanceResult = {
@@ -35,6 +37,9 @@ export async function acceptNotification(
 			"db.system.name": "postgresql",
 			"db.operation.name": "transaction",
 		}, () => prisma.$transaction(async (tx) => {
+			if (input.billable !== false) {
+				await reserveNotificationQuotaTx(tx, input.workspaceId, input.idempotencyKey, 1)
+			}
 			const created = await tx.notification.create({
 				data: {
 					workspaceId: input.workspaceId,

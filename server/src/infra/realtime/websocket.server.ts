@@ -155,7 +155,7 @@ async function register(
 		expiresAt: (token.exp ?? 0) * 1_000,
 	}
 	try {
-		await redis.sadd(key, connectionId)
+		await redis.sAdd(key, connectionId)
 		await redis.expire(key, PRESENCE_TTL_SECONDS)
 	} catch (error) {
 		logger.warn({ err: error, connectionId }, "WebSocket presence registration failed")
@@ -209,7 +209,7 @@ async function register(
 		connections.delete(connectionId)
 		activeWebSockets.dec()
 		realtimeEvents.inc({ event: "connection", outcome: "closed" })
-		void redis.srem(key, connectionId)
+		void redis.sRem(key, connectionId)
 		logger.info(
 			{
 				connectionId,
@@ -286,21 +286,10 @@ async function upgrade(
 	}
 }
 
-export function startWebSocketServer(server: Server): void {
+export async function startWebSocketServer(server: Server): Promise<void> {
 	if (upgradeHandler) return
-	upgradeHandler = (request, socket, head) =>
-		void upgrade(request, socket, head)
-	server.on("upgrade", upgradeHandler)
-	webSocketServer.on(
-		"connection",
-		(socket, request) => void register(socket, request),
-	)
-	void pubsub
-		.subscribe(REALTIME_CHANNEL)
-		.catch((error) =>
-			logger.error({ err: error }, "Realtime subscription failed"),
-		)
-	pubsub.on("message", (_channel, message) => {
+	if (!pubsub.isOpen) await pubsub.connect()
+	await pubsub.subscribe(REALTIME_CHANNEL, (message) => {
 		try {
 			const event = JSON.parse(message) as InAppDeliveryEvent
 			if (event.type === "in_app_delivery") void deliverLive(event)
@@ -308,6 +297,13 @@ export function startWebSocketServer(server: Server): void {
 			logger.warn({ err: error }, "Invalid realtime event")
 		}
 	})
+	upgradeHandler = (request, socket, head) =>
+		void upgrade(request, socket, head)
+	server.on("upgrade", upgradeHandler)
+	webSocketServer.on(
+		"connection",
+		(socket, request) => void register(socket, request),
+	)
 	heartbeat = setInterval(() => {
 		for (const connection of connections.values()) {
 			if (connection.expiresAt <= Date.now()) {
@@ -331,7 +327,9 @@ export async function stopWebSocketServer(server: Server): Promise<void> {
 	for (const connection of connections.values())
 		connection.socket.close(1001, "Server shutting down")
 	connections.clear()
-	await pubsub.unsubscribe(REALTIME_CHANNEL)
-	await pubsub.quit()
+	if (pubsub.isOpen) {
+		await pubsub.unsubscribe(REALTIME_CHANNEL)
+		await pubsub.quit()
+	}
 	upgradeHandler = undefined
 }

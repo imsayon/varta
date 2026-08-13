@@ -4,7 +4,7 @@ import { createServer } from "node:http"
 import { env } from "./common/config/env.ts"
 import { logger } from "@/infra/observability/logger.ts"
 import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
-import { redis } from "@/infra/redis/redis.connection.ts"
+import { connectRedis, disconnectRedis, redis } from "@/infra/redis/redis.connection.ts"
 import {
 	startWorkers,
 	stopWorkers,
@@ -44,7 +44,7 @@ const metricsServer = createServer(async (req, res) => {
 	}
 	if (req.url === "/health/ready") {
 		const database = await databaseReady()
-		const ready = workerState.status === "ready" && redis.status === "ready" && database && lifecycleState.started && !lifecycleState.draining
+		const ready = workerState.status === "ready" && redis.isReady && database && lifecycleState.started && !lifecycleState.draining
 		res.writeHead(ready ? 200 : 503, {
 			"content-type": "application/json",
 		}).end(JSON.stringify({
@@ -52,7 +52,7 @@ const metricsServer = createServer(async (req, res) => {
 			checks: {
 				worker: workerState.status,
 				database: database ? "ok" : "failed",
-				redis: redis.status === "ready" ? "ok" : "failed",
+				redis: redis.isReady ? "ok" : "failed",
 			},
 		}))
 		return
@@ -74,6 +74,7 @@ const metricsServer = createServer(async (req, res) => {
 })
 
 try {
+	await connectRedis()
 	await startWorkers()
 	await listen(metricsServer, env.METRICS_PORT)
 	markStarted()
@@ -88,7 +89,7 @@ try {
 			[() => closeQueues()],
 			[
 				() => disconnectDatabase(),
-				() => redis.quit().then(() => undefined),
+				() => disconnectRedis(),
 			],
 			[() => stopTracing()],
 		],
@@ -111,7 +112,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
 			[() => closeQueues()],
 			[
 				() => disconnectDatabase(),
-				() => redis.quit().then(() => undefined),
+				() => disconnectRedis(),
 			],
 			[() => stopTracing()],
 		],

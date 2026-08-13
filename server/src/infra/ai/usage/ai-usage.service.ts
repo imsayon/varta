@@ -2,6 +2,7 @@ import { logger } from "@/infra/observability/logger.ts"
 import { env } from "@/common/config/env.ts"
 import { aiUsageRepository } from "./ai-usage.repository.ts"
 import type { AIUsageRecord } from "./ai-usage.types.ts"
+import { ServiceUnavailableError } from "@/common/errors/app-error.ts"
 
 export const aiUsageService = {
 	async record(record: AIUsageRecord): Promise<void> {
@@ -17,6 +18,7 @@ export const aiUsageService = {
 				},
 				"Failed to record AI usage",
 			)
+			throw new ServiceUnavailableError("AI usage metering is unavailable")
 		}
 	},
 }

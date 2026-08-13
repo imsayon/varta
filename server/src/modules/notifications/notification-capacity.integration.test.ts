@@ -4,12 +4,14 @@ import test from "node:test"
 import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { acceptNotification } from "./notification-acceptance.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
+import { createOwnedTestWorkspace } from "@/testing/billing-test-fixture.ts"
 
 const enabled = process.env.RUN_CAPACITY_TESTS === "true"
 
 test("disposable database sustains a bounded concurrent acceptance burst", { skip: !enabled }, async () => {
 	const marker = randomUUID()
-	const workspace = await prisma.workspace.create({ data: { name: "Capacity", slug: `capacity-${marker}` } })
+	const fixture = await createOwnedTestWorkspace("Capacity")
+	const { workspace } = fixture
 	try {
 		const template = await prisma.template.create({ data: { workspaceId: workspace.id, name: "Capacity template", channels: {} } })
 		const subscriber = await prisma.subscriber.create({ data: { workspaceId: workspace.id, externalId: `capacity-${marker}` } })
@@ -41,7 +43,7 @@ test("disposable database sustains a bounded concurrent acceptance burst", { ski
 		assert.ok(p95 < 5_000, `acceptance p95 ${p95.toFixed(1)}ms exceeded the local safety bound`)
 		assert.ok(performance.now() - started < 30_000)
 	} finally {
-		await prisma.workspace.delete({ where: { id: workspace.id } })
+		await fixture.cleanup()
 		await disconnectDatabase()
 	}
 })

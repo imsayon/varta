@@ -1,6 +1,6 @@
 {
 	"name": "@varta/web",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"private": true,
 	"packageManager": "pnpm@11.20.0",
 	"engines": {
@@ -9,8 +9,8 @@
 	},
 	"scripts": {
 		"dev": "next dev",
-		"build": "next build",
-		"start": "next start",
+		"build": "next build && node scripts/prepare-standalone.mjs",
+		"start": "node .next/standalone/client/server.js",
 		"lint": "eslint",
 		"typecheck": "tsc --noEmit",
 		"test:e2e": "playwright test"

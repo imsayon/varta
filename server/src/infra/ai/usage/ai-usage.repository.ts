@@ -3,9 +3,9 @@ import type { AIUsageRecord } from "./ai-usage.types.ts"
 
 export const aiUsageRepository = {
 	async create(record: AIUsageRecord) {
-		return prisma.aiUsage.create({
-			data: {
-				workspaceId: record.workspaceId,
+		if (!record.requestId) throw new Error("AI usage requires a request ID")
+		const data = {
+			workspaceId: record.workspaceId,
 				provider: record.provider,
 				model: record.model,
 				...(record.inputTokens !== undefined
@@ -18,14 +18,18 @@ export const aiUsageRepository = {
 				...(record.promptVersion !== undefined
 					? { promptVersion: record.promptVersion }
 					: {}),
-				...(record.requestId !== undefined
-					? { requestId: record.requestId }
-					: {}),
+				requestId: record.requestId,
 				status: record.status,
 				...(record.errorCategory !== undefined
 					? { errorCategory: record.errorCategory }
 					: {}),
+		}
+		return prisma.aiUsage.upsert({
+			where: {
+				workspaceId_requestId: { workspaceId: record.workspaceId, requestId: record.requestId },
 			},
+			create: data,
+			update: data,
 		})
 	},
 }

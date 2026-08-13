@@ -1,6 +1,6 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
-import { SendEmailJobSchema, SendInAppJobSchema, SendWebhookJobSchema } from "./payloads.ts"
+import { BillingWebhookJobSchema, SendEmailJobSchema, SendInAppJobSchema, SendWebhookJobSchema } from "./payloads.ts"
 
 describe("Queue Payload Validation Schemas", () => {
 	it("validates correct SendEmailJobSchema payload", () => {
@@ -53,5 +53,15 @@ describe("Queue Payload Validation Schemas", () => {
 
 		const parsed = SendWebhookJobSchema.parse(payload)
 		assert.equal(parsed.workspaceId, "ws_123")
+	})
+
+	it("discriminates billing event and recovery jobs", () => {
+		assert.equal(BillingWebhookJobSchema.parse({
+			version: 1,
+			kind: "event",
+			inboxRecordId: "00000000-0000-4000-8000-000000000000",
+		}).kind, "event")
+		assert.equal(BillingWebhookJobSchema.parse({ version: 1, kind: "recover" }).kind, "recover")
+		assert.throws(() => BillingWebhookJobSchema.parse({ version: 1, kind: "event" }))
 	})
 })

@@ -134,6 +134,14 @@ export const reconciliationRuns = new Counter({
 	registers: [metricsRegistry],
 })
 
+export const reconciliationLastSuccess = new Gauge({
+	name: "varta_reconciliation_last_success_unixtime",
+	help: "Unix timestamp of the last successful notification reconciliation run",
+	registers: [metricsRegistry],
+})
+
+reconciliationLastSuccess.set(0)
+
 export const realtimeEvents = new Counter({
 	name: "varta_realtime_events_total",
 	help: "Realtime events by bounded event and outcome",
@@ -162,10 +170,44 @@ export const aiTokens = new Counter({
 	registers: [metricsRegistry],
 })
 
+export const aiGatewayRequests = new Counter({
+	name: "varta_ai_gateway_requests_total",
+	help: "AI gateway requests by bounded production contract",
+	labelNames: ["provider", "model", "feature", "prompt_version", "outcome"] as const,
+	registers: [metricsRegistry],
+})
+
+export const aiGatewayDuration = new Histogram({
+	name: "varta_ai_gateway_duration_seconds",
+	help: "AI gateway duration by bounded production contract",
+	labelNames: ["provider", "model", "feature", "prompt_version"] as const,
+	buckets: [0.1, 0.25, 0.5, 1, 2, 5, 10, 30],
+	registers: [metricsRegistry],
+})
+
+export const aiCircuitOpen = new Gauge({
+	name: "varta_ai_circuit_open",
+	help: "Whether an AI provider/model circuit is open",
+	labelNames: ["provider", "model"] as const,
+	registers: [metricsRegistry],
+})
+
 export const billingEvents = new Counter({
 	name: "varta_billing_events_total",
 	help: "Billing events by bounded event and outcome",
 	labelNames: ["event", "outcome"] as const,
+	registers: [metricsRegistry],
+})
+
+export const billingInboxOldestSeconds = new Gauge({
+	name: "varta_billing_inbox_oldest_pending_seconds",
+	help: "Age of the oldest processable billing inbox event",
+	registers: [metricsRegistry],
+})
+
+export const billingSubscriptionDrift = new Gauge({
+	name: "varta_billing_subscription_drift",
+	help: "Whether the last reconciliation observed provider/local subscription drift",
 	registers: [metricsRegistry],
 })
 

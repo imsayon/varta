@@ -8,7 +8,6 @@ import { env } from "./common/config/env.ts"
 import { logger } from "@/infra/observability/logger.ts"
 import { errorHandler } from "./common/middleware/error.middleware.ts"
 import { notFoundHandler } from "./common/middleware/not-found.middleware.ts"
-import { passport } from "@/modules/auth/auth.passport.ts"
 
 // Module Routes
 import { healthRouter } from "./modules/health/health.routes.ts"
@@ -31,6 +30,7 @@ import { getDatabasePoolStats } from "@/infra/database/prisma.ts"
 import { rateLimitGlobal } from "./common/middleware/rate-limit.middleware.ts"
 import { authenticateOperatorMetrics } from "./common/middleware/operator.middleware.ts"
 import { authorize } from "./common/auth/route-policy.ts"
+import billingRouter, { razorpayWebhookRouter } from "./modules/billing/billing.routes.ts"
 
 import { requestIdMiddleware } from "./common/middleware/request-id.middleware.ts"
 import { traceHttpRequest } from "@/infra/observability/tracing.ts"
@@ -84,6 +84,8 @@ app.use(
 )
 app.use(compression())
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
+// Razorpay signatures cover the exact bytes, so this route must run before JSON parsing.
+app.use(razorpayWebhookRouter)
 app.use(
 	express.json({
 		limit: "1mb",
@@ -94,7 +96,6 @@ app.use(
 )
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
-app.use(passport.initialize())
 
 // Route Mounting
 app.use("/api/health", healthRouter)
@@ -121,7 +122,6 @@ app.use("/api/v1/workspaces/:workspaceId/notifications", notificationRouter)
 app.use("/api/v1/workspaces/:workspaceId/routing-rules", routingRuleRouter)
 app.use("/api/v1/workspaces/:workspaceId/analytics", analyticsRouter)
 app.use("/api/v1/workspaces/:workspaceId/providers", providerRouter)
-import billingRouter from "./modules/billing/billing.routes.ts"
 app.use(billingRouter)
 app.use("/api/v1/webhooks", webhookInboundRoutes)
 

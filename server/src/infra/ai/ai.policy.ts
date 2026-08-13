@@ -15,15 +15,13 @@ const limiter = new RateLimiterRedis({
 export const aiPolicy = {
 	async authorize(workspaceId: string, feature: AIFeature) {
 		if (!env.AI_ENABLED) throw new ServiceUnavailableError("AI features are disabled")
-		if (feature === AI_FEATURES.CONFIGURATION_PLANNER && !env.AI_CONFIGURATION_PLANNER_ENABLED) {
-			throw new ForbiddenError("Configuration planner is disabled")
-		}
 		if (feature === AI_FEATURES.SEND_TIME_OPTIMIZATION && !env.AI_SEND_TIME_OPTIMIZATION_ENABLED) {
 			throw new ForbiddenError("Send-time optimization is disabled")
 		}
 		try {
 			await limiter.consume(workspaceId)
-		} catch {
+		} catch (error) {
+			if (error instanceof TooManyRequestsError) throw error
 			throw new TooManyRequestsError("Too many AI requests")
 		}
 	},

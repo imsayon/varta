@@ -1,5 +1,5 @@
 import { Worker, type Job } from "bullmq"
-import { getQueueConnection } from "@/infra/queues/queue.connection.ts"
+import { getQueueConnection, getQueuePrefix } from "@/infra/queues/queue.connection.ts"
 import { QueueNames } from "@/infra/queues/queue.constants.ts"
 import { outboxQueue } from "@/infra/queues/outbox.queue.ts"
 import { dispatchOutboxBatch } from "@/modules/notifications/outbox-dispatcher.service.ts"
@@ -12,7 +12,7 @@ export const outboxWorker = new Worker(
 		OutboxTickJobSchema.parse(job.data)
 		return dispatchOutboxBatch()
 	},
-	{ connection: getQueueConnection(), concurrency: 1 },
+	{ connection: getQueueConnection(), prefix: getQueuePrefix(), concurrency: 1 },
 )
 
 export async function startWorkerModule(): Promise<void> {

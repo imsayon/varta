@@ -16,6 +16,7 @@ import {
   LogOut, 
   ChevronRight,
   Plus,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/shared/auth/auth-context';
 import { useState, useEffect } from 'react';
@@ -41,6 +42,9 @@ export function Sidebar() {
     { name: 'Routing Rules', href: '/rules', icon: GitBranch },
     { name: 'API Keys', href: '/api-keys', icon: KeyRound },
     { name: 'Settings', href: '/settings', icon: Settings },
+    ...(workspace?.role === 'OWNER'
+      ? [{ name: 'Billing', href: '/settings/billing', icon: CreditCard }]
+      : []),
   ];
 
   // Fetch workspaces list
@@ -51,7 +55,7 @@ export function Sidebar() {
         setWorkspaces(res.data);
         // If no active workspace is selected, but workspaces exist, select the first one
         if (!workspace && res.data.length > 0) {
-          setActiveWorkspace({ id: res.data[0].id, name: res.data[0].name });
+          setActiveWorkspace({ id: res.data[0].id, name: res.data[0].name, role: res.data[0].role });
         }
       }
     }
@@ -65,7 +69,7 @@ export function Sidebar() {
     const res = await apiClient.post<IWorkspace>('/api/v1/workspaces', { name: newWsName });
     if (res.success && res.data) {
       setWorkspaces(prev => [...prev, res.data!]);
-      setActiveWorkspace({ id: res.data.id, name: res.data.name });
+      setActiveWorkspace({ id: res.data.id, name: res.data.name, role: res.data.role });
       setNewWsName('');
       setIsCreatingWs(false);
       setIsDropdownOpen(false);
@@ -107,7 +111,7 @@ export function Sidebar() {
                   key={ws.id}
                   className={`${styles.dropdownItem} ${workspace?.id === ws.id ? styles.dropdownItemActive : ''}`}
                   onClick={() => {
-                    setActiveWorkspace({ id: ws.id, name: ws.name });
+                    setActiveWorkspace({ id: ws.id, name: ws.name, role: ws.role });
                     setIsDropdownOpen(false);
                     // Force refresh or redirect to reset state for new workspace context
                     router.push('/settings');

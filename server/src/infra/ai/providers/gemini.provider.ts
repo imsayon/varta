@@ -26,8 +26,7 @@ export class GeminiProvider implements AIProvider {
 	readonly name = AI_PROVIDERS.GEMINI
 
 	async generate(request: AIProviderRequest): Promise<AIProviderResponse> {
-		const baseUrl = request.baseUrl || AI_PROVIDER_ENDPOINTS.GEMINI
-		const endpoint = `${baseUrl.replace(/\/$/, "")}/models/${encodeURIComponent(request.model)}:generateContent`
+		const endpoint = `${AI_PROVIDER_ENDPOINTS.GEMINI}/models/${encodeURIComponent(request.model)}:generateContent`
 		const response = await fetch(endpoint, {
 			method: "POST",
 			headers: {
@@ -45,9 +44,9 @@ export class GeminiProvider implements AIProvider {
 					: {}),
 				contents: [{ role: "user", parts: [{ text: request.input }] }],
 				generationConfig: {
-					temperature: request.temperature,
 					maxOutputTokens: request.maxOutputTokens,
 					responseMimeType: "application/json",
+					thinkingConfig: { thinkingLevel: "minimal" },
 				},
 			}),
 		})

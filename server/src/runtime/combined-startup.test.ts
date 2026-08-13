@@ -6,10 +6,13 @@ test("combined startup exposes HTTP only after workers and WebSocket setup succe
 	const events: string[] = []
 
 	await startCombinedBackend({
+		connectRedis: async () => {
+			events.push("redis")
+		},
 		startWorkers: async () => {
 			events.push("workers")
 		},
-		startWebSocketServer: () => {
+		startWebSocketServer: async () => {
 			events.push("websocket")
 		},
 		listen: async () => {
@@ -20,7 +23,7 @@ test("combined startup exposes HTTP only after workers and WebSocket setup succe
 		},
 	})
 
-	assert.deepEqual(events, ["workers", "websocket", "listen"])
+	assert.deepEqual(events, ["redis", "workers", "websocket", "listen"])
 })
 
 test("combined startup stops workers when the HTTP listener fails", async () => {
@@ -29,10 +32,13 @@ test("combined startup stops workers when the HTTP listener fails", async () => 
 	await assert.rejects(
 		() =>
 			startCombinedBackend({
+				connectRedis: async () => {
+					events.push("redis")
+				},
 				startWorkers: async () => {
 					events.push("workers")
 				},
-				startWebSocketServer: () => {
+				startWebSocketServer: async () => {
 					events.push("websocket")
 				},
 				listen: async () => {
@@ -46,5 +52,5 @@ test("combined startup stops workers when the HTTP listener fails", async () => 
 		/port unavailable/,
 	)
 
-	assert.deepEqual(events, ["workers", "websocket", "listen", "stop"])
+	assert.deepEqual(events, ["redis", "workers", "websocket", "listen", "stop"])
 })

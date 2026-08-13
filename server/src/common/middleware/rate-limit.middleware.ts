@@ -4,6 +4,8 @@ import { redis } from "@/infra/redis/redis.connection.ts"
 import { TooManyRequestsError } from "@/common/errors/app-error.ts"
 import { logger } from "@/infra/observability/logger.ts"
 import { ServiceUnavailableError } from "@/common/errors/app-error.ts"
+import { BILLING_CATALOG } from "@/modules/billing/billing.constants.ts"
+import { billingService } from "@/modules/billing/billing.service.ts"
 
 function retryAfterSeconds(error: object): number {
 	const milliseconds =
@@ -15,6 +17,7 @@ function retryAfterSeconds(error: object): number {
 
 const authLimiter = new RateLimiterRedis({
 	storeClient: redis,
+	useRedisPackage: true,
 	keyPrefix: "rl_auth",
 	points: 5, // 5 requests
 	duration: 60 * 15, // per 15 minutes by IP
@@ -22,17 +25,24 @@ const authLimiter = new RateLimiterRedis({
 
 const globalLimiter = new RateLimiterRedis({
 	storeClient: redis,
+	useRedisPackage: true,
 	keyPrefix: "rl_global",
 	points: 300, // Allow normal dashboard navigation and parallel asset/API loading.
 	duration: 60, // per minute by IP
 })
 
-const workspaceTriggerLimiter = new RateLimiterRedis({
-	storeClient: redis,
-	keyPrefix: "rl_trigger",
-	points: 60, // 60 requests
-	duration: 60, // per minute by workspace
-})
+const workspaceTriggerLimiters = new Map(
+	Object.values(BILLING_CATALOG).map((plan) => [
+		plan.limits.maxRps,
+		new RateLimiterRedis({
+			storeClient: redis,
+			useRedisPackage: true,
+			keyPrefix: `rl_trigger_${plan.limits.maxRps}`,
+			points: plan.limits.maxRps,
+			duration: 1,
+		}),
+	]),
+)
 
 export async function rateLimitAuth(
 	req: Request,
@@ -63,6 +73,13 @@ export async function rateLimitGlobal(
 	res: Response,
 	next: NextFunction,
 ) {
+	// Notification triggers have their own authenticated, workspace-scoped,
+	// entitlement-aware limiter. An IP-wide dashboard limit must not silently
+	// lower a paid workspace's published throughput contract.
+	if (req.method === "POST" && /^\/workspaces\/[^/]+\/notifications\/trigger\/?$/.test(req.path)) {
+		next()
+		return
+	}
 	try {
 		const key = req.ip || "unknown_ip"
 		await globalLimiter.consume(key)
@@ -100,13 +117,17 @@ export async function rateLimitWorkspaceTrigger(
 		const workspaceIdKey = Array.isArray(rawWorkspaceId)
 			? (rawWorkspaceId[0] ?? "unknown")
 			: String(rawWorkspaceId)
-		await workspaceTriggerLimiter.consume(workspaceIdKey)
+		const entitlements = await billingService.getWorkspaceEntitlements(workspaceIdKey)
+		const maxRps = entitlements.limits.maxRps
+		const limiter = workspaceTriggerLimiters.get(maxRps)
+		if (!limiter) throw new ServiceUnavailableError("Workspace throughput policy is invalid")
+		await limiter.consume(workspaceIdKey)
 		next()
 	} catch (error) {
 		if (error && typeof error === "object" && "msBeforeNext" in error) {
 			next(
 				new TooManyRequestsError(
-					"Workspace trigger rate limit exceeded (max 60 requests per minute).",
+					"Workspace trigger rate limit exceeded for the active plan.",
 					retryAfterSeconds(error),
 				),
 			)

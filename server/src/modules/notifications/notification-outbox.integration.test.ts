@@ -4,6 +4,7 @@ import test from "node:test"
 import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
 import { acceptNotification } from "./notification-acceptance.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
+import { createOwnedTestWorkspace } from "@/testing/billing-test-fixture.ts"
 
 const runQueueTests = process.env.RUN_NOTIFICATION_QUEUE_TESTS === "true"
 
@@ -13,21 +14,23 @@ test(
 	async () => {
 		const [
 			{ closeQueues },
+			{ connectRedis, disconnectRedis },
 			{ inAppQueue },
 			{ digestQueue },
 			{ dispatchOutboxBatch },
 			{ digestService },
 		] = await Promise.all([
 			import("@/infra/queues/queue.factory.ts"),
+			import("@/infra/redis/redis.connection.ts"),
 			import("@/infra/queues/inapp.queue.ts"),
 			import("@/infra/queues/digest.queue.ts"),
 			import("./outbox-dispatcher.service.ts"),
 			import("./digest.service.ts"),
 		])
+		await connectRedis()
 		const marker = randomUUID()
-		const workspace = await prisma.workspace.create({
-			data: { name: "Outbox", slug: `outbox-${marker}` },
-		})
+		const fixture = await createOwnedTestWorkspace("Outbox")
+		const { workspace } = fixture
 		let jobId: string | undefined
 		let digestJobId: string | undefined
 		try {
@@ -103,9 +106,8 @@ test(
 		} finally {
 			if (jobId) await (await inAppQueue.getJob(jobId))?.remove()
 			if (digestJobId) await (await digestQueue.getJob(digestJobId))?.remove()
-			await prisma.workspace.delete({ where: { id: workspace.id } })
-			const { redis } = await import("@/infra/redis/redis.connection.ts")
-			await Promise.allSettled([closeQueues(), redis.quit(), disconnectDatabase()])
+			await fixture.cleanup()
+			await Promise.allSettled([closeQueues(), disconnectRedis(), disconnectDatabase()])
 		}
 	},
 )

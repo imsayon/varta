@@ -99,8 +99,11 @@ export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 	{ id: "provider.upsert", method: "PUT", path: "/api/v1/workspaces/:workspaceId/providers/:channel", principalKinds: browser, roles: adminRoles, hideWorkspaceMismatch: true },
 	{ id: "provider.test", method: "POST", path: "/api/v1/workspaces/:workspaceId/providers/:channel/test", principalKinds: browser, roles: adminRoles, hideWorkspaceMismatch: true },
 
-	{ id: "billing.read", method: "GET", path: "/api/v1/workspaces/:workspaceId/billing", principalKinds: browser, roles: workspaceRoles, hideWorkspaceMismatch: true },
-	{ id: "billing.checkout", method: "POST", path: "/api/v1/workspaces/:workspaceId/billing/checkout", principalKinds: browser, roles: adminRoles, hideWorkspaceMismatch: true },
+	{ id: "billing.read", method: "GET", path: "/api/v1/workspaces/:workspaceId/billing", principalKinds: browser, roles: ["OWNER"], hideWorkspaceMismatch: true },
+	{ id: "billing.checkout", method: "POST", path: "/api/v1/workspaces/:workspaceId/billing/checkout", principalKinds: browser, roles: ["OWNER"], hideWorkspaceMismatch: true },
+	{ id: "billing.checkout.verify", method: "POST", path: "/api/v1/workspaces/:workspaceId/billing/checkout/verify", principalKinds: browser, roles: ["OWNER"], hideWorkspaceMismatch: true },
+	{ id: "billing.cancel", method: "POST", path: "/api/v1/workspaces/:workspaceId/billing/cancel", principalKinds: browser, roles: ["OWNER"], hideWorkspaceMismatch: true },
+	{ id: "billing.reconcile", method: "POST", path: "/api/v1/workspaces/:workspaceId/billing/reconcile", principalKinds: browser, roles: ["OWNER"], hideWorkspaceMismatch: true },
 
 	{ id: "webhook.provider.resend", method: "POST", path: "/api/v1/webhooks/resend", public: true },
 	{ id: "webhook.provider.razorpay", method: "POST", path: "/api/v1/webhooks/razorpay", public: true },

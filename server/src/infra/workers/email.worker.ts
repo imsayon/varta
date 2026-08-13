@@ -1,6 +1,6 @@
 import { Worker } from "bullmq"
 import type { Job } from "bullmq"
-import { getQueueConnection } from "../queues/queue.connection.ts"
+import { getQueueConnection, getQueuePrefix } from "../queues/queue.connection.ts"
 import { MAX_DELIVERY_ATTEMPTS } from "../queues/queue.options.ts"
 import type { SendEmailJobDto } from "../queues/email.queue.ts"
 import { SendEmailJobSchema } from "../queues/payloads.ts"
@@ -144,6 +144,7 @@ export const emailWorker = new Worker(
 	},
 	{
 		connection: getQueueConnection(),
+		prefix: getQueuePrefix(),
 		concurrency: 5,
 	},
 )

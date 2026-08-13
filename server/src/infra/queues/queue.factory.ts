@@ -1,5 +1,5 @@
 import { Queue } from "bullmq"
-import { getQueueConnection } from "./queue.connection.ts"
+import { getQueueConnection, getQueuePrefix } from "./queue.connection.ts"
 import { DEFAULT_JOB_OPTIONS } from "./queue.options.ts"
 import type { QueueNames } from "./queue.constants.ts"
 import { queueJobs, queueOldestJobSeconds } from "@/infra/observability/metrics.ts"
@@ -9,6 +9,7 @@ const queues = new Set<Queue<unknown>>()
 export function createQueue<T = unknown>(queueName: QueueNames): Queue<T> {
 	const queue = new Queue<T>(queueName, {
 		connection: getQueueConnection(),
+		prefix: getQueuePrefix(),
 		defaultJobOptions: DEFAULT_JOB_OPTIONS,
 	})
 	queues.add(queue as unknown as Queue<unknown>)

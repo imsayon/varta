@@ -12,12 +12,12 @@ export type BillingPlanId = (typeof BILLING_PLANS)[keyof typeof BILLING_PLANS]
 
 export interface PlanLimits {
 	maxWorkspaces: number
-	maxMembersPerWorkspace: number
-	maxSubscribersPerWorkspace: number
+	maxMembers: number
+	maxSubscribers: number
 	maxNotificationRunsPerMonth: number
 	maxRps: number
 	aiFeaturesEnabled: boolean
-	maxAiRequestsPerMinute: number
+	maxAiRequestsPerMonth: number
 }
 
 export interface PlanPrice {
@@ -29,66 +29,74 @@ export interface PlanDefinition {
 	id: BillingPlanId
 	name: string
 	description: string
+	version: string
 	price: PlanPrice
 	limits: PlanLimits
-	razorpayPlanIdInr?: string
-	razorpayPlanIdUsd?: string
+	paidUsageGracePercent: number
 }
+
+export const BILLING_CATALOG_VERSION = "2026-08-10"
 
 export const BILLING_CATALOG: Record<BillingPlanId, PlanDefinition> = {
 	[BILLING_PLANS.FREE]: {
 		id: BILLING_PLANS.FREE,
 		name: "Free Tier",
 		description: "For testing, prototyping, and small projects",
+		version: BILLING_CATALOG_VERSION,
 		price: {
 			inrMonthly: 0,
 			usdMonthly: 0,
 		},
 		limits: {
-			maxWorkspaces: 1,
-			maxMembersPerWorkspace: 3,
-			maxSubscribersPerWorkspace: 1_000,
-			maxNotificationRunsPerMonth: 10_000,
-			maxRps: 5,
-			aiFeaturesEnabled: false,
-			maxAiRequestsPerMinute: 0,
+			maxWorkspaces: 3,
+			maxMembers: 5,
+			maxSubscribers: 5_000,
+			maxNotificationRunsPerMonth: 20_000,
+			maxRps: 10,
+			aiFeaturesEnabled: true,
+			maxAiRequestsPerMonth: 50,
 		},
+		paidUsageGracePercent: 0,
 	},
 	[BILLING_PLANS.PLUS]: {
 		id: BILLING_PLANS.PLUS,
 		name: "Plus Tier",
 		description: "For growing apps needing AI routing and higher throughput",
+		version: BILLING_CATALOG_VERSION,
 		price: {
-			inrMonthly: 1_499, // ₹1,499 / month
-			usdMonthly: 19,    // $19 / month
+			inrMonthly: 699,
+			usdMonthly: 9,
 		},
 		limits: {
-			maxWorkspaces: 3,
-			maxMembersPerWorkspace: 10,
-			maxSubscribersPerWorkspace: 25_000,
-			maxNotificationRunsPerMonth: 250_000,
-			maxRps: 25,
+			maxWorkspaces: 5,
+			maxMembers: 15,
+			maxSubscribers: 50_000,
+			maxNotificationRunsPerMonth: 200_000,
+			maxRps: 60,
 			aiFeaturesEnabled: true,
-			maxAiRequestsPerMinute: 30,
+			maxAiRequestsPerMonth: 1_000,
 		},
+		paidUsageGracePercent: 10,
 	},
 	[BILLING_PLANS.BUSINESS]: {
 		id: BILLING_PLANS.BUSINESS,
 		name: "Business Tier",
 		description: "For high-volume production applications with dedicated support",
+		version: BILLING_CATALOG_VERSION,
 		price: {
-			inrMonthly: 7_999, // ₹7,999 / month
-			usdMonthly: 99,    // $99 / month
+			inrMonthly: 4_499,
+			usdMonthly: 55,
 		},
 		limits: {
-			maxWorkspaces: 10,
-			maxMembersPerWorkspace: 50,
-			maxSubscribersPerWorkspace: 250_000,
-			maxNotificationRunsPerMonth: 2_500_000,
-			maxRps: 100,
+			maxWorkspaces: 15,
+			maxMembers: 30,
+			maxSubscribers: 500_000,
+			maxNotificationRunsPerMonth: 1_000_000,
+			maxRps: 200,
 			aiFeaturesEnabled: true,
-			maxAiRequestsPerMinute: 120,
+			maxAiRequestsPerMonth: 5_000,
 		},
+		paidUsageGracePercent: 10,
 	},
 } as const
 

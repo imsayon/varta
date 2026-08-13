@@ -8,7 +8,7 @@ import type { IUser } from '../types/domain';
 
 interface AuthState {
   user: IUser | null;
-  workspace: { id: string; name: string } | null;
+	workspace: { id: string; name: string; role: "OWNER" | "ADMIN" | "MEMBER" } | null;
   apiKey: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -19,7 +19,7 @@ interface AuthActions {
   signup: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
-  setActiveWorkspace: (ws: { id: string; name: string }) => void;
+	setActiveWorkspace: (ws: { id: string; name: string; role: "OWNER" | "ADMIN" | "MEMBER" }) => void;
   setApiKey: (key: string | null) => void;
   getAbortSignal: () => AbortSignal;
 }
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, isLoading, setAuth, clearAuth } = useAuthStore();
   const abortControllerRef = useRef<AbortController>(new AbortController());
 
-  const [workspace, setWorkspaceState] = useState<{ id: string; name: string } | null>(null);
+	const [workspace, setWorkspaceState] = useState<{ id: string; name: string; role: "OWNER" | "ADMIN" | "MEMBER" } | null>(null);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
   const sessionBootstrapRef = useRef(false);
 
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearAuth, router]);
 
-  const setActiveWorkspace = useCallback((ws: { id: string; name: string }) => {
+	const setActiveWorkspace = useCallback((ws: { id: string; name: string; role: "OWNER" | "ADMIN" | "MEMBER" }) => {
     // Abort active in-flight requests for prior workspace
     abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();

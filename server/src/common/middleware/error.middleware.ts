@@ -23,6 +23,21 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
 		return
 	}
 
+	if (err && typeof err === "object" && "type" in err) {
+		if (err.type === "entity.too.large") {
+			sendError(req, res, 413, "PAYLOAD_TOO_LARGE", "Request payload exceeds the allowed size")
+			return
+		}
+		if (err.type === "entity.parse.failed") {
+			sendError(req, res, 400, "INVALID_JSON", "Request body is not valid JSON")
+			return
+		}
+		if (err.type === "encoding.unsupported" || err.type === "charset.unsupported") {
+			sendError(req, res, 415, "UNSUPPORTED_ENCODING", "Request body encoding is not supported")
+			return
+		}
+	}
+
 	logger.error({ err, requestId }, "Unhandled error")
 	sendError(req, res, 500, "INTERNAL_SERVER_ERROR", "Internal server error")
 }

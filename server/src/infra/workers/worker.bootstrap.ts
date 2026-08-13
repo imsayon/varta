@@ -59,6 +59,7 @@ const defaultLoaders: WorkerModuleLoader[] = [
 	() => import("./digest.worker.ts"),
 	() => import("./send-time-optimization.worker.ts"),
 	() => import("./reconciliation.worker.ts"),
+	() => import("./billing.worker.ts"),
 ]
 
 function collectWorkers(module: WorkerModule): number {

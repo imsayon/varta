@@ -5,7 +5,7 @@ import { app } from "./app.ts"
 import { env } from "./common/config/env.ts"
 import { logger } from "@/infra/observability/logger.ts"
 import { disconnectDatabase } from "@/infra/database/prisma.ts"
-import { redis } from "@/infra/redis/redis.connection.ts"
+import { connectRedis, disconnectRedis } from "@/infra/redis/redis.connection.ts"
 import { stopTracing } from "@/infra/observability/tracing.ts"
 import { closeQueues } from "@/infra/queues/queue.factory.ts"
 import { startWorkers, stopWorkers } from "@/infra/workers/worker.bootstrap.ts"
@@ -32,7 +32,7 @@ async function cleanup(): Promise<Awaited<ReturnType<typeof shutdownResources>>>
 			[() => closeQueues()],
 			[
 				() => disconnectDatabase(),
-				() => redis.quit().then(() => undefined),
+				() => disconnectRedis(),
 			],
 			[() => stopTracing()],
 		],
@@ -44,6 +44,7 @@ try {
 	// Workers must be ready before the HTTP listener is exposed. This prevents
 	// a combined Render service from reporting a healthy API with no consumer.
 	await startCombinedBackend({
+		connectRedis,
 		startWorkers,
 		startWebSocketServer: () => startWebSocketServer(server),
 		listen: () => listen(server, env.PORT),

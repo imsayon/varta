@@ -4,6 +4,12 @@ import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/Card/Card';
+import { validateRedirectUrl } from '@/proxy';
+
+const oauthErrorMessages: Record<string, string> = {
+  invalid_state: 'Your sign-in session expired. Please try again.',
+  account_collision: 'This account is already linked to another sign-in method. Please use that method instead.',
+};
 
 function AuthCallbackContent() {
   const searchParams = useSearchParams();
@@ -13,13 +19,13 @@ function AuthCallbackContent() {
     const error = searchParams.get('error');
 
     if (error) {
-      toast.error(`Authentication error: ${error}`);
-      router.push('/login');
+      toast.error(oauthErrorMessages[error] ?? 'We could not complete sign-in. Please try again.');
+      router.replace('/login');
       return;
     }
 
     toast.success('Successfully authenticated!');
-    router.push('/analytics');
+    router.replace(validateRedirectUrl(searchParams.get('returnTo')));
   }, [searchParams, router]);
 
   return (

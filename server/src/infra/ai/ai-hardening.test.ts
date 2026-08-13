@@ -79,38 +79,24 @@ test("circuit breaker: reset returns to CLOSED", () => {
 })
 
 test("circuit breaker: failures outside the window do not count", () => {
-	// Very short window so failures expire immediately
-	const cb = new AICircuitBreaker({ failureThreshold: 2, windowMs: 0, cooldownMs: 30_000 })
+	let now = 0
+	const cb = new AICircuitBreaker({ failureThreshold: 2, windowMs: 10, cooldownMs: 30_000 }, () => now)
 	cb.onFailure()
+	now = 11
 	cb.onFailure()
-	// With windowMs=0, both failures are expired before the threshold check
-	// Actually failures are added then immediately filtered; threshold may not trip
-	// The circuit should remain CLOSED since old failures are evicted
-	// (may be OPEN for threshold=2 with instant window — depends on timing)
-	// This test documents the behavior: very short window means failures don't accumulate
-	assert.ok(["CLOSED", "OPEN"].includes(cb.getState()), "state is valid")
+	assert.equal(cb.getState(), "CLOSED")
 })
 
 // --- E2: Provider/model allowlist tests ---
 
-test("AI_PROVIDER_MODELS: Gemini has at least one allowlisted model", () => {
+test("AI_PROVIDER_MODELS: launch supports exactly the current Gemini model", () => {
 	const geminiModels = AI_PROVIDER_MODELS[AI_PROVIDERS.GEMINI]
 	assert.ok(Array.isArray(geminiModels) && geminiModels.length > 0, "Gemini has allowlisted models")
-	// Verify gemini-2.0-flash is present (current primary production model as of 2026)
-	assert.ok(geminiModels.includes("gemini-2.0-flash"), "gemini-2.0-flash is allowlisted")
+	assert.deepEqual(geminiModels, ["gemini-3.6-flash"])
 })
 
-test("AI_PROVIDER_MODELS: known providers all have allowlists", () => {
-	const allowlistedProviders = [AI_PROVIDERS.GEMINI, AI_PROVIDERS.OPENAI, AI_PROVIDERS.ANTHROPIC, AI_PROVIDERS.KIMI]
-	for (const provider of allowlistedProviders) {
-		const models = AI_PROVIDER_MODELS[provider]
-		assert.ok(Array.isArray(models) && models.length > 0, `${provider} must have allowlisted models`)
-	}
-})
-
-test("AI_PROVIDER_MODELS: openai-compatible has no static allowlist (BYOK endpoint)", () => {
-	assert.equal(AI_PROVIDER_MODELS[AI_PROVIDERS.OPENAI_COMPATIBLE], undefined,
-		"openai-compatible bypasses model allowlist — endpoint is caller-supplied")
+test("AI_PROVIDER_MODELS: non-launch providers cannot be selected", () => {
+	assert.deepEqual(Object.keys(AI_PROVIDER_MODELS), [AI_PROVIDERS.GEMINI])
 })
 
 test("AI_PROVIDER_MODELS: no provider allowlist contains empty strings or duplicates", () => {

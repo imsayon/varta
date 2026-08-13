@@ -61,6 +61,18 @@ export default function SignupPage() {
         <p className={styles.subtitle}>Get started with Varta notification pipeline</p>
       </div>
 
+      <div className={styles.divider} role="separator">
+        <span>or continue with</span>
+      </div>
+      <div className={styles.oauthProviders}>
+        <a href="/api/v1/auth/oauth/google" className={styles.oauthBtn}>
+          Continue with Google
+        </a>
+        <a href="/api/v1/auth/oauth/github" className={styles.oauthBtn}>
+          Continue with GitHub
+        </a>
+      </div>
+
       <form onSubmit={handleSubmit} className={styles.form}>
         <Input
           type="text"

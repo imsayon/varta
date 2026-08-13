@@ -2,7 +2,7 @@ import { prisma } from "@/infra/database/prisma.ts"
 import { queueService } from "@/infra/queues/queue.service.ts"
 import { logger } from "@/infra/observability/logger.ts"
 import { dispatchOutboxBatch } from "./outbox-dispatcher.service.ts"
-import { reconciliationRuns } from "@/infra/observability/metrics.ts"
+import { reconciliationLastSuccess, reconciliationRuns } from "@/infra/observability/metrics.ts"
 import { withTrace } from "@/infra/observability/tracing.ts"
 
 const RECONCILIATION_STALE_MINUTES = 10
@@ -111,6 +111,7 @@ export const reconciliationService = {
 		}
 
 		reconciliationRuns.inc({ outcome: reconciledCount > 0 ? "repaired" : "clean" })
+		reconciliationLastSuccess.setToCurrentTime()
 		return reconciledCount
 		})
 		} catch (error) {

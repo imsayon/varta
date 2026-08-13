@@ -6,6 +6,7 @@ import { inAppQueue } from "./inapp.queue.ts"
 import type { SendInAppJobDto } from "./inapp.queue.ts"
 import { digestQueue } from "./digest.queue.ts"
 import type { ProcessDigestJobDto } from "./digest.queue.ts"
+import { billingQueue, type BillingWebhookJobDto } from "./billing.queue.ts"
 
 export const queueService = {
 	async enqueueEmail(jobData: SendEmailJobDto) {
@@ -39,6 +40,20 @@ export const queueService = {
 			jobId,
 			delay: Math.max(0, delayMs),
 		})
+	},
+	async enqueueBillingWebhook(jobData: Extract<BillingWebhookJobDto, { kind: "event" }>, delayMs = 0) {
+		const jobId = `billing-webhook-${jobData.inboxRecordId}`
+		const existing = await billingQueue.getJob(jobId)
+		if (existing) {
+			const state = await existing.getState()
+			if (["active", "waiting", "delayed", "prioritized"].includes(state)) return
+			if (state === "failed") {
+				await existing.retry("failed")
+				return
+			}
+			await existing.remove()
+		}
+		await billingQueue.add("process", jobData, { jobId, delay: Math.max(0, delayMs) })
 	},
 	async replayDelivery(jobData: SendEmailJobDto, channel: string) {
 		const queue =

@@ -1,5 +1,5 @@
 import { Worker } from "bullmq"
-import { getQueueConnection } from "@/infra/queues/queue.connection.ts"
+import { getQueueConnection, getQueuePrefix } from "@/infra/queues/queue.connection.ts"
 import { sendTimeOptimizationQueue } from "@/infra/queues/sto.queue.ts"
 import { sendTimeOptimizationService } from "@/modules/ai/send-time-optimization.service.ts"
 import { prisma } from "@/infra/database/prisma.ts"
@@ -12,7 +12,7 @@ export const sendTimeOptimizationWorker = new Worker<{ version: 1; workspaceId: 
 		const payload = STOJobSchema.parse(job.data)
 		return sendTimeOptimizationService.recomputeWorkspace(payload.workspaceId)
 	},
-	{ connection: getQueueConnection() },
+	{ connection: getQueueConnection(), prefix: getQueuePrefix() },
 )
 
 sendTimeOptimizationWorker.on("failed", (job, error) =>
