@@ -81,8 +81,10 @@ jobs:
           RENDER_WORKSPACE_ID: ${{ secrets.RENDER_WORKSPACE_ID }}
         run: |
           set -euo pipefail
-          test -n "$RENDER_API_KEY"
-          test -n "$RENDER_WORKSPACE_ID"
+          if [[ -z "$RENDER_API_KEY" || -z "$RENDER_WORKSPACE_ID" ]]; then
+            echo '::notice::Authenticated Render validation is unavailable until RENDER_API_KEY and RENDER_WORKSPACE_ID are configured.'
+            exit 0
+          fi
           render blueprints validate ops/deploy/render.yaml --workspace "$RENDER_WORKSPACE_ID" -o json
 
       # Prisma generates the TypeScript client from schema.prisma.
