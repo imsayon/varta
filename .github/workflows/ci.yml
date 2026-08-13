@@ -33,6 +33,7 @@ jobs:
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 12
     env:
       DATABASE_URL: postgresql://varta:varta-ci-password@localhost:5432/varta
+      DIRECT_URL: postgresql://varta:varta-ci-password@localhost:5432/varta?schema=varta
       REDIS_URL: redis://localhost:6379
       JWT_ACCESS_SECRET: ci-access-secret-at-least-32-characters
       JWT_REFRESH_SECRET: ci-refresh-secret-at-least-32-characters
@@ -60,13 +61,40 @@ jobs:
       - name: Validate Render Blueprint
         run: bash ops/scripts/validate-render-blueprint.sh
 
+      - name: Install Render CLI 2.22.0
+        env:
+          RENDER_CLI_SHA256: 6cdcd11897b7bd7e673317e6f4aaf041b654d818444f3b1efec7240a835f79ec
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/cli_2.22.0_linux_amd64.zip"
+          curl --fail --silent --show-error --location \
+            --output "$archive" \
+            https://github.com/render-oss/cli/releases/download/v2.22.0/cli_2.22.0_linux_amd64.zip
+          printf '%s  %s\n' "$RENDER_CLI_SHA256" "$archive" | sha256sum --check --status
+          unzip -q "$archive" -d "$RUNNER_TEMP/render-cli"
+          install -m 0755 "$RUNNER_TEMP/render-cli/cli_v2.22.0" "$RUNNER_TEMP/render"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Validate Render Blueprint with official CLI
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_WORKSPACE_ID: ${{ secrets.RENDER_WORKSPACE_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$RENDER_API_KEY"
+          test -n "$RENDER_WORKSPACE_ID"
+          render blueprints validate ops/deploy/render.yaml --workspace "$RENDER_WORKSPACE_ID" -o json
+
       # Prisma generates the TypeScript client from schema.prisma.
       # Must run before typechecking since modules import from @prisma/client.
       - name: Generate Prisma client
         run: pnpm --filter @varta/server exec prisma generate
 
-      - name: Initialize disposable integration schema
-        run: pnpm --filter @varta/server exec prisma db push
+      - name: Apply and verify committed migrations
+        run: |
+          pnpm --filter @varta/server exec prisma migrate deploy
+          pnpm --filter @varta/server exec prisma migrate status
+          bash ops/scripts/validate-prisma-drift.sh
 
       - name: Lint client
         run: pnpm --filter @varta/web lint
@@ -90,6 +118,18 @@ jobs:
           RUN_TENANT_DATABASE_TESTS: 'true'
           RUN_NOTIFICATION_QUEUE_TESTS: 'true'
           RUN_CAPACITY_TESTS: 'true'
+          RUN_BILLING_DATABASE_TESTS: 'true'
+          RUN_BILLING_HTTP_TESTS: 'true'
+          RUN_RAZORPAY_CONTRACT_TESTS: 'true'
+          RUN_STO_DATABASE_TESTS: 'true'
+          RAZORPAY_MODE: test
+          RAZORPAY_KEY_ID: rzp_test_ci_fixture
+          RAZORPAY_KEY_SECRET: ci-razorpay-key-secret
+          RAZORPAY_WEBHOOK_SECRET: ci-razorpay-webhook-secret
+          RAZORPAY_WEBHOOK_SECRET_PREVIOUS: ci-razorpay-previous-secret
+          RAZORPAY_PLUS_PLAN_ID_INR: plan_plus_ci_fixture
+          RAZORPAY_BUSINESS_PLAN_ID_INR: plan_business_ci_fixture
+          RAZORPAY_REQUEST_TIMEOUT_MS: '500'
         run: |
           mkdir -p artifacts
           pnpm --filter @varta/server test > artifacts/server-test.tap
@@ -102,6 +142,17 @@ jobs:
 
       - name: Build server
         run: pnpm --filter @varta/server build
+
+      - name: Prove isolated backup restore
+        run: |
+          pg_dump "$DATABASE_URL" --format=custom --no-owner --no-acl --file=artifacts/ci-restore.dump
+          psql postgresql://varta:varta-ci-password@localhost:5432/postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE varta_restore;'
+          pg_restore --dbname=postgresql://varta:varta-ci-password@localhost:5432/varta_restore --no-owner --no-acl artifacts/ci-restore.dump
+          source_count=$(psql "$DATABASE_URL" --tuples-only --no-align -c 'SELECT COUNT(*) FROM varta._prisma_migrations WHERE finished_at IS NOT NULL;')
+          restore_count=$(psql postgresql://varta:varta-ci-password@localhost:5432/varta_restore --tuples-only --no-align -c 'SELECT COUNT(*) FROM varta._prisma_migrations WHERE finished_at IS NOT NULL;')
+          test "$source_count" = "$restore_count"
+          test "$restore_count" -gt 0
+          psql postgresql://varta:varta-ci-password@localhost:5432/varta_restore -v ON_ERROR_STOP=1 -c 'SELECT COUNT(*) FROM varta.workspaces;' -c 'SELECT COUNT(*) FROM varta.notifications;' -c 'SELECT COUNT(*) FROM varta.billing_accounts;'
 
       - name: Seed disposable browser environment
         run: NODE_ENV=test pnpm --dir server exec tsx scripts/e2e-seed.ts
@@ -162,7 +213,10 @@ jobs:
 
       - name: Write build evidence manifest
         run: |
-          node -e "const fs=require('node:fs'); const cp=require('node:child_process'); const crypto=require('node:crypto'); const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'); const image=n=>cp.execFileSync('docker',['image','inspect','--format={{.Id}}',n],{encoding:'utf8'}).trim(); const manifest={commit:cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),node:process.version,pnpm:cp.execFileSync('pnpm',['--version'],{encoding:'utf8'}).trim(),lockSha256:hash('pnpm-lock.yaml'),images:{server:image('varta-server:ci'),client:image('varta-client:ci')},sbomSha256:{server:hash('artifacts/server-sbom.cdx.json'),client:hash('artifacts/client-sbom.cdx.json')},serverDist:fs.existsSync('server/dist'),clientNext:fs.existsSync('client/.next')}; fs.writeFileSync('artifacts/build-manifest.json',JSON.stringify(manifest,null,2)+'\\n')"
+          RELEASE_SERVER_IMAGE=varta-server:ci \
+          RELEASE_CLIENT_IMAGE=varta-client:ci \
+          RELEASE_OPERATION=build \
+          node ops/scripts/write-release-manifest.mjs artifacts/build-manifest.json
 
       - name: Record image subjects
         id: image-subjects

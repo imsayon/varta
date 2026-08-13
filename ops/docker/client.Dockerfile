@@ -23,8 +23,6 @@ ENV HOSTNAME=0.0.0.0
 WORKDIR /app
 
 COPY --from=build /app/client/.next/standalone ./
-COPY --from=build /app/client/.next/static ./client/.next/static
-COPY --from=build /app/client/public ./client/public
 
 RUN addgroup -S varta && adduser -S varta -G varta && chown -R varta:varta /app
 

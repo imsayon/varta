@@ -8,7 +8,7 @@ groups:
           - record: varta:outbox_publication_lag_5m
             expr: avg_over_time(varta_outbox_oldest_eligible_seconds[5m])
           - record: varta:ai_error_ratio_5m
-            expr: sum(rate(varta_ai_requests_total{outcome!="success"}[5m])) / clamp_min(sum(rate(varta_ai_requests_total[5m])), 1)
+            expr: sum(rate(varta_ai_gateway_requests_total{outcome!="success"}[5m])) / clamp_min(sum(rate(varta_ai_gateway_requests_total[5m])), 1)
     - name: varta_operator_alerts
       rules:
           - alert: VartaMetricsTargetMissing
@@ -111,13 +111,63 @@ groups:
                 immediate_action: "Inspect which workspace is generating high AI volume; reduce rate limit if needed"
                 escalation: "Temporarily disable AI_SEND_TIME_OPTIMIZATION_ENABLED or lower AI_REQUESTS_PER_MINUTE"
                 resolution: "Token rate normalized"
+          - alert: VartaAICircuitOpen
+            expr: max by (provider, model) (varta_ai_circuit_open) == 1
+            for: 2m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "AI provider circuit is open"
+                impact: "AI-assisted features are unavailable; deterministic delivery remains available"
+                immediate_action: "Inspect provider errors and keep AI disabled if the outage is sustained"
+                escalation: "Verify notification acceptance remains independent before provider recovery work"
+                resolution: "varta_ai_circuit_open returns to zero"
           - alert: VartaReconciliationLag
-            expr: varta_reconciliation_lag_seconds > 300
+            expr: time() - max(varta_reconciliation_last_success_unixtime) > 900
             for: 5m
             labels: { severity: warning, owner: operator }
             annotations:
-                summary: "Notification reconciliation is more than 5 minutes behind"
+                summary: "Notification reconciliation has not succeeded for 15 minutes"
                 impact: "Stuck or orphaned deliveries may not be repaired automatically"
                 immediate_action: "Inspect reconciliation worker logs and check for database lock contention"
                 escalation: "Trigger manual reconciliation after checking lease state"
-                resolution: "Reconciliation lag below 300s for 5m"
+                resolution: "A successful reconciliation updates the last-success timestamp"
+          - alert: VartaDatabasePoolWaiting
+            expr: max(varta_database_pool_connections{state="waiting"}) > 0
+            for: 5m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "PostgreSQL pool has sustained waiting clients"
+                impact: "API and worker database operations may be saturated"
+                immediate_action: "Inspect slow queries and reduce intake before increasing connection limits"
+                escalation: "Pause bulk traffic if notification acceptance latency is rising"
+                resolution: "Database pool waiting clients return to zero"
+          - alert: VartaBillingInboxLag
+            expr: max(varta_billing_inbox_oldest_pending_seconds) > 300
+            for: 5m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "Billing webhook inbox is delayed"
+                impact: "Verified subscription changes are not reaching local entitlements"
+                immediate_action: "Inspect the billing worker and recover eligible inbox records"
+                escalation: "Run provider reconciliation; never edit entitlement rows directly"
+                resolution: "Oldest processable billing event is below five minutes"
+          - alert: VartaBillingSubscriptionDrift
+            expr: max(varta_billing_subscription_drift) > 0
+            for: 5m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "Razorpay and local subscription state differ"
+                impact: "Customer entitlement may be stale"
+                immediate_action: "Inspect the reconciliation audit record and provider subscription"
+                escalation: "Use the owner/operator reconcile path; do not mutate rows manually"
+                resolution: "A verified reconciliation reports no drift"
+          - alert: VartaBillingWebhookFailures
+            expr: sum(increase(varta_billing_events_total{outcome=~"failed|unauthorized"}[10m])) > 5
+            for: 2m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "Billing webhook verification or processing failures are elevated"
+                impact: "Subscription changes may be delayed or an invalid-signature spike may be occurring"
+                immediate_action: "Separate signature failures from worker failures and inspect correlated event IDs"
+                escalation: "Rotate webhook secrets only through the documented dual-secret window"
+                resolution: "Failure increase remains below threshold for ten minutes"

@@ -12,9 +12,19 @@ COPY server/ ./server/
 WORKDIR /app/server
 RUN pnpm prisma:generate \
   && pnpm build \
-  && pnpm --filter @varta/server deploy --prod --legacy /prod/server \
+  && PNPM_CONFIG_AUTO_INSTALL_PEERS=false PNPM_CONFIG_STRICT_PEER_DEPENDENCIES=false \
+    pnpm --filter @varta/server deploy --prod --legacy /prod/server \
   && cd /prod/server \
-  && /app/server/node_modules/.bin/prisma generate
+  && node -e "const fs=require('node:fs'); const file='package.json'; const manifest=JSON.parse(fs.readFileSync(file,'utf8')); delete manifest.devDependencies; fs.writeFileSync(file, JSON.stringify(manifest, null, 2)+'\\n')" \
+  && PNPM_CONFIG_AUTO_INSTALL_PEERS=false PNPM_CONFIG_STRICT_PEER_DEPENDENCIES=false \
+    PNPM_CONFIG_STRICT_DEP_BUILDS=false \
+    pnpm prune --prod --ignore-scripts \
+  && rm -rf node_modules \
+  && PNPM_CONFIG_AUTO_INSTALL_PEERS=false PNPM_CONFIG_STRICT_PEER_DEPENDENCIES=false \
+    PNPM_CONFIG_STRICT_DEP_BUILDS=false \
+    pnpm install --prod --frozen-lockfile --ignore-scripts \
+  && DIRECT_URL='postgresql://generate:generate@localhost:5432/generate?schema=varta' \
+    /app/server/node_modules/.bin/prisma generate
 
 # RUN
 FROM node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS runtime
@@ -25,7 +35,9 @@ LABEL org.opencontainers.image.source="https://github.com/imsayon/varta"
 ENV NODE_ENV=production
 WORKDIR /app/server
 
-RUN addgroup -S varta && adduser -S varta -G varta
+RUN addgroup -S varta \
+  && adduser -S varta -G varta \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=build /prod/server/ ./
 
