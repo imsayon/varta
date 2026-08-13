@@ -1,14 +1,21 @@
 import { prisma } from "@/infra/database/prisma.ts"
-import argon2 from "argon2"
 import crypto from "node:crypto"
-import type { JsonObject } from "@/common/types/json.ts"
+import { NotFoundError } from "@/common/errors/app-error.ts"
+import { hashToken, verifyToken } from "@/common/utils/auth/token-hash.ts"
+import argon2 from "argon2"
+import { logger } from "@/infra/observability/logger.ts"
 
 export const apiKeyService = {
-	async create(workspaceId: string, name: string, permissions?: JsonObject) {
+	async create(
+		workspaceId: string,
+		name: string,
+		permissions: string[],
+		expiresAt?: Date,
+	) {
 		const rawKey = crypto.randomBytes(32).toString("hex")
 		const prefix = "vt_live_" + crypto.randomBytes(4).toString("hex")
 		const fullKey = prefix + "_" + rawKey
-		const keyHash = await argon2.hash(fullKey)
+		const keyHash = hashToken(fullKey)
 
 		const apiKey = await prisma.apiKey.create({
 			data: {
@@ -16,20 +23,33 @@ export const apiKeyService = {
 				name,
 				prefix,
 				keyHash,
-				...(permissions ? { permissions } : {}),
+				permissions,
+				...(expiresAt ? { expiresAt } : {}),
+			},
+			select: {
+				id: true,
+				name: true,
+				prefix: true,
+				permissions: true,
+				isActive: true,
+				expiresAt: true,
+				createdAt: true,
 			},
 		})
 
 		return { ...apiKey, fullKey }
 	},
 
-	async list(workspaceId: string) {
+	async list(workspaceId: string, skip = 0, take = 101) {
 		return prisma.apiKey.findMany({
 			where: { workspaceId },
+			skip,
+			take,
 			select: {
 				id: true,
 				name: true,
 				prefix: true,
+				permissions: true,
 				isActive: true,
 				createdAt: true,
 				lastUsedAt: true,
@@ -42,27 +62,43 @@ export const apiKeyService = {
 		const prefix = rawKey.split("_").slice(0, 3).join("_")
 
 		const apiKey = await prisma.apiKey.findFirst({
-			where: { prefix, isActive: true },
+			where: {
+				prefix,
+				isActive: true,
+				OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+			},
 		})
 		if (!apiKey) return null
 
-		const isValid = await argon2.verify(apiKey.keyHash, rawKey)
+		const isValid =
+			verifyToken(rawKey, apiKey.keyHash) ||
+			(await argon2.verify(apiKey.keyHash, rawKey).catch(() => false))
+
 		if (!isValid) return null
 
-		// Fire-and-forget timestamp update — not worth blocking the request
-		prisma.apiKey
+		await prisma.apiKey
 			.update({
 				where: { id: apiKey.id },
 				data: { lastUsedAt: new Date() },
 			})
-			.catch(() => {})
+			.catch((error) => logger.warn({ err: error }, "API key last-used update failed"))
 
 		return apiKey
 	},
 
 	async revoke(workspaceId: string, keyId: string) {
-		return prisma.apiKey.delete({
+		const apiKey = await prisma.apiKey.findFirst({
 			where: { id: keyId, workspaceId },
+			select: { id: true },
+		})
+
+		if (!apiKey) {
+			throw new NotFoundError("API key not found")
+		}
+
+		return prisma.apiKey.update({
+			where: { id: apiKey.id },
+			data: { isActive: false },
 		})
 	},
 }

@@ -1,17 +1,20 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import type { Prisma, WorkspaceRole } from "@prisma/client"
+import { assertMemberCapacityTx, linkWorkspaceToBillingAccountTx } from "@/modules/billing/billing.service.ts"
 
 export const workspaceRepository = {
 	async create(data: { name: string; slug: string; ownerId: string }) {
-		return prisma.workspace.create({
-			data: {
-				name: data.name,
-				slug: data.slug,
-				members: {
-					create: { userId: data.ownerId, role: "OWNER" },
+		return prisma.$transaction(async (tx) => {
+			const workspace = await tx.workspace.create({
+				data: {
+					name: data.name,
+					slug: data.slug,
+					members: { create: { userId: data.ownerId, role: "OWNER" } },
 				},
-			},
-			include: { members: true },
+				include: { members: true },
+			})
+			await linkWorkspaceToBillingAccountTx(tx, data.ownerId, workspace.id)
+			return workspace
 		})
 	},
 
@@ -37,27 +40,34 @@ export const workspaceRepository = {
 		})
 	},
 
-	async listMembers(workspaceId: string) {
+	async listMembers(workspaceId: string, skip = 0, take = 101) {
 		return prisma.workspaceMember.findMany({
 			where: { workspaceId },
 			include: {
 				user: { select: { id: true, name: true, email: true } },
 			},
 			orderBy: { createdAt: "asc" },
+			skip,
+			take,
 		})
 	},
 
-	async listByUser(userId: string) {
+	async listByUser(userId: string, skip = 0, take = 101) {
 		return prisma.workspaceMember.findMany({
 			where: { userId },
 			include: { workspace: true },
 			orderBy: { createdAt: "desc" },
+			skip,
+			take,
 		})
 	},
 
 	async addMember(workspaceId: string, userId: string, role: WorkspaceRole) {
-		return prisma.workspaceMember.create({
-			data: { workspaceId, userId, role },
+		return prisma.$transaction(async (tx) => {
+			await assertMemberCapacityTx(tx, workspaceId)
+			return tx.workspaceMember.create({
+				data: { workspaceId, userId, role },
+			})
 		})
 	},
 

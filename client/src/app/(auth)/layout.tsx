@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/shared/auth/auth-context';
 import styles from './AuthLayout.module.css';
 
@@ -36,8 +37,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       <div className={styles.cardWrapper}>
         <div className={styles.brand}>
-          <div className={styles.logoIcon}>V</div>
-          <h1 className={styles.logoText}>Varta</h1>
+          <div className={styles.logoWrap}>
+            <Image src="/varta-logo.png" alt="Varta" width={32} height={32} />
+          </div>
+          <h1 className={styles.logoText}>
+            Varta<span>.</span>
+          </h1>
         </div>
         {children}
       </div>

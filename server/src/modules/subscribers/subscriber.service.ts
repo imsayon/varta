@@ -1,9 +1,15 @@
 import { subscriberRepository } from "./subscriber.repository.ts"
 import type { Prisma } from "@prisma/client"
+import type { DecodedCursor } from "@/common/utils/pagination.ts"
+import { prisma } from "@/infra/database/prisma.ts"
+import { assertSubscriberCapacityTx } from "@/modules/billing/billing.service.ts"
 
 export const subscriberService = {
 	async create(data: Prisma.SubscriberUncheckedCreateInput) {
-		return subscriberRepository.create(data)
+		return prisma.$transaction(async (tx) => {
+			await assertSubscriberCapacityTx(tx, data.workspaceId)
+			return tx.subscriber.create({ data })
+		})
 	},
 
 	async upsert(
@@ -11,7 +17,18 @@ export const subscriberService = {
 		externalId: string,
 		data: Prisma.SubscriberUncheckedCreateInput,
 	) {
-		return subscriberRepository.upsert(workspaceId, externalId, data)
+		return prisma.$transaction(async (tx) => {
+			const existing = await tx.subscriber.findUnique({
+				where: { workspaceId_externalId: { workspaceId, externalId } },
+				select: { id: true },
+			})
+			if (!existing) await assertSubscriberCapacityTx(tx, workspaceId)
+			return tx.subscriber.upsert({
+				where: { workspaceId_externalId: { workspaceId, externalId } },
+				update: { ...data, workspaceId, externalId },
+				create: { ...data, workspaceId, externalId },
+			})
+		})
 	},
 
 	async findByExternalId(workspaceId: string, externalId: string) {
@@ -22,14 +39,14 @@ export const subscriberService = {
 		return subscriberRepository.findById(workspaceId, id)
 	},
 
-	async search(workspaceId: string, skip: number, take: number) {
-		return subscriberRepository.findMany(workspaceId, skip, take)
+	async search(workspaceId: string, take: number, cursor: DecodedCursor | null) {
+		return subscriberRepository.findMany(workspaceId, take, cursor)
 	},
 
 	async update(
 		workspaceId: string,
 		id: string,
-		data: Prisma.SubscriberUncheckedUpdateInput,
+		data: Prisma.SubscriberUpdateManyMutationInput,
 	) {
 		return subscriberRepository.update(workspaceId, id, data)
 	},

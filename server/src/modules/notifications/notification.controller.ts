@@ -8,9 +8,15 @@ import {
 	ForbiddenError,
 } from "@/common/errors/app-error.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
+import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
+import { sendSuccess } from "@/common/utils/response.ts"
+import { parsePaginationQuery } from "@/common/utils/pagination.ts"
+import { decodeCursor, encodeCursor } from "@/common/utils/pagination.ts"
+import type { NotificationStatus } from "@prisma/client"
+import { logger } from "@/infra/observability/logger.ts"
 
 function assertApiKeyWorkspace(req: Request, workspaceId: string) {
-	if (req.apiKey?.workspaceId !== workspaceId) {
+	if (requireWorkspaceCapability(req).workspaceId !== workspaceId) {
 		throw new ForbiddenError("API key does not belong to this workspace")
 	}
 }
@@ -21,18 +27,7 @@ export const trigger = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const workspaceId = req.params.workspaceId
-
-		if (typeof workspaceId !== "string") {
-			throw new Error("Invalid workspace id.")
-		}
-		if (!workspaceId) {
-			res.status(400).json({
-				success: false,
-				message: "Workspace id is required.",
-			})
-			return
-		}
+		const workspaceId = req.params.workspaceId as string
 		assertApiKeyWorkspace(req, workspaceId)
 
 		const idempotencyKey =
@@ -46,10 +41,7 @@ export const trigger = async (
 			body,
 		)
 
-		res.status(202).json({
-			success: true,
-			data: result,
-		})
+		sendSuccess(req, res, result, 202)
 	} catch (err) {
 		next(err)
 	}
@@ -61,39 +53,34 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const workspaceId = req.params.workspaceId
-		const userId = req.user!.id
-
-		if (typeof workspaceId !== "string") {
-			throw new Error("Invalid workspace id.")
-		}
-		if (!workspaceId) {
-			res.status(400).json({
-				success: false,
-				message: "Workspace id is required.",
-			})
-			return
-		}
+		const workspaceId = req.params.workspaceId as string
+		const userId = requireWorkspaceCapability(req).actorId
 		await workspaceService.assertMembership(workspaceId, userId)
 
-		const page = Number(req.query.page ?? 1)
-		const limit = Number(req.query.limit ?? 20)
-		const skip = (page - 1) * limit
+		const { limit, cursor, search } = parsePaginationQuery(req.query as Record<string, unknown>)
+		const decodedCursor = decodeCursor(cursor)
+		const requestedStatus = typeof req.query.status === "string" ? req.query.status : undefined
+		const allowedStatuses = new Set(["PENDING", "ENQUEUED", "PARTIAL", "DELIVERED", "FAILED"])
+		const status = requestedStatus && allowedStatuses.has(requestedStatus)
+			? requestedStatus as NotificationStatus
+			: undefined
 
 		const [notifications, total] = await notificationRepository.findMany(
 			workspaceId,
-			skip,
-			limit,
+			{ ...(decodedCursor ? { cursorId: decodedCursor.id } : {}), take: limit + 1, ...(status ? { status } : {}), ...(search ? { search } : {}) },
 		)
+		const hasMore = notifications.length > limit
+		const items = hasMore ? notifications.slice(0, limit) : notifications
+		const last = items.at(-1)
+		const nextCursor = hasMore && last
+			? encodeCursor({ id: last.id, createdAt: last.createdAt.toISOString() })
+			: null
 
-		res.status(200).json({
-			success: true,
-			data: {
-				notifications,
-				total,
-				page,
-				limit,
-			},
+		sendSuccess(req, res, items, 200, {
+			cursor: nextCursor,
+			limit,
+			total,
+			hasMore,
 		})
 	} catch (err) {
 		next(err)
@@ -106,24 +93,9 @@ export const getById = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const workspaceId = req.params.workspaceId
-		const userId = req.user!.id
-
-		if (typeof workspaceId !== "string") {
-			throw new Error("Invalid workspace id.")
-		}
-		const notificationId = req.params.notificationId
-
-		if (typeof notificationId !== "string") {
-			throw new Error("Invalid workspace id.")
-		}
-		if (!workspaceId || !notificationId) {
-			res.status(400).json({
-				success: false,
-				message: "Workspace id and notification id are required.",
-			})
-			return
-		}
+		const workspaceId = req.params.workspaceId as string
+		const notificationId = req.params.notificationId as string
+		const userId = requireWorkspaceCapability(req).actorId
 		await workspaceService.assertMembership(workspaceId, userId)
 
 		const notification = await notificationRepository.findById(
@@ -132,24 +104,31 @@ export const getById = async (
 		)
 
 		if (!notification) {
-			res.status(404).json({
-				success: false,
-				message: "Notification not found.",
-			})
-			return
+			throw new NotFoundError("Notification not found")
 		}
 
-		res.status(200).json({
-			success: true,
-			data: notification,
-		})
+		sendSuccess(req, res, notification)
 	} catch (err) {
 		next(err)
 	}
 }
 
-// Re-enqueues a FAILED notification through the full orchestrator pipeline.
-// Uses a fresh idempotency key so the retry is treated as a new delivery attempt.
+export const markRead = async (
+	req: Request,
+	res: Response,
+	next: NextFunction,
+): Promise<void> => {
+	try {
+		const workspaceId = req.params.workspaceId as string
+		const notificationId = req.params.notificationId as string
+		await workspaceService.assertMembership(workspaceId, requireWorkspaceCapability(req).actorId)
+		const notification = await notificationRepository.markRead(workspaceId, notificationId)
+		sendSuccess(req, res, notification)
+	} catch (error) {
+		next(error)
+	}
+}
+
 export const retry = async (
 	req: Request,
 	res: Response,
@@ -167,16 +146,23 @@ export const retry = async (
 		}
 
 		const result = await notificationOrchestrator.triggerNotification(
-			workspaceId!,
-			crypto.randomUUID(), // fresh key — bypasses idempotency for explicit retry
+			workspaceId,
+			crypto.randomUUID(),
 			{
 				templateId: notification.templateId,
 				subscriberExternalId: notification.subscriber.externalId,
 				payload: (notification.triggerPayload as Record<string, unknown>) ?? {},
 			},
 		)
+		logger.info({
+			event: "notification.retry",
+			workspaceId,
+			notificationId,
+			retryNotificationId: result.notificationId,
+			actorId: requireWorkspaceCapability(req).actorId,
+		}, "Notification retry accepted")
 
-		res.status(202).json({ success: true, data: result })
+		sendSuccess(req, res, result, 202)
 	} catch (err) {
 		next(err)
 	}

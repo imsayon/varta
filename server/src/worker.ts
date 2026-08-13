@@ -1,0 +1,132 @@
+import "dotenv/config"
+import "./infra/observability/tracing.ts"
+import { createServer } from "node:http"
+import { env } from "./common/config/env.ts"
+import { logger } from "@/infra/observability/logger.ts"
+import { disconnectDatabase, prisma } from "@/infra/database/prisma.ts"
+import { connectRedis, disconnectRedis, redis } from "@/infra/redis/redis.connection.ts"
+import {
+	startWorkers,
+	stopWorkers,
+	workerState,
+} from "@/infra/workers/worker.bootstrap.ts"
+import { metricsRegistry, observeDatabasePool } from "@/infra/observability/metrics.ts"
+import { getDatabasePoolStats } from "@/infra/database/prisma.ts"
+import { stopTracing } from "@/infra/observability/tracing.ts"
+import { closeQueues } from "@/infra/queues/queue.factory.ts"
+import {
+	closeHttpServer,
+	listen,
+	shutdownResources,
+} from "@/runtime/shutdown.ts"
+import { beginDrain, lifecycleState, markStarted } from "@/runtime/lifecycle.ts"
+
+async function databaseReady(): Promise<boolean> {
+	let timer: NodeJS.Timeout | undefined
+	try {
+		return await Promise.race([
+			prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
+			new Promise<boolean>((resolve) => {
+				timer = setTimeout(() => resolve(false), 1_000)
+			}),
+		])
+	} finally {
+		if (timer) clearTimeout(timer)
+	}
+}
+
+const metricsServer = createServer(async (req, res) => {
+	if (req.url === "/health/live") {
+		res.writeHead(200, { "content-type": "application/json" }).end(
+			JSON.stringify({ status: "ok" }),
+		)
+		return
+	}
+	if (req.url === "/health/ready") {
+		const database = await databaseReady()
+		const ready = workerState.status === "ready" && redis.isReady && database && lifecycleState.started && !lifecycleState.draining
+		res.writeHead(ready ? 200 : 503, {
+			"content-type": "application/json",
+		}).end(JSON.stringify({
+			status: ready ? "ok" : "not_ready",
+			checks: {
+				worker: workerState.status,
+				database: database ? "ok" : "failed",
+				redis: redis.isReady ? "ok" : "failed",
+			},
+		}))
+		return
+	}
+	if (req.url === "/health/startup") {
+		const started = lifecycleState.started
+		res.writeHead(started ? 200 : 503, {
+			"content-type": "application/json",
+		}).end(JSON.stringify({ status: started ? "started" : "starting" }))
+		return
+	}
+	if (req.url === "/metrics") {
+		observeDatabasePool(getDatabasePoolStats())
+		res.writeHead(200, { "content-type": metricsRegistry.contentType })
+		res.end(await metricsRegistry.metrics())
+		return
+	}
+	res.writeHead(404).end()
+})
+
+try {
+	await connectRedis()
+	await startWorkers()
+	await listen(metricsServer, env.METRICS_PORT)
+	markStarted()
+	logger.info({ port: env.METRICS_PORT }, "Worker metrics server started")
+	logger.info({ service: "varta-worker" }, "Worker process started")
+} catch (error: unknown) {
+	logger.fatal({ err: error }, "Worker startup failed")
+	const result = await shutdownResources(
+		[
+			[() => closeHttpServer(metricsServer)],
+			[() => stopWorkers()],
+			[() => closeQueues()],
+			[
+				() => disconnectDatabase(),
+				() => disconnectRedis(),
+			],
+			[() => stopTracing()],
+		],
+		env.SHUTDOWN_TIMEOUT_MS,
+	)
+	if (result.timedOut) process.exit(1)
+	process.exitCode = 1
+}
+
+let shuttingDown = false
+async function gracefulShutdown(signal: string): Promise<void> {
+	if (shuttingDown) return
+	shuttingDown = true
+	beginDrain()
+	logger.info({ signal }, "Worker shutdown started")
+	const result = await shutdownResources(
+		[
+			[() => closeHttpServer(metricsServer)],
+			[() => stopWorkers()],
+			[() => closeQueues()],
+			[
+				() => disconnectDatabase(),
+				() => disconnectRedis(),
+			],
+			[() => stopTracing()],
+		],
+		env.SHUTDOWN_TIMEOUT_MS,
+	)
+	if (result.failures.length > 0)
+		logger.error({ failures: result.failures }, "Worker shutdown encountered errors")
+	if (result.timedOut) {
+		logger.error("Worker shutdown timed out")
+		process.exit(1)
+	}
+	logger.info("Worker shutdown complete")
+	process.exit(0)
+}
+
+process.once("SIGINT", () => void gracefulShutdown("SIGINT"))
+process.once("SIGTERM", () => void gracefulShutdown("SIGTERM"))

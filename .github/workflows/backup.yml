@@ -1,0 +1,39 @@
+name: Encrypted database backup
+
+on:
+  schedule:
+    - cron: '17 20 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Validate backup configuration
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+        run: test -n "$DATABASE_URL" && test -n "$BACKUP_AGE_RECIPIENT"
+      - name: Create and encrypt logical export
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+        run: |
+          mkdir -p artifacts
+          docker run --rm pgvector/pgvector:pg16@sha256:a36250871de0833b8757561c72f2477ef1ddd1101afa4e617fb552e0de514c6b pg_dump "$DATABASE_URL" --format=custom --no-owner --no-acl > artifacts/varta.dump
+          sudo apt-get update -qq && sudo apt-get install -y -qq age
+          age --recipient "$BACKUP_AGE_RECIPIENT" --output artifacts/varta.dump.age artifacts/varta.dump
+          sha256sum artifacts/varta.dump.age > artifacts/varta.dump.age.sha256
+          rm artifacts/varta.dump
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: varta-db-backup-${{ github.run_id }}
+          path: artifacts/varta.dump.age*
+          retention-days: 30
+          if-no-files-found: error

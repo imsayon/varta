@@ -1,485 +1,786 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { motion, useInView } from 'framer-motion';
-import {
-  Check,
-  GitBranch,
-  Mail,
-  Smartphone,
-  Webhook,
-  Zap,
-  Settings,
-  MessageSquare,
-  Globe,
-  ArrowRight,
-  ChevronRight,
-  Bell,
-  Shield,
-  BarChart3,
-  Layers,
-} from 'lucide-react';
 import styles from './LandingPage.module.css';
 
-/* ─── Pricing ─── */
-const plans = [
-  {
-    name: 'Starter',
-    price: '$0',
-    period: '/forever',
-    desc: 'Perfect for side projects and learning.',
-    features: ['1,000 notifications/mo', '2 channels', 'Community support', 'Basic analytics'],
-    btnLabel: 'Start Free',
-    featured: false,
-  },
-  {
-    name: 'Pro',
-    price: '$29',
-    period: '/month',
-    desc: 'For growing products that need scale.',
-    features: ['50,000 notifications/mo', 'Unlimited channels', 'AI Smart Timing', 'Priority support'],
-    btnLabel: 'Start Pro Trial',
-    featured: true,
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    period: '',
-    desc: 'Self-hosted deployments with SLA.',
-    features: ['Unlimited notifications', 'Self-hosted option', 'Custom SLA', 'Dedicated support'],
-    btnLabel: 'Contact Sales',
-    featured: false,
-  },
-];
+// ─── SVG ICONS ─────────────────────────────────────────────────────────────
 
-/* ─── Feature Data for Scroll-Spy ─── */
-const features = [
-  {
-    id: 'omnichannel',
-    title: 'Omnichannel Delivery',
-    desc: 'Route notifications through Email, SMS, Push, In-App, and Chat — with automatic fallback chains. If push fails, cascade to email, then SMS.',
-    icon: GitBranch,
-    accent: '#38bdf8',
-  },
-  {
-    id: 'workflows',
-    title: 'Visual Workflow Engine',
-    desc: 'Design complex notification DAGs with our drag-and-drop builder. Conditional branching, delays, and A/B testing — all without code.',
-    icon: Layers,
-    accent: '#818cf8',
-  },
-  {
-    id: 'smart-timing',
-    title: 'AI Smart Timing',
-    desc: 'Deliver messages when users are most likely to engage. Our ML model learns optimal send windows per subscriber, per channel.',
-    icon: Zap,
-    accent: '#2dd4bf',
-  },
-  {
-    id: 'analytics',
-    title: 'Delivery Analytics',
-    desc: 'Track every notification lifecycle — from trigger to open. Real-time dashboards with delivery rates, latency percentiles, and engagement metrics.',
-    icon: BarChart3,
-    accent: '#f59e0b',
-  },
-  {
-    id: 'security',
-    title: 'Enterprise Security',
-    desc: 'AES-256 encrypted provider credentials, JWT authentication, workspace isolation, and audit logs. SOC2-ready architecture out of the box.',
-    icon: Shield,
-    accent: '#f43f5e',
-  },
-];
+type SvgProps = React.SVGProps<SVGSVGElement> & { size?: number };
 
-/* ─── Pipeline Steps ─── */
-const pipelineSteps = [
-  { label: 'Event Triggered', icon: Bell },
-  { label: 'Rule Engine', icon: Settings },
-  { label: 'Smart Timing', icon: Zap },
-];
+const Icons = {
+  ArrowRight: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 16 16" fill="none" {...p}>
+      <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Check: (p: SvgProps) => (
+    <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 14 14" fill="none" {...p}>
+      <path d="M3 7l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Bolt: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 20 20" fill="none" {...p}>
+      <path d="M11 2L4 11h5l-1 7 7-9h-5l1-7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  GitBranch: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 20 20" fill="none" {...p}>
+      <circle cx="5" cy="5" r="2" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="5" cy="15" r="2" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="15" cy="5" r="2" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M5 7v6M7 5h4a2 2 0 012 2v0a2 2 0 01-2 2H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  ),
+  Clock: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 16 16" fill="none" {...p}>
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M8 4v4l3 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  ),
+  Queue: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 20 20" fill="none" {...p}>
+      <rect x="2" y="4" width="16" height="3" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="2" y="9" width="12" height="3" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="2" y="14" width="8" height="3" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>
+  ),
+  Mail: (p: SvgProps) => (
+    <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 16 16" fill="none" {...p}>
+      <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M2 5l6 4 6-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  ),
+  Bell: (p: SvgProps) => (
+    <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 16 16" fill="none" {...p}>
+      <path d="M6 13a2 2 0 004 0M4 6a4 4 0 018 0c0 3 1.5 5 2 5.5H2c.5-.5 2-2.5 2-5z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Phone: (p: SvgProps) => (
+    <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 16 16" fill="none" {...p}>
+      <rect x="4" y="1" width="8" height="14" rx="2" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M7 12h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  ),
+  Webhook: (p: SvgProps) => (
+    <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 16 16" fill="none" {...p}>
+      <circle cx="4" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="12" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="8" cy="13" r="2" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M4 6v2a4 4 0 004 4M12 6v2a4 4 0 01-4 4" stroke="currentColor" strokeWidth="1.3"/>
+    </svg>
+  ),
+  Github: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 18 18" fill="currentColor" {...p}>
+      <path d="M9 1C4.58 1 1 4.58 1 9c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0017 9c0-4.42-3.58-8-8-8z"/>
+    </svg>
+  ),
+  Server: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 20 20" fill="none" {...p}>
+      <rect x="3" y="2" width="14" height="6" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="3" y="12" width="14" height="6" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+      <circle cx="6" cy="5" r="1" fill="currentColor"/>
+      <circle cx="6" cy="15" r="1" fill="currentColor"/>
+    </svg>
+  ),
+  Shield: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 20 20" fill="none" {...p}>
+      <path d="M10 2l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V5l7-3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <path d="M7 10l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Layers: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 20 20" fill="none" {...p}>
+      <path d="M10 2l8 4.5-8 4.5L2 6.5 10 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      <path d="M2 10l8 4.5L18 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2 13.5l8 4.5 8-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Activity: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 20 20" fill="none" {...p}>
+      <polyline points="2,12 6,6 10,14 14,8 18,10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  CheckCircle: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 20 20" fill="none" {...p}>
+      <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M6.5 10l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Terminal: (p: SvgProps) => (
+    <svg width={p.size ?? 16} height={p.size ?? 16} viewBox="0 0 16 16" fill="none" {...p}>
+      <rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M4 6l3 2-3 2M8 10h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+};
 
-const channels = [
-  { label: 'Email', icon: Mail },
-  { label: 'Push', icon: Smartphone },
-  { label: 'In-App', icon: MessageSquare },
-  { label: 'Webhook', icon: Webhook },
-];
+// ─── PULSE DOT ─────────────────────────────────────────────────────────────
 
-/* ─── Animated Section Wrapper ─── */
-function AnimatedSection({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-80px' });
+function PulseDot({ color = '#ff6b35', size = 6 }: { color?: string; size?: number }) {
   return (
-    <motion.div
-      ref={ref}
-      className={className}
-      initial={{ opacity: 0, y: 40 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.7, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
-    >
-      {children}
-    </motion.div>
+    <span className={styles.pulseDotWrap} style={{ width: size, height: size }}>
+      <span className={styles.pulseDotCore} style={{ background: color }} />
+      <span className={styles.pulseDotRing} style={{ background: color }} />
+    </span>
   );
 }
 
-export default function LandingPage() {
-  const [activeFeature, setActiveFeature] = useState(0);
-  const featureRefs = useRef<(HTMLDivElement | null)[]>([]);
+// ─── PACKET TRACK ──────────────────────────────────────────────────────────
 
-  /* Scroll-spy for sticky sidebar */
+function PacketTrack({ delay = 0 }: { delay?: number }) {
+  return (
+    <div className={styles.packetTrack}>
+      {[0, 0.8, 1.6].map((d, i) => (
+        <div
+          key={i}
+          className={styles.packet}
+          style={{
+            background: i === 0 ? '#e74c3c' : i === 1 ? '#e67e22' : '#f39c12',
+            boxShadow: `0 0 8px ${i === 0 ? '#e74c3c' : i === 1 ? '#e67e22' : '#f39c12'}`,
+            animationDelay: `${delay + d}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── WAVEFORM ──────────────────────────────────────────────────────────────
+
+function Waveform({ bars = 12 }: { bars?: number }) {
+  return (
+    <div className={styles.waveform}>
+      {Array.from({ length: bars }).map((_, i) => (
+        <div key={i} className={styles.waveBar} style={{ animationDelay: `${i * 0.08}s` }} />
+      ))}
+    </div>
+  );
+}
+
+// ─── SECTION REVEAL ────────────────────────────────────────────────────────
+
+function Reveal({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const idx = featureRefs.current.indexOf(entry.target as HTMLDivElement);
-            if (idx !== -1) setActiveFeature(idx);
-          }
-        });
-      },
-      { rootMargin: '-40% 0px -40% 0px', threshold: 0.1 }
-    );
-
-    featureRefs.current.forEach((ref) => {
-      if (ref) observer.observe(ref);
-    });
-
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { el.classList.add(styles.revealed); observer.disconnect(); }
+    }, { threshold: 0.1, rootMargin: '-60px' });
+    observer.observe(el);
     return () => observer.disconnect();
   }, []);
+  return <div ref={ref} className={`${styles.reveal} ${className}`}>{children}</div>;
+}
+
+// ─── MAIN APP ──────────────────────────────────────────────────────────────
+
+export default function LandingPage() {
+  const [mousePos, setMousePos] = useState({ x: -9999, y: -9999 });
+  const [navScrolled, setNavScrolled] = useState(false);
+
+  useEffect(() => {
+    const onMouse = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY });
+    const onScroll = () => setNavScrolled(window.scrollY > 20);
+    window.addEventListener('mousemove', onMouse);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { window.removeEventListener('mousemove', onMouse); window.removeEventListener('scroll', onScroll); };
+  }, []);
+
+  const queueItems = [
+    { id: 'evt-8821', event: 'user.signup', channel: 'EMAIL', priority: 'high', attempts: '1/3', status: 'processing' },
+    { id: 'evt-8820', event: 'payment.success', channel: 'PUSH', priority: 'high', attempts: '1/1', status: 'delivered' },
+    { id: 'evt-8819', event: 'order.shipped', channel: 'SMS', priority: 'medium', attempts: '2/3', status: 'retrying' },
+    { id: 'evt-8818', event: 'trial.expiring', channel: 'EMAIL', priority: 'medium', attempts: '0/3', status: 'queued' },
+    { id: 'evt-8817', event: 'workspace.invite', channel: 'WEBHOOK', priority: 'low', attempts: '1/3', status: 'processing' },
+  ];
 
   return (
-    <div className={styles.page}>
-      {/* Background layers */}
-      <div className={styles.glowOrb} />
-      <div className={styles.glowOrbSecondary} />
-      <div className={styles.gridOverlay} />
-      <div className={styles.watermark}>वार्तालाप</div>
+    <div className={styles.container}>
+      {/* CURSOR GLOW */}
+      <div
+        className={styles.cursorGlow}
+        style={{
+          background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(192,57,43,0.04), transparent 60%)`,
+        }}
+      />
 
-      <div className={styles.content}>
-        {/* ═══════════ NAVIGATION ═══════════ */}
-        <nav className={styles.nav}>
-          <div className={styles.navInner}>
-            <Link href="/" className={styles.brand}>
-              <div className={styles.logo}>V</div>
-              <span className={styles.logoText}>Varta</span>
+      {/* ─── NAV ─── */}
+      <nav className={`${styles.nav} ${navScrolled ? styles.navScrolled : ''}`}>
+        <div className={styles.navInner}>
+          <Link href="/" className={styles.navLogo}>
+            <div className={styles.navLogoMark}>V</div>
+            <span className={styles.logoText}>Varta</span>
+          </Link>
+          <ul className={styles.navLinks}>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how-it-works">How It Works</a></li>
+          </ul>
+          <div className={styles.navActions}>
+            <Link href="/login" className={styles.btnGhost}>Sign In</Link>
+            <Link href="/login" className={styles.btnPrimary}>
+              Get Started <Icons.ArrowRight size={13} />
             </Link>
-
-            <div className={styles.navLinks}>
-              <Link href="#features">Features</Link>
-              <Link href="#pipeline">How It Works</Link>
-              <Link href="#pricing">Pricing</Link>
-              <Link href="/docs">Docs</Link>
-            </div>
-
-            <div className={styles.navActions}>
-              <Link href="/login" className={styles.signInBtn}>Sign In</Link>
-              <Link href="/signup" className={styles.ctaSmall}>
-                Get Started <ArrowRight size={14} />
-              </Link>
-            </div>
           </div>
-        </nav>
+        </div>
+      </nav>
 
-        {/* ═══════════ HERO ═══════════ */}
-        <header className={styles.hero}>
-          <motion.div
-            className={styles.heroInner}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
-          >
-            <div className={styles.heroBadge}>
-              <span className={styles.badgeDot} />
-              <span>Varta 2.0 — Now Open Source</span>
-              <ChevronRight size={14} />
+      {/* ─── HERO ─── */}
+      <section className={styles.hero}>
+        {/* Grid background */}
+        <div className={styles.heroGrid} />
+        {/* Gradient orbs */}
+        <div className={styles.heroOrb1} />
+        <div className={styles.heroOrb2} />
+
+        <div className={styles.heroInner}>
+          {/* Left */}
+          <div className={styles.heroLeft}>
+            <div className={styles.heroTag}>
+              <PulseDot color="#ff6b35" size={6} />
+              <span>Open-source infrastructure</span>
             </div>
 
-            <h1 className={styles.heroTitle}>
-              The Notification Infrastructure{' '}
-              <span className={styles.heroGradient}>Built for Scale</span>
+            <h1 className={styles.heroHeadline}>
+              <span className={styles.heroAccent}>Varta.</span><br />
+              Notification infra<br />
+              built for ops.
             </h1>
 
             <p className={styles.heroSub}>
-              Open-source, omnichannel notifications with intelligent routing,
-              real-time delivery, and actionable analytics — all self-hostable.
+              Varta accepts application events durably, applies deterministic routing, and delivers
+              through email, in-app, and webhook channels with bounded retries and evidence.
             </p>
 
-            <div className={styles.heroCtas}>
-              <Link href="/signup" className={styles.ctaPrimary}>
-                Start Building Free <ArrowRight size={16} />
+            <div className={styles.heroActions}>
+              <Link href="/login" className={styles.btnLarge}>
+                Start Building Free <Icons.ArrowRight size={14} />
               </Link>
-              <Link href="/docs" className={styles.ctaSecondary}>
-                Read the Docs
-              </Link>
-            </div>
-          </motion.div>
-        </header>
-
-        {/* ═══════════ BENTO SHOWCASE (3 cool components) ═══════════ */}
-        <section className={styles.showcase}>
-          <AnimatedSection className={styles.bentoRow}>
-            {/* Integrations Galaxy */}
-            <div className={`${styles.bentoCard} ${styles.bentoWide}`}>
-              <div className={styles.bentoLabel}>
-                <h3>Integrations Galaxy</h3>
-                <p>Connect any provider in seconds. Email, SMS, Push, Chat — all unified.</p>
-              </div>
-              <div className={styles.galaxyWrap}>
-                <div className={styles.galaxyRing} />
-                <div className={styles.galaxyRingOuter} />
-                <div className={styles.galaxyCenter}>V</div>
-                <div className={`${styles.galaxyNode} ${styles.gn1}`}><Mail size={16} /></div>
-                <div className={`${styles.galaxyNode} ${styles.gn2}`}><Smartphone size={16} /></div>
-                <div className={`${styles.galaxyNode} ${styles.gn3}`}><MessageSquare size={16} /></div>
-                <div className={`${styles.galaxyNode} ${styles.gn4}`}><Webhook size={16} /></div>
-                <div className={`${styles.galaxyNode} ${styles.gn5}`}><Globe size={16} /></div>
-              </div>
+              <a href="#how-it-works" className={styles.btnOutlineLarge}>How it works</a>
             </div>
 
-            {/* Code Preview */}
-            <div className={styles.bentoCard}>
-              <div className={styles.bentoLabel}>
-                <h3>Code-First Config</h3>
-                <p>Define everything as code. Version-controlled, reviewable, deployable.</p>
+            <div className={styles.heroStats}>
+              <div className={styles.heroStat}>
+                <span className={styles.heroStatValue}>
+                  Durable
+                </span>
+                <span className={styles.heroStatLabel}>database acceptance</span>
               </div>
-              <div className={styles.codeBlock}>
-                <div className={styles.codeBar}>
-                  <div className={styles.codeDots}>
-                    <span className={styles.dotRed} />
-                    <span className={styles.dotYellow} />
-                    <span className={styles.dotGreen} />
-                  </div>
-                  <span className={styles.codeFilename}>varta.config.ts</span>
-                </div>
-                <pre className={styles.codeContent}>
-                  <code>{`import { defineConfig } from 'varta';
-
-export default defineConfig({
-  channels: {
-    email: { provider: 'resend' },
-    push:  { provider: 'fcm' },
-    inApp: { provider: 'varta' },
-  },
-  fallback: ['push', 'email', 'sms'],
-  retry: { maxAttempts: 3 },
-});`}</code>
-                </pre>
+              <div className={styles.heroStat}>
+                <span className={styles.heroStatValue} style={{ color: 'var(--color-primary-400)' }}>Bounded</span>
+                <span className={styles.heroStatLabel}>retry policy</span>
+              </div>
+              <div className={styles.heroStat}>
+                <span className={styles.heroStatValue} style={{ color: 'var(--color-amber)' }}>3</span>
+                <span className={styles.heroStatLabel}>verified channels</span>
               </div>
             </div>
-          </AnimatedSection>
-
-          <AnimatedSection className={styles.bentoRow} delay={0.15}>
-            {/* Real-time Inbox */}
-            <div className={styles.bentoCard}>
-              <div className={styles.bentoLabel}>
-                <h3>Real-time Inbox</h3>
-                <p>WebSocket-powered in-app notifications with sub-50ms delivery.</p>
-              </div>
-              <div className={styles.inbox}>
-                <div className={styles.inboxHeader}>
-                  <Bell size={14} />
-                  <span>Notifications</span>
-                  <span className={styles.inboxCount}>3</span>
-                </div>
-                <div className={styles.inboxItem}>
-                  <div className={`${styles.inboxDot} ${styles.dotBlue}`} />
-                  <div className={styles.inboxBody}>
-                    <strong>Deployment successful</strong>
-                    <span>Production v2.4.1 deployed — 2 min ago</span>
-                  </div>
-                </div>
-                <div className={styles.inboxItem}>
-                  <div className={`${styles.inboxDot} ${styles.dotPurple}`} />
-                  <div className={styles.inboxBody}>
-                    <strong>New subscriber</strong>
-                    <span>user@acme.co joined workspace — 15 min ago</span>
-                  </div>
-                </div>
-                <div className={styles.inboxItem}>
-                  <div className={`${styles.inboxDot} ${styles.dotCyan}`} />
-                  <div className={styles.inboxBody}>
-                    <strong>Workflow triggered</strong>
-                    <span>welcome-flow executed for 142 users — 1 hr ago</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Card */}
-            <div className={`${styles.bentoCard} ${styles.bentoWide}`}>
-              <div className={styles.bentoLabel}>
-                <h3>Built for Throughput</h3>
-                <p>Enterprise-grade performance metrics from day one.</p>
-              </div>
-              <div className={styles.statsGrid}>
-                <div className={styles.statItem}>
-                  <span className={styles.statNumber}>50ms</span>
-                  <span className={styles.statLabel}>p99 Latency</span>
-                </div>
-                <div className={styles.statItem}>
-                  <span className={styles.statNumber}>99.9%</span>
-                  <span className={styles.statLabel}>Delivery Rate</span>
-                </div>
-                <div className={styles.statItem}>
-                  <span className={styles.statNumber}>10M+</span>
-                  <span className={styles.statLabel}>Notifications/Day</span>
-                </div>
-                <div className={styles.statItem}>
-                  <span className={styles.statNumber}>5</span>
-                  <span className={styles.statLabel}>Channels</span>
-                </div>
-              </div>
-            </div>
-          </AnimatedSection>
-        </section>
-
-        {/* ═══════════ PIPELINE FLOW ═══════════ */}
-        <AnimatedSection>
-          <section className={styles.pipeline} id="pipeline">
-            <div className={styles.sectionHead}>
-              <h2>How Varta Works</h2>
-              <p>From event trigger to delivery — a unified, intelligent pipeline.</p>
-            </div>
-            <div className={styles.pipelineFlow}>
-              {pipelineSteps.map((step, i) => (
-                <div key={i} className={styles.pipelineStep}>
-                  <div className={styles.pipelineIcon}><step.icon size={20} /></div>
-                  <span>{step.label}</span>
-                  {i < pipelineSteps.length - 1 && (
-                    <div className={styles.pipelineArrow}>
-                      <div className={styles.arrowDots} />
-                      <ArrowRight size={14} />
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className={styles.pipelineFan}>
-                <div className={styles.fanLines}>
-                  {channels.map((_, i) => (
-                    <div key={i} className={styles.fanLine} style={{ '--fan-index': i } as React.CSSProperties} />
-                  ))}
-                </div>
-                <div className={styles.channelGrid}>
-                  {channels.map((ch, i) => (
-                    <div key={i} className={styles.channelChip}>
-                      <ch.icon size={14} />
-                      <span>{ch.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        </AnimatedSection>
-
-        {/* ═══════════ FEATURES — STICKY SCROLL-SPY ═══════════ */}
-        <section className={styles.features} id="features">
-          <div className={styles.sectionHead}>
-            <h2>Everything You Need</h2>
-            <p>A complete notification platform, not just another API wrapper.</p>
           </div>
 
-          <div className={styles.featuresSplit}>
-            {/* Sticky sidebar */}
-            <div className={styles.featuresSidebar}>
-              <div className={styles.featureNav}>
-                {features.map((f, i) => (
-                  <button
-                    key={f.id}
-                    className={`${styles.featureNavItem} ${activeFeature === i ? styles.featureNavActive : ''}`}
-                    onClick={() => {
-                      featureRefs.current[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }}
-                    style={{ '--accent': f.accent } as React.CSSProperties}
-                  >
-                    <f.icon size={18} />
-                    <span>{f.title}</span>
-                  </button>
+          {/* Right — Orchestration Panel */}
+          <div className={styles.heroRight}>
+            <div className={styles.orchestrationPanel}>
+              {/* Titlebar */}
+              <div className={styles.panelTitlebar}>
+                <div className={styles.panelDots}>
+                  <div className={styles.panelDot} style={{ background: '#FF5F57' }} />
+                  <div className={styles.panelDot} style={{ background: '#FEBC2E' }} />
+                  <div className={styles.panelDot} style={{ background: '#28C840' }} />
+                </div>
+                <span className={styles.panelFilename}>notification-run.ts</span>
+                <div className={styles.panelLiveBadge}>
+                  <PulseDot color="#e74c3c" size={4} />
+                  LIVE
+                </div>
+              </div>
+
+              <div className={styles.panelBody}>
+                {/* Incoming event */}
+                <div className={styles.eventBlock}>
+                  <div className={styles.eventLabel}>▸ INCOMING EVENT</div>
+                  <div className={styles.eventName}>user.payment_failed</div>
+                  <div className={styles.eventDesc}>
+                    Workspace rule matched. Fan-out prepared for email, in-app, and webhook delivery.
+                  </div>
+                </div>
+
+                <PacketTrack delay={0} />
+
+                {/* Pipeline steps */}
+                <div className={styles.pipelineSteps}>
+                  {[
+                    { Icon: Icons.Bolt, color: '#e74c3c', bg: 'rgba(192,57,43,0.15)', title: 'Event ingested & normalized', desc: 'Schema validated. Workspace rules applied.', badge: '12ms', active: true },
+                    { Icon: Icons.GitBranch, color: '#e67e22', bg: 'rgba(211,84,0,0.15)', title: 'Rule match: dunning-v2', desc: 'Email and in-app channels selected.', badge: 'matched', active: true },
+                    { Icon: Icons.Clock, color: '#f39c12', bg: 'rgba(243,156,18,0.15)', title: 'Schedule evaluated', desc: 'Requested schedule and deterministic fallback applied.', badge: 'ready', active: true },
+                    { Icon: Icons.Queue, color: '#27ae60', bg: 'rgba(39,174,96,0.15)', title: 'Durably accepted', desc: 'Delivery work recorded before queue publication.', badge: 'queued', active: false },
+                  ].map((s, i) => (
+                    <div key={i} className={`${styles.pipelineStep} ${s.active ? styles.stepActive : ''}`}>
+                      <div className={styles.stepIcon} style={{ background: s.bg }}>
+                        <s.Icon size={13} style={{ color: s.color }} />
+                      </div>
+                      <div className={styles.stepInfo}>
+                        <div className={styles.stepTitle}>{s.title}</div>
+                        <div className={styles.stepDesc}>{s.desc}</div>
+                      </div>
+                      <span className={`${styles.stepBadge} ${!s.active ? styles.stepBadgePending : ''}`}>{s.badge}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <PacketTrack delay={0.4} />
+
+                {/* Channels */}
+                <div className={styles.channelRow}>
+                  {[
+                    { Icon: Icons.Mail, label: 'Email' },
+                    { Icon: Icons.Bell, label: 'Push' },
+                    { Icon: Icons.Phone, label: 'SMS' },
+                    { Icon: Icons.Webhook, label: 'Webhook' },
+                  ].map(({ Icon, label }) => (
+                    <div key={label} className={styles.channelChip}>
+                      <Icon size={12} /> {label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Meta row */}
+                <div className={styles.panelMetaRow}>
+                  <div className={styles.panelMetaCard}>
+                    <div className={styles.panelMetaLabel}>Fallback chain</div>
+                    <div className={styles.panelMetaValue}>Push → Email → SMS</div>
+                  </div>
+                  <div className={styles.panelMetaCard}>
+                    <div className={styles.panelMetaLabel}>Queue visibility</div>
+                    <div className={styles.panelMetaValue}>Delivery streams in real-time</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Scroll cue */}
+        <div className={styles.scrollCue}>
+          <span className={styles.scrollLabel}>SCROLL</span>
+          <div className={styles.scrollLine} />
+        </div>
+      </section>
+
+      {/* ─── PROBLEM ─── */}
+      <section id="features" className={styles.sectionProblem}>
+        <Reveal>
+          <div className={styles.problemGrid}>
+            <div>
+              <div className={styles.sectionOverline}>The Problem</div>
+              <h2 className={styles.sectionHeadline}>
+                You duct-taped<br />
+                five services<br />
+                together.
+              </h2>
+              <p className={styles.sectionBody} style={{ marginTop: 24 }}>
+                Email, in-app messages, and webhooks often grow into separate integrations.
+                Retries become cron jobs, timing becomes &ldquo;just send it now,&rdquo; and delivery
+                evidence is scattered across provider dashboards.
+              </p>
+              <p className={styles.sectionBody} style={{ marginTop: 16 }}>
+                Varta replaces all of it with one routing layer that handles orchestration,
+                durable queueing, bounded retries, and delivery analytics in one system.
+              </p>
+            </div>
+
+            <div>
+              <div className={styles.problemTableHeader}>
+                <span className={styles.monoLabel}>BEFORE → AFTER</span>
+              </div>
+              <div className={styles.problemStack}>
+                {([
+                  ['ROUTING', 'if/else chains', 'Rule engine'],
+                  ['QUEUES', 'bull + redis DIY', 'Built-in worker pool'],
+                  ['RETRIES', 'cron job scripts', 'Exponential backoff'],
+                  ['PROVIDERS', 'per-SDK sprawl', 'Provider abstraction'],
+                  ['TIMING', 'best guess', 'ML send windows'],
+                  ['OBSERVABILITY', 'logs grep', 'Delivery analytics'],
+                  ['CHANNELS', 'separate code paths', 'Email, in-app, webhook'],
+                ] as [string, string, string][]).map(([label, before, after]) => (
+                  <div key={label} className={styles.problemRow}>
+                    <div className={styles.problemRowLabel}>{label}</div>
+                    <div className={styles.problemRowContent}>
+                      <span className={styles.oldTag}>{before}</span>
+                      <span className={styles.arrowSep}>→</span>
+                      <span className={styles.newTag}>{after}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ─── HOW IT WORKS — JOURNEY ─── */}
+      <section id="how-it-works" className={styles.sectionJourney}>
+        <Reveal>
+          <div className={styles.journeyHeader}>
+            <div>
+              <div className={styles.sectionOverline}>How It Works</div>
+              <h2 className={styles.sectionHeadline}>
+                One event.<br />Every channel.
+              </h2>
+            </div>
+            <div>
+              <p className={styles.sectionBody}>
+                Drop an event into Varta. Watch it get normalized, routed through your rule engine,
+                scheduled against subscriber timing windows, fanned out across workers, and delivered
+                to supported channels with bounded retries and analytics.
+              </p>
+              <div className={styles.statusRow} style={{ marginTop: 24 }}>
+                <PulseDot color="#27ae60" size={6} />
+                <span className={styles.monoLabel}>Measured locally before each release</span>
+                <Waveform bars={10} />
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.journeyPipeline}>
+            {[
+              { Icon: Icons.Activity, label: 'Ingest', count: 'validate', active: true },
+              { Icon: Icons.Layers, label: 'Normalize', count: 'typed', active: true },
+              { Icon: Icons.GitBranch, label: 'Route', count: 'ordered', active: true },
+              { Icon: Icons.Bolt, label: 'Fan-out', count: '1→N', active: true },
+              { Icon: Icons.Queue, label: 'Queue', count: 'durable', active: false },
+              { Icon: Icons.Server, label: 'Workers', count: 'bounded', active: false },
+              { Icon: Icons.CheckCircle, label: 'Outcome', count: 'recorded', active: false },
+            ].map(({ Icon, label, count, active }, i) => (
+              <div key={i} className={`${styles.journeyNode} ${active ? styles.journeyNodeActive : ''}`}>
+                <div className={`${styles.journeyNodeIcon} ${active ? styles.journeyIconActive : ''}`}>
+                  <Icon size={22} />
+                </div>
+                <span className={styles.journeyNodeLabel}>{label}</span>
+                <span className={styles.journeyNodeCount}>{count}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 48 }}>
+            <PacketTrack delay={0} />
+            <PacketTrack delay={0.3} />
+            <PacketTrack delay={0.9} />
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ─── ROUTING ENGINE ─── */}
+      <section className={styles.sectionRouting}>
+        <Reveal className={styles.routingGrid}>
+          {/* Visual */}
+          <div className={styles.routingVisual}>
+            <div className={styles.routingVisualHeader}>
+              <span>ROUTING ENGINE</span>
+              <PulseDot color="#ff6b35" size={5} />
+            </div>
+
+            <div className={styles.routingTree}>
+              <div className={styles.routingRoot}>
+                <span>user.payment_failed</span>
+                <span className={styles.routingRootSub}>event</span>
+              </div>
+              <div className={styles.routingBranches}>
+                {([
+                  { label: 'IF', value: "plan === 'pro'", delivery: 'Push → Email', color: 'var(--color-primary-500)' },
+                  { label: 'IF', value: 'trial_days_left < 3', delivery: 'Email + In-App', color: 'var(--color-orange)' },
+                  { label: 'ELSE', value: 'default fallback', delivery: 'In-App only', color: 'var(--color-amber)' },
+                ] as { label: string; value: string; delivery: string; color: string }[]).map((branch, i) => (
+                  <div key={i} className={styles.routingBranch}>
+                    <div className={styles.routingRule}>
+                      <div className={styles.routingRuleLabel} style={{ color: branch.color }}>{branch.label}</div>
+                      <div className={styles.routingRuleValue}>{branch.value}</div>
+                    </div>
+                    <div className={styles.routingDelivery}>
+                      <PulseDot color="#27ae60" size={4} />
+                      {branch.delivery}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
 
-            {/* Scrolling feature cards */}
-            <div className={styles.featuresContent}>
-              {features.map((f, i) => (
-                <div
-                  key={f.id}
-                  ref={(el) => { featureRefs.current[i] = el; }}
-                  className={`${styles.featureBlock} ${activeFeature === i ? styles.featureBlockActive : ''}`}
-                  style={{ '--accent': f.accent } as React.CSSProperties}
-                >
-                  <div className={styles.featureBlockIcon}>
-                    <f.icon size={28} />
+            <PacketTrack delay={0} />
+
+            {/* Code block */}
+            <div className={styles.codeBlock}>
+              <div className={styles.codeTitlebar}>
+                <div className={styles.panelDots}>
+                  <div className={styles.panelDot} style={{ background: '#FF5F57' }} />
+                  <div className={styles.panelDot} style={{ background: '#FEBC2E' }} />
+                  <div className={styles.panelDot} style={{ background: '#28C840' }} />
+                </div>
+                <span className={styles.panelFilename}>routing-rule.ts</span>
+              </div>
+              <pre className={styles.codeBody}><code>{`defineRule({
+  event: 'user.payment_failed',
+  match: {
+    plan: 'pro',
+    attempts: { lte: 2 }
+  },
+  channels: ['EMAIL', 'IN_APP'],
+  fallback: { channels: ['WEBHOOK'] },
+  timing: 'smart',
+})`}</code></pre>
+            </div>
+          </div>
+
+          {/* Copy */}
+          <div className={styles.routingCopy}>
+            <div className={styles.sectionOverline}>Routing Engine</div>
+            <h2 className={styles.sectionHeadline}>
+              Rules, not<br />if-else chains.
+            </h2>
+            <p className={styles.sectionBody} style={{ marginTop: 20, marginBottom: 28 }}>
+              Define workspace-level routing rules that match against event properties, subscriber
+              attributes, and workspace context. The engine evaluates matches in microseconds and
+              selects the right channel mix, provider chain, and timing strategy automatically.
+            </p>
+
+            <div className={styles.featureList}>
+              {[
+                ['Condition matching', 'Match on any event or subscriber property with boolean logic.'],
+                ['Channel priority', 'Define ordered channel stacks with automatic fallthrough.'],
+                ['Scoped rules', 'Per-workspace, per-tenant, or per-subscriber rule overrides.'],
+                ['Version-controlled', 'Rules live in your codebase, not a third-party dashboard.'],
+              ].map(([title, desc]) => (
+                <div key={title} className={styles.featureItem}>
+                  <span className={styles.featureArrow}>→</span>
+                  <div>
+                    <div className={styles.featureTitle}>{title}</div>
+                    <div className={styles.featureDesc}>{desc}</div>
                   </div>
-                  <h3>{f.title}</h3>
-                  <p>{f.desc}</p>
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </Reveal>
+      </section>
 
-        {/* ═══════════ PRICING ═══════════ */}
-        <AnimatedSection>
-          <section className={styles.pricing} id="pricing">
-            <div className={styles.sectionHead}>
-              <h2>Simple, Transparent Pricing</h2>
-              <p>Start free. Scale when you&apos;re ready. No surprises.</p>
-            </div>
-            <div className={styles.pricingGrid}>
-              {plans.map((p, i) => (
-                <div key={i} className={`${styles.priceCard} ${p.featured ? styles.priceCardFeatured : ''}`}>
-                  {p.featured && <div className={styles.priceBadge}>Most Popular</div>}
-                  <h3>{p.name}</h3>
-                  <div className={styles.priceRow}>
-                    <span className={styles.priceAmt}>{p.price}</span>
-                    <span className={styles.pricePer}>{p.period}</span>
+      {/* ─── QUEUE WORKERS ─── */}
+      <section className={styles.sectionQueue}>
+        <Reveal className={styles.queueGrid}>
+          {/* Copy */}
+          <div>
+            <div className={styles.sectionOverline}>Queue Workers</div>
+            <h2 className={styles.sectionHeadline}>
+              Queues that<br />actually work.
+            </h2>
+            <p className={styles.sectionBody} style={{ marginTop: 20, marginBottom: 36 }}>
+              Events enter a durable queue before hitting any provider. Workers process with
+              configurable concurrency, backpressure, and priority lanes. Visibility into queue
+              depth, processing rate, and per-event state — without tailing logs.
+            </p>
+
+            <div className={styles.featureList}>
+              {[
+                ['Priority lanes', 'High/medium/low lanes ensure critical events process first.'],
+                ['Backpressure', 'Rate-limit per provider to avoid downstream throttling.'],
+                ['Dead letter', 'Failed events land in DLQ with full context for reprocessing.'],
+                ['Batch fan-out', 'Broadcast to thousands of subscribers in a single event.'],
+              ].map(([title, desc]) => (
+                <div key={title} className={styles.featureItem}>
+                  <span className={styles.featureArrow} style={{ color: 'var(--color-orange)' }}>▸</span>
+                  <div>
+                    <div className={styles.featureTitle}>{title}</div>
+                    <div className={styles.featureDesc}>{desc}</div>
                   </div>
-                  <p className={styles.priceDesc}>{p.desc}</p>
-                  <ul className={styles.priceFeatures}>
-                    {p.features.map((feat, j) => (
-                      <li key={j}><Check size={15} /> {feat}</li>
-                    ))}
-                  </ul>
-                  <button className={`${styles.priceBtn} ${p.featured ? styles.priceBtnFeatured : ''}`}>
-                    {p.btnLabel} <ArrowRight size={14} />
-                  </button>
                 </div>
               ))}
             </div>
-          </section>
-        </AnimatedSection>
+          </div>
 
-        {/* ═══════════ BOTTOM CTA ═══════════ */}
-        <AnimatedSection>
-          <section className={styles.bottomCta}>
-            <h2>Ready to ship notifications that <span className={styles.heroGradient}>actually work</span>?</h2>
-            <p>Join developers building reliable notification infrastructure with Varta.</p>
-            <Link href="/signup" className={styles.ctaPrimary}>
-              Start Building Free <ArrowRight size={16} />
+          {/* Queue visual */}
+          <div>
+            <div className={styles.queueLabelRow}>
+              <span>QUEUE: notifications-primary</span>
+              <span className={styles.queueLabelRight}>
+                <PulseDot color="#ff6b35" size={5} />
+                142 pending
+              </span>
+            </div>
+
+            <div className={styles.queueList}>
+              {queueItems.map((item) => (
+                <div key={item.id} className={styles.queueItem}>
+                  <div className={`${styles.queuePriority} ${styles[`priority_${item.priority}` as keyof typeof styles]}`} />
+                  <div className={styles.queueItemBody}>
+                    <span className={styles.queueEventName}>{item.event}</span>
+                    <div className={styles.queueMeta}>
+                      <span className={styles.queueChannelTag}>{item.channel}</span>
+                      <span className={styles.queueAttempts}>{item.attempts}</span>
+                    </div>
+                  </div>
+                  <div className={`${styles.queueStatus} ${styles[`qs_${item.status}` as keyof typeof styles]}`}>
+                    {item.status.toUpperCase()}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className={styles.workerStrip}>
+              {[
+                { name: 'worker-01', load: 82, rate: '314/s' },
+                { name: 'worker-02', load: 67, rate: '248/s' },
+                { name: 'worker-03', load: 91, rate: '370/s' },
+                { name: 'worker-04', load: 44, rate: '176/s' },
+              ].map((w) => (
+                <div key={w.name} className={styles.workerCard}>
+                  <div className={styles.workerName}>{w.name}</div>
+                  <div className={styles.workerBar}>
+                    <div className={styles.workerFill} style={{ width: `${w.load}%` }} />
+                  </div>
+                  <div className={styles.workerRate}>{w.rate}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ─── SCALE METRICS ─── */}
+      <section className={styles.sectionScale}>
+        <div className={styles.scaleBgNumber}>₹0</div>
+        <Reveal>
+          <div className={styles.scaleGrid}>
+            {[
+              { unit: 'Acceptance', value: 'Durable', desc: 'Notification and outbox state commit atomically', color: 'var(--color-primary-500)' },
+              { unit: 'Retries', value: 'Bounded', desc: 'Transient failures use capped backoff and terminal states', color: 'var(--color-orange)' },
+              { unit: 'Evidence', value: 'Traceable', desc: 'Delivery attempts retain correlated provider outcomes', color: 'var(--color-amber)' },
+              { unit: 'Channels', value: '3', desc: 'Email, webhook, and in-app delivery', color: 'var(--color-gold)' },
+            ].map((m, i) => (
+              <div key={i} className={styles.scaleMetric} style={{ '--accent': m.color } as React.CSSProperties}>
+                <div className={styles.scaleMetricUnit}>{m.unit}</div>
+                <div className={styles.scaleMetricValue} style={{ color: m.color }}>{m.value}</div>
+                <div className={styles.scaleMetricDesc}>{m.desc}</div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ─── PRICING ─── */}
+      <section id="pricing" className={styles.sectionPricing}>
+        <Reveal>
+          <div className={styles.pricingHeader}>
+            <div className={styles.sectionOverline}>Pricing</div>
+            <h2 className={styles.sectionHeadline}>No paid plan is published yet.</h2>
+          </div>
+
+          <div className={styles.pricingGrid}>
+            {/* Starter */}
+            <div className={styles.pricingTier}>
+              <div className={styles.pricingTierTag}>FREE</div>
+              <div className={styles.pricingTierName}>STARTER</div>
+              <div className={styles.pricingPrice}>₹0</div>
+              <div className={styles.pricingPriceSub}>/month</div>
+              <p className={styles.pricingDesc}>Everything you need to get started. No credit card required.</p>
+              <div className={styles.pricingFeatures}>
+                {['Email, in-app, and webhook', 'Deterministic routing', 'Delivery analytics', 'Self-hostable'].map(f => (
+                  <div key={f} className={styles.pricingFeature}>
+                    <Icons.Check size={12} style={{ color: '#ff6b35', flexShrink: 0, marginTop: 1 }} />
+                    {f}
+                  </div>
+                ))}
+              </div>
+              <Link href="/login" className={styles.pricingCta}>Start Free</Link>
+            </div>
+
+            {/* Pro — featured */}
+            <div className={`${styles.pricingTier} ${styles.pricingTierFeatured}`}>
+              <div className={styles.pricingTierTag}>NOT PUBLISHED</div>
+              <div className={styles.pricingTierName}>PAID PLANS</div>
+              <div className={styles.pricingPrice}>—</div>
+              <div className={styles.pricingPriceSub}>no checkout</div>
+              <p className={styles.pricingDesc}>Billing and paid entitlements remain disabled until their production phase is verified.</p>
+              <div className={styles.pricingFeatures}>
+                {['No fabricated limits', 'No unsupported channel claims', 'No automatic entitlement', 'No payment collection'].map(f => (
+                  <div key={f} className={styles.pricingFeature}>
+                    <Icons.Check size={12} style={{ color: '#ff6b35', flexShrink: 0, marginTop: 1 }} />
+                    {f}
+                  </div>
+                ))}
+              </div>
+              <Link href="/login" className={`${styles.pricingCta} ${styles.pricingCtaFeatured}`}>Use the free build</Link>
+            </div>
+
+            {/* Enterprise */}
+            <div className={styles.pricingTier}>
+              <div className={styles.pricingTierTag}>LATER</div>
+              <div className={styles.pricingTierName}>SCALING</div>
+              <div className={styles.pricingPrice}>—</div>
+              <div className={styles.pricingPriceSub}>out of current scope</div>
+              <p className={styles.pricingDesc}>Capacity upgrades and commercial commitments will be based on measured demand.</p>
+              <div className={styles.pricingFeatures}>
+                {['Measured upgrade triggers', 'Explicit service limits', 'Evidence before claims'].map(f => (
+                  <div key={f} className={styles.pricingFeature}>
+                    <Icons.Check size={12} style={{ color: '#ff6b35', flexShrink: 0, marginTop: 1 }} />
+                    {f}
+                  </div>
+                ))}
+              </div>
+              <Link href="/login" className={styles.pricingCta}>Use Varta</Link>
+            </div>
+          </div>
+
+          {/* Self-host banner */}
+          <div className={styles.selfHostBanner}>
+            <div className={styles.selfHostIcon}>
+              <Icons.Terminal size={20} />
+            </div>
+            <div>
+              <div className={styles.selfHostTitle}>Prefer to self-host?</div>
+              <div className={styles.selfHostDesc}>Run Varta with the included production Docker and Compose configuration.</div>
+            </div>
+            <a href="#how-it-works" className={styles.selfHostCta}>View architecture</a>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ─── CTA ─── */}
+      <section className={styles.sectionCta}>
+        <div className={styles.ctaGlow} />
+        <Reveal>
+          <div className={styles.ctaEyebrow}>Ready to ship?</div>
+          <h2 className={styles.ctaHeadline}>
+            Stop building<br />
+            notification infra.<br />
+            <span className={styles.heroAccent}>Start shipping.</span>
+          </h2>
+          <p className={styles.ctaSub}>
+            Build a verified notification pipeline with email, in-app, webhook, routing, and analytics.
+          </p>
+          <div className={styles.ctaActions}>
+            <Link href="/login" className={styles.btnLarge}>
+              Get Started for Free <Icons.ArrowRight size={14} />
             </Link>
-          </section>
-        </AnimatedSection>
+            <a href="#features" className={styles.btnOutlineLarge}>Explore features</a>
+          </div>
+        </Reveal>
+      </section>
 
-        {/* ═══════════ FOOTER ═══════════ */}
-        <footer className={styles.footer}>
-          <div className={styles.footerBrand}>
-            <span className={styles.footerVarta}>VARTA</span>
-            <span className={styles.footerHindi}>वार्ता</span>
-          </div>
-          <div className={styles.footerBottom}>
-            <div className={styles.footerLinks}>
-              <Link href="#">Privacy</Link>
-              <Link href="#">Terms</Link>
-              <Link href="#">GitHub</Link>
-              <Link href="#">Contact</Link>
-            </div>
-            <span className={styles.footerCopy}>© 2026 Varta. Open Source under MIT.</span>
-          </div>
-        </footer>
-      </div>
+      {/* ─── FOOTER ─── */}
+      <footer className={styles.footer}>
+        <div className={styles.footerLeft}>
+          <div className={styles.navLogoMark} style={{ width: 24, height: 24, fontSize: 11 }}>V</div>
+          <span className={styles.footerBrand}>Varta</span>
+          <span className={styles.footerTagline}>notification infrastructure</span>
+        </div>
+        <div className={styles.footerLinks}>
+          <a href="#features" className={styles.footerLink}>Features</a>
+          <a href="#how-it-works" className={styles.footerLink}>How it works</a>
+          <Link href="/login" className={styles.footerLink}>Sign in</Link>
+        </div>
+        <div className={styles.footerRight}>
+          <span className={styles.statusDot} />
+          Health is reported by the running deployment
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,0 +1,173 @@
+groups:
+    - name: varta_slos
+      rules:
+          - record: varta:http_error_ratio_5m
+            expr: sum(rate(varta_http_requests_total{status_class="5xx"}[5m])) / clamp_min(sum(rate(varta_http_requests_total[5m])), 1)
+          - record: varta:delivery_terminal_failure_ratio_5m
+            expr: sum(rate(varta_delivery_attempts_total{outcome=~"FAILED|DLQ"}[5m])) / clamp_min(sum(rate(varta_delivery_attempts_total[5m])), 1)
+          - record: varta:outbox_publication_lag_5m
+            expr: avg_over_time(varta_outbox_oldest_eligible_seconds[5m])
+          - record: varta:ai_error_ratio_5m
+            expr: sum(rate(varta_ai_gateway_requests_total{outcome!="success"}[5m])) / clamp_min(sum(rate(varta_ai_gateway_requests_total[5m])), 1)
+    - name: varta_operator_alerts
+      rules:
+          - alert: VartaMetricsTargetMissing
+            expr: up{job=~"varta-api|varta-worker"} == 0
+            for: 2m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "Varta telemetry target is missing"
+                impact: "Operators cannot determine application health"
+                immediate_action: "Inspect service readiness and Prometheus target errors"
+                escalation: "Page on-call if unresolved after 5m"
+                resolution: "Confirm process running and METRICS_AUTH_TOKEN matches scrape config"
+          - alert: VartaHighHttpErrorRate
+            expr: varta:http_error_ratio_5m > 0.01
+            for: 5m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "HTTP 5xx ratio exceeds 1 percent"
+                impact: "API requests are failing"
+                immediate_action: "Inspect correlated request logs and recent release manifest"
+                escalation: "Rollback if introduced by the last deploy"
+                resolution: "Error ratio below 0.01 for 5m"
+          - alert: VartaHighHttpLatency
+            expr: histogram_quantile(0.95, sum(rate(varta_http_request_duration_seconds_bucket[5m])) by (le)) > 1
+            for: 10m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "API p95 latency exceeds one second"
+                impact: "Interactive and trigger requests are degraded"
+                immediate_action: "Inspect database, Redis, and process saturation"
+                escalation: "Reduce load or pause bulk traffic if DB pool is exhausted"
+                resolution: "p95 below 1s for 10m"
+          - alert: VartaOutboxLag
+            expr: varta_outbox_oldest_eligible_seconds > 60
+            for: 5m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "Outbox publication is delayed"
+                impact: "Accepted notifications are not reaching queues"
+                immediate_action: "Inspect Redis and outbox worker; do not replay before checking leases"
+                escalation: "Verify Redis is reachable; check outbox dispatcher process"
+                resolution: "varta_outbox_oldest_eligible_seconds below 60 for 5m"
+          - alert: VartaQueueBacklog
+            expr: sum by (queue) (varta_queue_jobs{state="waiting"}) > 1000
+            for: 5m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "Queue backlog exceeds the measured free-tier profile"
+                impact: "Delivery latency is increasing"
+                immediate_action: "Inspect worker failures and pause new bulk traffic if needed"
+                escalation: "Check for stuck workers or disabled providers"
+                resolution: "Backlog draining and below 1000"
+          - alert: VartaQueueFailures
+            expr: sum by (queue) (increase(varta_queue_failures_total[10m])) > 10
+            for: 2m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "Worker failures are sustained"
+                impact: "Deliveries may enter retry or dead-letter states"
+                immediate_action: "Inspect attempt errors and disable the failing provider if isolated"
+                escalation: "Check DLQ size; manually replay after root cause is confirmed"
+                resolution: "Failure rate below threshold for 10m"
+          - alert: VartaDependencyUnavailable
+            expr: varta_dependency_ready == 0
+            for: 2m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "A required dependency is unavailable"
+                impact: "Readiness is failing and work may be delayed"
+                immediate_action: "Inspect the dependency named by the label and preserve durable state"
+                escalation: "Verify Supabase and Upstash status pages; check connection strings"
+                resolution: "varta_dependency_ready == 1 for 2m"
+          - alert: VartaDeadLetterQueueNonEmpty
+            expr: sum by (queue) (varta_queue_jobs{state="failed"}) > 0
+            for: 10m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "Dead-letter queue has unresolved jobs"
+                impact: "Deliveries are permanently failed unless replayed"
+                immediate_action: "Inspect DLQ job errors and decide on replay or abandon"
+                escalation: "Do not replay without confirming root cause; check provider status"
+                resolution: "DLQ drained or jobs acknowledged"
+          - alert: VartaAIHighErrorRate
+            expr: varta:ai_error_ratio_5m > 0.20
+            for: 5m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "AI feature error rate exceeds 20 percent"
+                impact: "Routing-rule compilation or send-time optimization is degraded; delivery is unaffected"
+                immediate_action: "Check AI provider status; disable AI feature via AI_ENABLED=false if sustained"
+                escalation: "Delivery must not be blocked by AI unavailability; verify circuit is open"
+                resolution: "AI error rate below 20 percent for 5m or feature disabled"
+          - alert: VartaAITokenBudgetSpike
+            expr: increase(varta_ai_tokens_total[1h]) > 500000
+            for: 0m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "AI token consumption exceeded 500k in one hour"
+                impact: "Provider cost may exceed free-tier limits"
+                immediate_action: "Inspect which workspace is generating high AI volume; reduce rate limit if needed"
+                escalation: "Temporarily disable AI_SEND_TIME_OPTIMIZATION_ENABLED or lower AI_REQUESTS_PER_MINUTE"
+                resolution: "Token rate normalized"
+          - alert: VartaAICircuitOpen
+            expr: max by (provider, model) (varta_ai_circuit_open) == 1
+            for: 2m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "AI provider circuit is open"
+                impact: "AI-assisted features are unavailable; deterministic delivery remains available"
+                immediate_action: "Inspect provider errors and keep AI disabled if the outage is sustained"
+                escalation: "Verify notification acceptance remains independent before provider recovery work"
+                resolution: "varta_ai_circuit_open returns to zero"
+          - alert: VartaReconciliationLag
+            expr: time() - max(varta_reconciliation_last_success_unixtime) > 900
+            for: 5m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "Notification reconciliation has not succeeded for 15 minutes"
+                impact: "Stuck or orphaned deliveries may not be repaired automatically"
+                immediate_action: "Inspect reconciliation worker logs and check for database lock contention"
+                escalation: "Trigger manual reconciliation after checking lease state"
+                resolution: "A successful reconciliation updates the last-success timestamp"
+          - alert: VartaDatabasePoolWaiting
+            expr: max(varta_database_pool_connections{state="waiting"}) > 0
+            for: 5m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "PostgreSQL pool has sustained waiting clients"
+                impact: "API and worker database operations may be saturated"
+                immediate_action: "Inspect slow queries and reduce intake before increasing connection limits"
+                escalation: "Pause bulk traffic if notification acceptance latency is rising"
+                resolution: "Database pool waiting clients return to zero"
+          - alert: VartaBillingInboxLag
+            expr: max(varta_billing_inbox_oldest_pending_seconds) > 300
+            for: 5m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "Billing webhook inbox is delayed"
+                impact: "Verified subscription changes are not reaching local entitlements"
+                immediate_action: "Inspect the billing worker and recover eligible inbox records"
+                escalation: "Run provider reconciliation; never edit entitlement rows directly"
+                resolution: "Oldest processable billing event is below five minutes"
+          - alert: VartaBillingSubscriptionDrift
+            expr: max(varta_billing_subscription_drift) > 0
+            for: 5m
+            labels: { severity: critical, owner: operator }
+            annotations:
+                summary: "Razorpay and local subscription state differ"
+                impact: "Customer entitlement may be stale"
+                immediate_action: "Inspect the reconciliation audit record and provider subscription"
+                escalation: "Use the owner/operator reconcile path; do not mutate rows manually"
+                resolution: "A verified reconciliation reports no drift"
+          - alert: VartaBillingWebhookFailures
+            expr: sum(increase(varta_billing_events_total{outcome=~"failed|unauthorized"}[10m])) > 5
+            for: 2m
+            labels: { severity: warning, owner: operator }
+            annotations:
+                summary: "Billing webhook verification or processing failures are elevated"
+                impact: "Subscription changes may be delayed or an invalid-signature spike may be occurring"
+                immediate_action: "Separate signature failures from worker failures and inspect correlated event IDs"
+                escalation: "Rotate webhook secrets only through the documented dual-secret window"
+                resolution: "Failure increase remains below threshold for ten minutes"

@@ -8,7 +8,7 @@ export const providerFactory = {
 				return resendProvider
 			default:
 				throw new Error(
-					`Email provider ${providerName} is not supported.`,
+					`Email provider ${providerName} is disabled until its production contract is verified.`,
 				)
 		}
 	},

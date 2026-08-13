@@ -18,9 +18,7 @@ import { toast } from 'sonner';
 import type {
   INotificationTriggerResponse,
   ISubscriber,
-  ISubscriberListData,
   ITemplate,
-  ITemplateListData,
   TriggerNotificationInput,
 } from '@/shared/types/domain';
 import type { JsonObject } from '@/shared/types/json';
@@ -43,7 +41,10 @@ export function TriggerStudio() {
   const [selectedSubscriber, setSelectedSubscriber] = useState('');
   const [payloadStr, setPayloadStr] = useState('{\n  "orderId": "ORD-998877",\n  "event": "order_shipped"\n}');
   const [smartTiming, setSmartTiming] = useState(false);
+  const [channel, setChannel] = useState<'' | 'EMAIL' | 'IN_APP' | 'WEBHOOK'>('');
+  const [scheduledAt, setScheduledAt] = useState('');
   const [triggering, setTriggering] = useState(false);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
 
   // Terminal Logs
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -64,20 +65,20 @@ export function TriggerStudio() {
     const loadData = async () => {
       setLoading(true);
       const [templatesRes, subscribersRes] = await Promise.all([
-        apiClient.get<ITemplateListData>(`/api/v1/workspaces/${workspace.id}/templates`),
-        apiClient.get<ISubscriberListData>(`/api/v1/workspaces/${workspace.id}/subscribers`)
+        apiClient.get<ITemplate[]>(`/api/v1/workspaces/${workspace.id}/templates`),
+        apiClient.get<ISubscriber[]>(`/api/v1/workspaces/${workspace.id}/subscribers`)
       ]);
 
       if (templatesRes.success && templatesRes.data) {
-        setTemplates(templatesRes.data.templates);
-        if (templatesRes.data.templates.length > 0) {
-          setSelectedTemplate(templatesRes.data.templates[0].id);
+        setTemplates(templatesRes.data);
+        if (templatesRes.data.length > 0) {
+          setSelectedTemplate(templatesRes.data[0].id);
         }
       }
       if (subscribersRes.success && subscribersRes.data) {
-        setSubscribers(subscribersRes.data.subscribers);
-        if (subscribersRes.data.subscribers.length > 0) {
-          setSelectedSubscriber(subscribersRes.data.subscribers[0].externalId);
+        setSubscribers(subscribersRes.data);
+        if (subscribersRes.data.length > 0) {
+          setSelectedSubscriber(subscribersRes.data[0].externalId);
         }
       }
       setLoading(false);
@@ -121,24 +122,28 @@ export function TriggerStudio() {
       payload,
       options: {
         smartTiming,
+        ...(channel ? { channels: [channel] } : {}),
+        ...(scheduledAt ? { scheduledAt: new Date(scheduledAt).toISOString() } : {}),
       },
     };
 
     const res = await apiClient.post<INotificationTriggerResponse>(
       `/api/v1/workspaces/${workspace.id}/notifications/trigger`,
-      requestBody
+      requestBody,
+      { idempotencyKey: idempotencyKeyRef.current, retries: 2 },
     );
 
     setTriggering(false);
 
-    if (res.success && res.data) {
-      toast.success('Notification triggered successfully!');
-      addLog('success', 'Pipeline accepted request (200 OK)');
+    if (res.success) {
+      toast.success('Notification accepted');
+      addLog('success', `Pipeline accepted request; current status: ${res.data.status}`);
       addLog('info', `Notification ID: ${res.data.notificationId}`);
+      idempotencyKeyRef.current = crypto.randomUUID();
       if (res.data.channels && res.data.channels.length > 0) {
         addLog('success', `Resolved delivery channels: ${res.data.channels.join(', ')}`);
         if (smartTiming) {
-          addLog('info', `Smart Timing enabled: delivery enqueued on BullMQ with ML-predicted user engagement offset.`);
+          addLog('info', `Smart Timing was requested. The server may use its deterministic fallback when optimization is unavailable.`);
         } else {
           addLog('info', 'Immediate dispatch scheduled: enqueued to channel queues.');
         }
@@ -146,8 +151,8 @@ export function TriggerStudio() {
         addLog('warn', 'Routing result: 0 active channels. Filtered by subscriber preferences or active routing rules.');
       }
     } else {
-      toast.error(res.error?.message || 'Failed to trigger notification');
-      addLog('error', `Pipeline execution failed: ${res.error?.message || 'Unknown network error'}`);
+      toast.error(res.error.message || 'Failed to trigger notification');
+      addLog('error', `Pipeline execution failed: ${res.error.message || 'Unknown network error'}`);
     }
   };
 
@@ -171,8 +176,9 @@ export function TriggerStudio() {
 
           <form onSubmit={handleTrigger} className={styles.form}>
             <div className={styles.selectGroup}>
-              <label className={styles.selectLabel}>Select Template</label>
+              <label className={styles.selectLabel} htmlFor="studio-template">Select Template</label>
               <select 
+                id="studio-template"
                 value={selectedTemplate}
                 onChange={e => setSelectedTemplate(e.target.value)}
                 disabled={loading || triggering}
@@ -186,8 +192,9 @@ export function TriggerStudio() {
             </div>
 
             <div className={styles.selectGroup}>
-              <label className={styles.selectLabel}>Recipient Subscriber</label>
+              <label className={styles.selectLabel} htmlFor="studio-subscriber">Recipient Subscriber</label>
               <select 
+                id="studio-subscriber"
                 value={selectedSubscriber}
                 onChange={e => setSelectedSubscriber(e.target.value)}
                 disabled={loading || triggering}
@@ -210,6 +217,21 @@ export function TriggerStudio() {
               disabled={triggering}
             />
 
+            <div className={styles.selectGroup}>
+              <label className={styles.selectLabel} htmlFor="studio-channel">Channel override (optional)</label>
+              <select id="studio-channel" value={channel} onChange={(event) => setChannel(event.target.value as typeof channel)} className={styles.select} disabled={triggering}>
+                <option value="">Use routing and template channels</option>
+                <option value="EMAIL">Email</option>
+                <option value="IN_APP">In-app</option>
+                <option value="WEBHOOK">Webhook</option>
+              </select>
+            </div>
+
+            <div className={styles.selectGroup}>
+              <label className={styles.selectLabel} htmlFor="studio-schedule">Schedule (optional)</label>
+              <input id="studio-schedule" type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} className={styles.select} disabled={triggering} />
+            </div>
+
             <div className={styles.optionsBlock}>
               <label className={`${styles.toggleLabel} ${styles.smartTiming}`}>
                 <input
@@ -219,12 +241,12 @@ export function TriggerStudio() {
                   disabled={triggering}
                 />
                 <Sparkles size={14} className={styles.sparkle} />
-                <span>Smart Timing (ML Dispatch Offset)</span>
+                <span>Request smart timing</span>
               </label>
               <div className={styles.infoTooltip}>
                 <Info size={12} />
                 <span className={styles.tooltipText}>
-                  Queries pgvector for the subscriber&apos;s historical interaction trends to determine their optimal notification open times.
+                  The server applies optimization only when enabled and sufficiently supported; otherwise it uses the normal delivery schedule.
                 </span>
               </div>
             </div>

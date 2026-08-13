@@ -1,16 +1,43 @@
 import type { Metadata } from 'next';
-import { Space_Grotesk, Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono, Bricolage_Grotesque, Alumni_Sans } from 'next/font/google';
 import { AuthProvider } from '@/shared/auth/auth-context';
 
-import { Toaster } from 'sonner';
+import { Toaster } from 'sonner'
 import '@/styles/variables.css';
 import '@/styles/globals.css';
 
-const spaceGrotesk = Space_Grotesk({
+/**
+ * Typography stack:
+ *
+ * --font-display  → Bricolage Grotesque
+ *   Editorial, variable-weight, distinctively modern.
+ *   Used for: hero h1, section headlines, CTA headline.
+ *
+ * --font-data     → Alumni Sans
+ *   Tall condensed proportions — makes numbers feel architectural.
+ *   Used for: stat values, pricing numbers, scale metrics, overlines/labels.
+ *
+ * --font-body     → Inter
+ *   The gold standard for readable UI prose.
+ *   Used for: body copy, nav links, buttons, descriptions.
+ *
+ * --font-mono     → JetBrains Mono
+ *   Purpose-built for code and terminals.
+ *   Used for: code blocks, event names, badges, technical tags, queue items.
+ */
+
+const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
-  variable: '--font-heading',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-display',
   display: 'swap',
+});
+
+const alumniSans = Alumni_Sans({
+  subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+  variable: '--font-data',
+  display: 'swap',
 });
 
 const inter = Inter({
@@ -26,8 +53,8 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Varta — Multi-Channel Notification Infrastructure',
-  description: 'Self-hostable notification infrastructure with AI delivery intelligence.',
+  title: 'Varta — Notification Infrastructure',
+  description: 'Queue, route, fan-out, retry, and deliver across every channel. Self-hostable notification infrastructure.',
 };
 
 export default function RootLayout({
@@ -36,19 +63,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en" className={`${bricolage.variable} ${alumniSans.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
       <body>
         <AuthProvider>
           {children}
-          <Toaster 
-            theme="dark" 
-            position="top-right" 
+          <Toaster
+            theme="dark"
+            position="top-right"
             toastOptions={{
               style: {
-                background: 'rgba(15, 20, 35, 0.9)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                color: '#f1f5f9',
-                backdropFilter: 'blur(16px)',
+                background: 'var(--surface)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '13px',
               }
             }}
           />

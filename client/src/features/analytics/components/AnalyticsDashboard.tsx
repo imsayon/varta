@@ -1,318 +1,167 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/shared/auth/auth-context';
+import { useState, useEffect, useCallback } from 'react';
+import { Activity, AlertCircle, Clock, TrendingUp } from 'lucide-react';
 import { apiClient } from '@/shared/api/api';
-import { StatCard } from '@/components/ui/StatCard/StatCard';
-import { Card } from '@/components/ui/Card/Card';
-import { Skeleton } from '@/components/ui/Skeleton/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState/EmptyState';
-import { Badge } from '@/components/ui/Badge/Badge';
-import type { BadgeVariant } from '@/components/ui/Badge/Badge';
-import { 
-  Send, 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  AlertCircle,
-  Inbox
-} from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell
-} from 'recharts';
-import styles from './AnalyticsDashboard.module.css';
-
-interface AnalyticsData {
-  total: number;
-  status: {
-    completed: number;
-    failed: number;
-    processing: number;
-    pending: number;
-  };
-  channels: {
-    email: number;
-    push: number;
-    inapp: number;
-    webhook: number;
-  };
-  trend: Array<{ id: string; count: number }>;
-  recent: Array<{
-    id: string;
-    subscriberId: string;
-    channels: string[];
-    status: 'pending' | 'processing' | 'completed' | 'failed';
-    triggeredAt: string;
-  }>;
-}
+import { useAuth } from '@/shared/auth/auth-context';
+import type { IAnalyticsChannel, IAnalyticsOverview, IAnalyticsTimelinePoint } from '@/shared/types/domain';
 
 export function AnalyticsDashboard() {
   const { workspace } = useAuth();
-  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [timeRange, setTimeRange] = useState('30d');
   const [loading, setLoading] = useState(true);
+  const [overview, setOverview] = useState<IAnalyticsOverview | null>(null);
+  const [channels, setChannels] = useState<IAnalyticsChannel[]>([]);
+  const [timeline, setTimeline] = useState<IAnalyticsTimelinePoint[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchAnalytics = useCallback(async () => {
     if (!workspace) return;
+    setLoading(true);
+    setError(null);
 
-    void (async () => {
-      setLoading(true);
-      setError(null);
-      const res = await apiClient.get<AnalyticsData>(
-        `/api/v1/workspaces/${workspace?.id}/notifications/analytics`
-      );
-      if (res.success && res.data) {
-        setData(res.data);
-      } else {
-        setError(res.error?.message || 'Failed to fetch analytics');
-      }
-      setLoading(false);
-    })();
-  }, [workspace]);
+    const [overviewRes, channelRes, timelineRes] = await Promise.all([
+      apiClient.get<IAnalyticsOverview>(`/api/v1/workspaces/${workspace.id}/analytics/overview?timeRange=${timeRange}`),
+      apiClient.get<IAnalyticsChannel[]>(`/api/v1/workspaces/${workspace.id}/analytics/channel-breakdown?timeRange=${timeRange}`),
+      apiClient.get<IAnalyticsTimelinePoint[]>(`/api/v1/workspaces/${workspace.id}/analytics/delivery-timeline?timeRange=${timeRange}`),
+    ]);
 
-  if (!workspace) {
-    return (
-      <EmptyState
-        title="No Workspace Selected"
-        description="Please select or create a workspace to view analytics."
-        icon={<AlertCircle />}
-      />
-    );
-  }
+    if (overviewRes.success && overviewRes.data) {
+      setOverview(overviewRes.data);
+    }
+    if (channelRes.success && channelRes.data) {
+      setChannels(channelRes.data);
+    }
+    if (timelineRes.success && timelineRes.data) {
+      setTimeline(timelineRes.data);
+    }
+    if (!overviewRes.success) {
+      setError(overviewRes.error?.message || 'Failed to load analytics data');
+    }
 
-  if (loading) {
-    return (
-      <div className={styles.loadingGrid}>
-        <div className={styles.statsRow}>
-          <Skeleton height={110} />
-          <Skeleton height={110} />
-          <Skeleton height={110} />
-          <Skeleton height={110} />
-        </div>
-        <div className={styles.chartsRow}>
-          <Skeleton height={300} />
-          <Skeleton height={300} />
-        </div>
-        <Skeleton height={400} />
-      </div>
-    );
-  }
+    setLoading(false);
+  }, [workspace, timeRange]);
 
-  if (error || !data) {
-    return (
-      <EmptyState
-        title="Something went wrong"
-        description={error || 'Failed to load dashboard statistics.'}
-        icon={<AlertCircle />}
-      />
-    );
-  }
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchAnalytics(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchAnalytics]);
 
-  // Pre-process trend data for chart
-  const chartData = data.trend.map(item => ({
-    name: new Date(item.id).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-    count: item.count
-  }));
+  const totalSent = overview?.totalSent ?? 0;
+  const deliveryRate = overview?.deliveryRate != null ? `${(overview.deliveryRate * 100).toFixed(1)}%` : '0%';
+  const p99Latency = 'Not available';
+  const failures = overview?.failed ?? 0;
 
-  // Fill in empty days if trend is sparse
-  if (chartData.length === 0) {
-    chartData.push({ name: 'No Data', count: 0 });
-  }
-
-  // Pre-process channel data
-  const channelData = [
-    { name: 'Email', count: data.channels.email, color: '#6366f1' },
-    { name: 'Push', count: data.channels.push, color: '#8b5cf6' },
-    { name: 'In-App', count: data.channels.inapp, color: '#06b6d4' },
-    { name: 'Webhook', count: data.channels.webhook, color: '#10b981' }
+  const statCards = [
+    { label: 'Total Sent', value: totalSent.toLocaleString(), icon: Activity, note: `${timeRange} activity` },
+    { label: 'Delivery Rate', value: deliveryRate, icon: TrendingUp, note: 'Successful attempts' },
+    { label: 'P99 Latency', value: p99Latency, icon: Clock, note: '99th percentile speed' },
+    { label: 'Failures', value: failures.toLocaleString(), icon: AlertCircle, note: 'Failed/DLQ attempts' },
   ];
 
   return (
-    <div className={styles.container}>
-      {/* Page Header */}
-      <div className={styles.header}>
+    <div className="dashboard-page" style={{ padding: '1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
-          <h1 className={styles.title}>Overview</h1>
-          <p className={styles.subtitle}>Real-time system health and delivery metrics</p>
+          <h1 className="dashboard-title" style={{ fontSize: '1.75rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
+            Analytics Overview
+          </h1>
+          <p className="dashboard-subtitle" style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+            Live metrics across channel delivery, latency, and throughput.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', backgroundColor: '#1e293b', padding: '4px', borderRadius: '0.375rem', border: '1px solid #334155' }}>
+          {['7d', '30d', '90d'].map((range) => (
+            <button
+              key={range}
+              onClick={() => setTimeRange(range)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '0.25rem',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: timeRange === range ? '#3b82f6' : 'transparent',
+                color: timeRange === range ? '#ffffff' : '#94a3b8',
+                fontWeight: 500,
+                fontSize: '0.875rem',
+              }}
+            >
+              {range}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Stat Cards */}
-      <div className={styles.statsRow}>
-        <StatCard
-          label="Total Triggered"
-          value={data.total}
-          icon={<Send />}
-          color="indigo"
-          delay={0}
-        />
-        <StatCard
-          label="Delivered"
-          value={data.status.completed}
-          icon={<CheckCircle2 />}
-          color="emerald"
-          delay={1}
-        />
-        <StatCard
-          label="Failed"
-          value={data.status.failed}
-          icon={<XCircle />}
-          color="rose"
-          delay={2}
-        />
-        <StatCard
-          label="Processing"
-          value={data.status.processing + data.status.pending}
-          icon={<Loader2 className="animate-spin" />}
-          color="cyan"
-          delay={3}
-        />
+      {error ? (
+        <div style={{ padding: '1.5rem', backgroundColor: '#7f1d1d', borderRadius: '0.5rem', color: '#fecaca', marginBottom: '1.5rem' }}>
+          {error}
+        </div>
+      ) : null}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        {statCards.map((card) => (
+          <div key={card.label} style={{ padding: '1.25rem', backgroundColor: '#1e293b', borderRadius: '0.5rem', border: '1px solid #334155' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+              <card.icon size={16} /> {card.label}
+            </div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 600, color: '#f8fafc', marginBottom: '0.25rem' }}>
+              {loading ? '...' : card.value}
+            </div>
+            <p style={{ color: '#64748b', fontSize: '0.75rem', margin: 0 }}>{card.note}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Charts section */}
-      <div className={styles.chartsRow}>
-          {/* Trend Area Chart */}
-          <Card className={styles.chartCard}>
-            <h3 className={styles.chartTitle}>Delivery Volume Trends (Last 7 Days)</h3>
-            <div className={styles.chartContainer}>
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="#475569" 
-                    fontSize={11}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    stroke="#475569" 
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: '#0d0e1c',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      borderRadius: '8px',
-                      color: '#f1f5f9',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#trendGradient)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          {/* Channel distribution Bar Chart */}
-          <Card className={styles.chartCard}>
-            <h3 className={styles.chartTitle}>Channel Distribution</h3>
-            <div className={styles.chartContainer}>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={channelData}>
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="#475569" 
-                    fontSize={11}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    stroke="#475569" 
-                    fontSize={11}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                    contentStyle={{
-                      background: '#0d0e1c',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      borderRadius: '8px',
-                      color: '#f1f5f9',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {channelData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-      </div>
-
-      {/* Recent Activity Feed */}
-      <Card className={styles.tableCard}>
-        <h3 className={styles.tableTitle}>Recent Delivery Pipeline Logs</h3>
-        <div className={styles.tableWrapper}>
-          {data.recent.length === 0 ? (
-            <div className={styles.emptyTable}>
-              <Inbox size={48} className="text-muted" />
-              <p>No notifications have been triggered yet.</p>
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
+        <div style={{ padding: '1.25rem', backgroundColor: '#1e293b', borderRadius: '0.5rem', border: '1px solid #334155' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1rem' }}>
+            Channel Breakdown
+          </h3>
+          {loading ? (
+            <p style={{ color: '#94a3b8' }}>Loading breakdown...</p>
+          ) : channels.length === 0 ? (
+            <p style={{ color: '#94a3b8' }}>No delivery data available for this range.</p>
           ) : (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Notification ID</th>
-                  <th>Subscriber ID</th>
-                  <th>Channels</th>
-                  <th>Status</th>
-                  <th>Timestamp</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.recent.map(notif => (
-                  <tr key={notif.id}>
-                    <td className={styles.monoId}>{notif.id}</td>
-                    <td className={styles.monoId}>{notif.subscriberId}</td>
-                    <td>
-                      <div className={styles.badgeList}>
-                        {notif.channels.map(ch => (
-                          <Badge key={ch} variant={ch as BadgeVariant} size="sm">
-                            {ch}
-                          </Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`${styles.statusLabel} ${styles[notif.status]}`}>
-                        {notif.status}
-                      </span>
-                    </td>
-                    <td className={styles.timeLabel}>
-                      {new Date(notif.triggeredAt).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {channels.map((ch) => {
+                const total = channels.reduce((acc, curr) => acc + curr.sent, 0);
+                const pct = total > 0 ? ((ch.sent / total) * 100).toFixed(1) : '0';
+                return (
+                  <div key={ch.channel}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#cbd5e1', marginBottom: '0.25rem' }}>
+                      <span>{ch.channel}</span>
+                      <span>{pct}% ({ch.sent})</span>
+                    </div>
+                    <div style={{ height: '6px', backgroundColor: '#0f172a', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', backgroundColor: '#3b82f6' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
-      </Card>
+
+        <div style={{ padding: '1.25rem', backgroundColor: '#1e293b', borderRadius: '0.5rem', border: '1px solid #334155' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1rem' }}>
+            Delivery Timeline
+          </h3>
+          {loading ? (
+            <p style={{ color: '#94a3b8' }}>Loading timeline...</p>
+          ) : timeline.length === 0 ? (
+            <p style={{ color: '#94a3b8' }}>No timeline data available.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto' }}>
+              {timeline.map((item) => (
+                <div key={item.timestamp} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#cbd5e1', padding: '0.5rem 0', borderBottom: '1px solid #334155' }}>
+                  <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                  <span style={{ color: '#10b981', fontWeight: 600 }}>{item.sent} sent</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

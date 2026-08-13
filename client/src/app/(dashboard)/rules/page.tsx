@@ -1,1 +1,5 @@
-export { RuleBuilder as default } from '@/features/rules/components/RuleBuilder';
+import { RuleBuilder } from "@/features/rules/components/RuleBuilder"
+
+export default function RulesPage() {
+	return <RuleBuilder />
+}

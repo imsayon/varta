@@ -1,1 +1,5 @@
-export { TriggerStudio as default } from '@/features/notifications/components/TriggerStudio';
+import { TriggerStudio } from '@/features/notifications/components/TriggerStudio';
+
+export default function StudioPage() {
+  return <TriggerStudio />;
+}

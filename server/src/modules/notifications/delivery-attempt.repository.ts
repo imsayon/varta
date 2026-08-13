@@ -1,5 +1,6 @@
 import { prisma } from "@/infra/database/prisma.ts"
 import { Prisma } from "@prisma/client"
+import { deliveryAttempts, deliveryDuration } from "@/infra/observability/metrics.ts"
 
 export const deliveryAttemptRepository = {
 	async create(data: Prisma.DeliveryAttemptUncheckedCreateInput) {
@@ -7,10 +8,15 @@ export const deliveryAttemptRepository = {
 	},
 
 	async update(id: string, data: Prisma.DeliveryAttemptUncheckedUpdateInput) {
-		return prisma.deliveryAttempt.update({
+		const attempt = await prisma.deliveryAttempt.update({
 			where: { id },
 			data,
 		})
+		if (["SUCCESS", "FAILED", "DLQ"].includes(attempt.status ?? "") && data.finishedAt !== undefined) {
+			deliveryAttempts.inc({ channel: attempt.channel, outcome: attempt.status ?? "UNKNOWN" })
+			if (attempt.durationMs !== null) deliveryDuration.observe({ channel: attempt.channel }, attempt.durationMs / 1_000)
+		}
+		return attempt
 	},
 
 	async findByNotification(notificationId: string) {

@@ -1,5 +1,13 @@
 import { z } from "zod"
 
+const strongPasswordSchema = z
+	.string()
+	.min(8)
+	.max(128)
+	.regex(/[A-Z]/, "Must contain uppercase letter")
+	.regex(/[a-z]/, "Must contain lowercase letter")
+	.regex(/[0-9]/, "Must contain a number")
+
 export const registerSchema = z.object({
 	name: z
 		.string()
@@ -9,13 +17,7 @@ export const registerSchema = z.object({
 
 	email: z.email().transform((email) => email.toLowerCase()),
 
-	password: z
-		.string()
-		.min(8)
-		.max(128)
-		.regex(/[A-Z]/, "Must contain uppercase letter")
-		.regex(/[a-z]/, "Must contain lowercase letter")
-		.regex(/[0-9]/, "Must contain a number"),
+	password: strongPasswordSchema,
 })
 
 export const loginSchema = z.object({
@@ -37,13 +39,11 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
 	token: z.string().min(1),
-	password: z
-		.string()
-		.min(8)
-		.max(128)
-		.regex(/[A-Z]/, "Must contain uppercase letter")
-		.regex(/[a-z]/, "Must contain lowercase letter")
-		.regex(/[0-9]/, "Must contain a number"),
+	password: strongPasswordSchema.optional(),
+	newPassword: strongPasswordSchema.optional(),
+}).refine((data) => !!(data.password || data.newPassword), {
+	message: "Password is required",
+	path: ["password"],
 })
 
 export type RegisterInput = z.infer<typeof registerSchema>

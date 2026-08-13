@@ -1,0 +1,22 @@
+services:
+    api:
+        build:
+            target: build
+        command: ["pnpm", "dev"]
+        environment:
+            NODE_ENV: development
+            LOG_LEVEL: debug
+    worker:
+        build:
+            target: build
+        command: ["pnpm", "dev:worker"]
+        environment:
+            NODE_ENV: development
+            LOG_LEVEL: debug
+    client:
+        build:
+            target: build
+        command: ["pnpm", "dev"]
+        environment:
+            NODE_ENV: development
+            WATCHPACK_POLLING: "true"

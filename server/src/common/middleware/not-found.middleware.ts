@@ -1,9 +1,6 @@
 import type { Request, Response } from "express"
+import { sendError } from "../utils/response.ts"
 
-export const notFoundHandler = (_req: Request, res: Response): void => {
-	res.status(404).json({
-		statusCode: 404,
-		error: "Route not found",
-		code: "NOT_FOUND",
-	})
+export const notFoundHandler = (req: Request, res: Response): void => {
+	sendError(req, res, 404, "NOT_FOUND", "Route not found")
 }

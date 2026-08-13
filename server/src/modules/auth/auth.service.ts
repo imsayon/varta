@@ -1,6 +1,9 @@
+import crypto from "node:crypto"
+import { Prisma } from "@prisma/client"
 import slugify from "slugify"
 import { authRepository } from "./auth.repository.ts"
 import { hashPassword, verifyPassword } from "@/common/utils/auth/password.ts"
+import { hashToken, verifyToken } from "@/common/utils/auth/token-hash.ts"
 import { env } from "@/common/config/env.ts"
 import { resend } from "@/common/providers/resend.ts"
 import { buildVerificationEmail } from "@/common/templates/verification-email.ts"
@@ -23,6 +26,8 @@ import {
 } from "@/common/errors/app-error.ts"
 
 import type { RegisterInput, LoginInput } from "./auth.schema.ts"
+import { prisma } from "@/infra/database/prisma.ts"
+import { logger } from "@/infra/observability/logger.ts"
 
 const THIRTY_DAYS_IN_MS = 1000 * 60 * 60 * 24 * 30
 const ONE_HOUR_IN_MS = 1000 * 60 * 60
@@ -57,37 +62,23 @@ export const authService = {
 
 		const passwordHash = await hashPassword(password)
 
-		const user = await authRepository.createUser({
-			name,
-			email,
-			passwordHash,
-		})
-
-		// every user gets a default workspace on signup
 		const workspaceName = `${name}'s Workspace`
 		const baseSlug = slugify(workspaceName, {
 			lower: true,
 			strict: true,
 			trim: true,
 		})
-		const randomSuffix = Math.random().toString(36).substring(2, 8)
+		const randomSuffix = crypto.randomBytes(4).toString("hex")
 
-		const workspace = await authRepository.createWorkspace({
-			name: workspaceName,
-			slug: `${baseSlug}-${randomSuffix}`,
-		})
-
-		await authRepository.createWorkspaceMember({
-			userId: user.id,
-			workspaceId: workspace.id,
-		})
-
-		// generate email verification token
 		const rawToken = generateEmailToken()
-		await authRepository.createEmailVerification({
-			userId: user.id,
-			tokenHash: hashEmailToken(rawToken),
-			expiresAt: new Date(
+		const { user, workspace } = await authRepository.createRegistration({
+			name,
+			email,
+			passwordHash,
+			workspaceName,
+			workspaceSlug: `${baseSlug}-${randomSuffix}`,
+			verificationTokenHash: hashEmailToken(rawToken),
+			verificationExpiresAt: new Date(
 				Date.now() + env.EMAIL_VERIFY_TOKEN_TTL_HOURS * ONE_HOUR_IN_MS,
 			),
 		})
@@ -102,13 +93,9 @@ export const authService = {
 					subject: "Verify your email address - Varta",
 					html: buildVerificationEmail(name, verificationUrl),
 				})
-				.catch((err) =>
-					console.error("Failed to send verification email:", err),
-				)
+				.catch(() => logger.warn("Verification email delivery failed"))
 		} else {
-			console.log(
-				`[DEV] Email verification link for ${email}: ${verificationUrl}`,
-			)
+			logger.info("Verification email delivery is not configured")
 		}
 
 		return {
@@ -123,17 +110,8 @@ export const authService = {
 		providerUid: string
 		email: string
 		name: string
-		accessToken: string
-		refreshToken?: string
 	}) {
-		const {
-			provider,
-			providerUid,
-			email,
-			name,
-			accessToken,
-			refreshToken,
-		} = data
+		const { provider, providerUid, email, name } = data
 
 		// 1. Check if OAuth account exists
 		const existingOauth = await authRepository.findOauthAccount(
@@ -144,47 +122,38 @@ export const authService = {
 			return existingOauth.user
 		}
 
-		// 2. Check if user with email already exists (link account)
-		let user = await authRepository.findUserByEmail(email)
-
-		// 3. If user doesn't exist, create them
-		if (!user) {
-			user = await authRepository.createUser({
-				name,
-				email,
-				passwordHash: null,
-			})
-
-			// Create default workspace for new OAuth users
-			const workspaceName = `${name}'s Workspace`
-			const baseSlug = slugify(workspaceName, {
-				lower: true,
-				strict: true,
-				trim: true,
-			})
-			const randomSuffix = Math.random().toString(36).substring(2, 8)
-
-			const workspace = await authRepository.createWorkspace({
-				name: workspaceName,
-				slug: `${baseSlug}-${randomSuffix}`,
-			})
-			await authRepository.createWorkspaceMember({
-				userId: user.id,
-				workspaceId: workspace.id,
-			})
-
-			await authRepository.markUserEmailVerified(user.id)
+		// Never link accounts solely by matching an OAuth-provider email. Existing
+		// users must authenticate through their existing method before a future
+		// explicit account-linking flow can be permitted.
+		if (await authRepository.findUserByEmail(email)) {
+			throw new ConflictError("An account already uses this email. Sign in with the existing method.")
 		}
 
-		// 4. Create OAuth account record linked to the user
-		await authRepository.createOauthAccount({
-			userId: user.id,
-			provider,
-			providerUid,
-			accessToken,
-			...(refreshToken !== undefined && { refreshToken }),
-		})
-		return user
+		const workspaceName = `${name}'s Workspace`
+		const baseSlug = slugify(workspaceName, {
+			lower: true,
+			strict: true,
+			trim: true,
+		}) || "workspace"
+		const randomSuffix = crypto.randomBytes(4).toString("hex")
+
+		try {
+			return await authRepository.createOAuthRegistration({
+				name,
+				email,
+				provider,
+				providerUid,
+				workspaceName,
+				workspaceSlug: `${baseSlug}-${randomSuffix}`,
+			})
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+				const racedOauth = await authRepository.findOauthAccount(provider, providerUid)
+				if (racedOauth) return racedOauth.user
+				throw new ConflictError("An account already uses this email. Sign in with the existing method.")
+			}
+			throw error
+		}
 	},
 
 	// Login
@@ -226,15 +195,18 @@ export const authService = {
 			workspaceId: membership.workspaceId,
 		})
 
+		const refreshTokenId = crypto.randomUUID()
 		const refreshToken = await generateRefreshToken({
 			sub: user.id,
 			sessionId: session.id,
+			jti: refreshTokenId,
 		})
 
 		// store hashed refresh token in DB for rotation
 		await authRepository.createRefreshToken({
+			id: refreshTokenId,
 			sessionId: session.id,
-			tokenHash: await hashPassword(refreshToken),
+			tokenHash: hashToken(refreshToken),
 			expiresAt: new Date(Date.now() + THIRTY_DAYS_IN_MS),
 		})
 
@@ -247,72 +219,149 @@ export const authService = {
 
 	// Refresh
 	async refresh(refreshToken: string) {
+		const refreshStartedAt = new Date()
 		let payload: RefreshTokenPayload
 		try {
 			const decoded = await verifyRefreshToken(refreshToken)
+			if (
+				typeof decoded.payload.sub !== "string" ||
+				typeof decoded.payload.sessionId !== "string" ||
+				typeof decoded.payload.jti !== "string" ||
+				decoded.payload.type !== "refresh"
+			) {
+				throw new Error("Invalid refresh claims")
+			}
 			payload = decoded.payload as RefreshTokenPayload
 		} catch {
 			throw new UnauthorizedError("Invalid refresh token")
 		}
 
-		const session = await authRepository.findSessionById(
-			payload.sessionId as string,
-		)
-		if (!session) {
-			throw new UnauthorizedError("Session invalid")
+		let result:
+			| { kind: "rotated"; accessToken: string; refreshToken: string }
+			| { kind: "reuse" }
+			| { kind: "invalid" }
+		try {
+			result = await prisma.$transaction(
+				async (tx) => {
+					const storedToken = await tx.refreshToken.findUnique({
+						where: { id: payload.jti },
+						include: { session: true },
+					})
+					if (
+						!storedToken ||
+						storedToken.sessionId !== payload.sessionId ||
+						storedToken.session.userId !== payload.sub ||
+						storedToken.expiresAt <= new Date()
+					) {
+						return { kind: "invalid" as const }
+					}
+
+					if (storedToken.session.revokedAt) {
+						return { kind: "reuse" as const }
+					}
+
+					if (storedToken.revokedAt) {
+						// A request that began before this token was rotated is the expected
+						// loser of a concurrent refresh race. Reject it without destroying the
+						// winner's newly issued token. A request begun after rotation is replay.
+						if (refreshStartedAt <= storedToken.revokedAt) {
+							return { kind: "invalid" as const }
+						}
+						const revokedAt = new Date()
+						await tx.session.updateMany({
+							where: { id: storedToken.sessionId, revokedAt: null },
+							data: { revokedAt },
+						})
+						await tx.refreshToken.updateMany({
+							where: { sessionId: storedToken.sessionId, revokedAt: null },
+							data: { revokedAt },
+						})
+						return { kind: "reuse" as const }
+					}
+
+					const valid =
+						verifyToken(refreshToken, storedToken.tokenHash) ||
+						(await verifyPassword(storedToken.tokenHash, refreshToken).catch(() => false))
+					if (!valid) return { kind: "invalid" as const }
+
+					const membership = await tx.workspaceMember.findFirst({
+						where: { userId: storedToken.session.userId },
+						orderBy: { createdAt: "asc" },
+					})
+					if (!membership) return { kind: "invalid" as const }
+
+					const rotation = await tx.refreshToken.updateMany({
+						where: {
+							id: storedToken.id,
+							sessionId: storedToken.sessionId,
+							revokedAt: null,
+						},
+						data: { revokedAt: new Date() },
+					})
+					if (rotation.count !== 1) return { kind: "invalid" as const }
+
+					const newRefreshTokenId = crypto.randomUUID()
+					const newAccessToken = await generateAccessToken({
+						sub: storedToken.session.userId,
+						sessionId: storedToken.sessionId,
+						workspaceId: membership.workspaceId,
+					})
+					const newRefreshToken = await generateRefreshToken({
+						sub: storedToken.session.userId,
+						sessionId: storedToken.sessionId,
+						jti: newRefreshTokenId,
+					})
+					await tx.refreshToken.create({
+						data: {
+							id: newRefreshTokenId,
+							sessionId: storedToken.sessionId,
+							tokenHash: hashToken(newRefreshToken),
+							expiresAt: new Date(Date.now() + THIRTY_DAYS_IN_MS),
+						},
+					})
+					await tx.session.update({
+						where: { id: storedToken.sessionId },
+						data: { lastSeenAt: new Date() },
+					})
+
+					return {
+						kind: "rotated" as const,
+						accessToken: newAccessToken,
+						refreshToken: newRefreshToken,
+					}
+				},
+				{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+			)
+		} catch (error) {
+			if (
+				error instanceof Prisma.PrismaClientKnownRequestError &&
+				error.code === "P2034"
+			) {
+				throw new UnauthorizedError("Refresh token was already rotated")
+			}
+			throw error
 		}
 
-		const storedToken = await authRepository.findLatestRefreshToken(
-			session.id,
-		)
-		if (!storedToken) {
+		if (result.kind === "reuse") {
+			logger.warn("Refresh token reuse detected; session family revoked")
+			throw new UnauthorizedError("Refresh token reuse detected")
+		}
+		if (result.kind !== "rotated") {
 			throw new UnauthorizedError("Refresh token invalid")
 		}
-
-		// verify the refresh token matches what we stored
-		const valid = await verifyPassword(storedToken.tokenHash, refreshToken)
-		if (!valid) {
-			throw new UnauthorizedError("Refresh token invalid")
-		}
-
-		// rotate: revoke old, issue new
-		await authRepository.revokeRefreshToken(storedToken.id)
-
-		const membership = await authRepository.findPrimaryWorkspaceForUser(
-			session.userId,
-		)
-		if (!membership) {
-			throw new UnauthorizedError()
-		}
-
-		const newAccessToken = await generateAccessToken({
-			sub: session.userId,
-			sessionId: session.id,
-			workspaceId: membership.workspaceId,
-		})
-
-		const newRefreshToken = await generateRefreshToken({
-			sub: session.userId,
-			sessionId: session.id,
-		})
-
-		await authRepository.createRefreshToken({
-			sessionId: session.id,
-			tokenHash: await hashPassword(newRefreshToken),
-			expiresAt: new Date(Date.now() + THIRTY_DAYS_IN_MS),
-		})
-
-		await authRepository.updateSessionLastSeen(session.id)
-
-		return {
-			accessToken: newAccessToken,
-			refreshToken: newRefreshToken,
-		}
+		return result
 	},
 
 	// Logout
-	async logout(refreshToken: string) {
-		const { payload } = await verifyRefreshToken(refreshToken)
+	async logout(refreshToken?: string) {
+		if (!refreshToken) return
+		let payload: RefreshTokenPayload
+		try {
+			const decoded = await verifyRefreshToken(refreshToken)
+			payload = decoded.payload as RefreshTokenPayload
+		} catch {
+			return
+		}
 		const sessionId = payload.sessionId as string
 
 		await authRepository.revokeSession(sessionId)
@@ -328,15 +377,12 @@ export const authService = {
 	// Email Verification
 	async verifyEmail(token: string) {
 		const tokenHash = hashEmailToken(token)
-		const verification =
-			await authRepository.findEmailVerification(tokenHash)
+		const verification = await authRepository.consumeEmailVerification(tokenHash)
 
 		if (!verification) {
 			throw new BadRequestError("Invalid or expired verification token")
 		}
 
-		await authRepository.markUserEmailVerified(verification.userId)
-		await authRepository.markEmailVerificationUsed(verification.id)
 	},
 
 	async resendVerification(email: string) {
@@ -362,13 +408,9 @@ export const authService = {
 					subject: "Verify your email address - Varta",
 					html: buildVerificationEmail(user.name, verificationUrl),
 				})
-				.catch((err) =>
-					console.error("Failed to send verification email:", err),
-				)
+				.catch(() => logger.warn("Verification email delivery failed"))
 		} else {
-			console.log(
-				`[DEV] Email verification link for ${email}: ${verificationUrl}`,
-			)
+			logger.info("Verification email delivery is not configured")
 		}
 	},
 
@@ -398,31 +440,23 @@ export const authService = {
 					subject: "Reset your password - Varta",
 					html: buildResetPasswordEmail(user.name, resetUrl),
 				})
-				.catch((err) =>
-					console.error("Failed to send reset email:", err),
-				)
+				.catch(() => logger.warn("Password reset email delivery failed"))
 		} else {
-			console.log(`[DEV] Password reset link for ${email}: ${resetUrl}`)
+			logger.info("Password reset email delivery is not configured")
 		}
 	},
 
 	// Reset Password
 	async resetPassword(token: string, newPassword: string) {
 		const tokenHash = hashEmailToken(token)
-		const resetToken =
-			await authRepository.findPasswordResetToken(tokenHash)
-
+		const passwordHash = await hashPassword(newPassword)
+		const resetToken = await authRepository.consumePasswordReset(
+			tokenHash,
+			passwordHash,
+		)
 		if (!resetToken) {
 			throw new BadRequestError("Invalid or expired reset token")
 		}
-
-		const passwordHash = await hashPassword(newPassword)
-
-		await authRepository.updatePassword(resetToken.userId, passwordHash)
-		await authRepository.markPasswordResetTokenUsed(resetToken.id)
-
-		// revoke all sessions so the user must log back in with new password
-		await authRepository.revokeAllSessionsForUser(resetToken.userId)
 	},
 
 	// Session Management

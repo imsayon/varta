@@ -1,0 +1,253 @@
+.container {
+	padding: 1.5rem;
+	max-width: 1100px;
+	margin: 0 auto;
+}
+
+.header {
+	margin-bottom: 2rem;
+}
+
+.header h1 {
+	font-size: 1.75rem;
+	font-weight: 700;
+	color: #f3f4f6;
+	margin-bottom: 0.25rem;
+}
+
+.header p {
+	color: #9ca3af;
+	font-size: 0.95rem;
+}
+
+.loading, .error {
+	padding: 2rem;
+	text-align: center;
+	color: #9ca3af;
+}
+
+.error {
+	color: #ef4444;
+}
+
+.currentCard {
+	background: #111827;
+	border: 1px solid #1f2937;
+	border-radius: 0.75rem;
+	padding: 1.5rem;
+	margin-bottom: 2rem;
+}
+
+.badgeRow {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 1rem;
+}
+
+.badgeRow h2 {
+	font-size: 1.1rem;
+	color: #f3f4f6;
+	margin: 0;
+}
+
+.statusBadge {
+	padding: 0.25rem 0.75rem;
+	border-radius: 9999px;
+	font-size: 0.8rem;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.statusActive {
+	background: rgba(16, 185, 129, 0.2);
+	color: #10b981;
+}
+
+.statusGrace {
+	background: rgba(245, 158, 11, 0.2);
+	color: #f59e0b;
+}
+
+.statusInactive {
+	background: rgba(239, 68, 68, 0.2);
+	color: #ef4444;
+}
+
+.planOverview {
+	margin-bottom: 1.5rem;
+}
+
+.planOverview h3 {
+	font-size: 1.5rem;
+	font-weight: 700;
+	color: #3b82f6;
+	margin: 0 0 0.25rem 0;
+}
+
+.planOverview p {
+	color: #9ca3af;
+	margin: 0 0 0.5rem 0;
+}
+
+.priceTag {
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: #e5e7eb;
+}
+
+.quotaGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 1rem;
+	padding-top: 1rem;
+	border-top: 1px solid #1f2937;
+}
+
+.quotaItem {
+	display: flex;
+	flex-direction: column;
+}
+
+.quotaLabel {
+	font-size: 0.8rem;
+	color: #9ca3af;
+	margin-bottom: 0.25rem;
+}
+
+.quotaValue {
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: #f3f4f6;
+}
+
+.alertMessage {
+	padding: 1rem;
+	background: rgba(59, 130, 246, 0.15);
+	border: 1px solid #3b82f6;
+	border-radius: 0.5rem;
+	color: #60a5fa;
+	margin-bottom: 2rem;
+	font-size: 0.95rem;
+}
+
+.catalogSection h2 {
+	font-size: 1.25rem;
+	color: #f3f4f6;
+	margin-bottom: 1rem;
+}
+
+.catalogGrid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 1.5rem;
+}
+
+.planCard {
+	background: #111827;
+	border: 1px solid #1f2937;
+	border-radius: 0.75rem;
+	padding: 1.5rem;
+	display: flex;
+	flex-direction: column;
+}
+
+.planCardActive {
+	border-color: #3b82f6;
+	box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+}
+
+.planCard h3 {
+	font-size: 1.25rem;
+	color: #f3f4f6;
+	margin: 0 0 0.5rem 0;
+}
+
+.planDesc {
+	font-size: 0.85rem;
+	color: #9ca3af;
+	margin: 0 0 1rem 0;
+	min-height: 2.5rem;
+}
+
+.cardPrice {
+	font-size: 1.75rem;
+	font-weight: 700;
+	color: #f3f4f6;
+	margin-bottom: 1.5rem;
+}
+
+.perMonth {
+	font-size: 0.9rem;
+	color: #9ca3af;
+	font-weight: 400;
+}
+
+.featureList {
+	list-style: none;
+	padding: 0;
+	margin: 0 0 1.5rem 0;
+	flex-grow: 1;
+}
+
+.featureList li {
+	font-size: 0.85rem;
+	color: #d1d5db;
+	padding: 0.4rem 0;
+	border-bottom: 1px dashed #1f2937;
+}
+
+.featureList li:last-child {
+	border-bottom: none;
+}
+
+.upgradeBtn {
+	width: 100%;
+	padding: 0.75rem;
+	background: #2563eb;
+	color: #ffffff;
+	border: none;
+	border-radius: 0.5rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+
+.upgradeBtn:hover:not(:disabled) {
+	background: #1d4ed8;
+}
+
+.upgradeBtn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.currentPlanLabel {
+	text-align: center;
+	padding: 0.75rem;
+	background: #1f2937;
+	color: #9ca3af;
+	border-radius: 0.5rem;
+	font-weight: 600;
+	font-size: 0.9rem;
+}
+
+.pendingText {
+	margin: 1rem 0;
+	color: #fbbf24;
+	font-size: 0.9rem;
+}
+
+.secondaryBtn {
+	padding: 0.65rem 0.9rem;
+	border: 1px solid #374151;
+	border-radius: 0.5rem;
+	background: #111827;
+	color: #d1d5db;
+	cursor: pointer;
+}
+
+.secondaryBtn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}

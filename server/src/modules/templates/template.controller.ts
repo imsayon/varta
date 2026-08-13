@@ -3,6 +3,10 @@ import { templateService } from "./template.service.ts"
 import { workspaceService } from "../workspaces/workspace.service.ts"
 import Handlebars from "handlebars"
 import DOMPurify from "isomorphic-dompurify"
+import { requireWorkspaceCapability } from "@/common/auth/capability.ts"
+import { sendSuccess, sendPaginated } from "@/common/utils/response.ts"
+import { NotFoundError, BadRequestError } from "@/common/errors/app-error.ts"
+import { parsePaginationQuery, encodeCursor, decodeCursor } from "@/common/utils/pagination.ts"
 
 export const create = async (
 	req: Request,
@@ -10,7 +14,7 @@ export const create = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -18,7 +22,7 @@ export const create = async (
 			...req.body,
 			workspaceId,
 		})
-		res.status(201).json({ success: true, data: template })
+		sendSuccess(req, res, template, 201)
 	} catch (err) {
 		next(err)
 	}
@@ -30,26 +34,27 @@ export const list = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
-		const page = Math.max(1, parseInt(req.query.page as string) || 1)
-		const limit = Math.min(
-			100,
-			Math.max(1, parseInt(req.query.limit as string) || 20),
-		)
-		const skip = (page - 1) * limit
+		const { limit, cursor } = parsePaginationQuery(req.query as Record<string, unknown>)
+		const decoded = decodeCursor(cursor)
 
 		const [templates, total] = await templateService.search(
 			workspaceId,
-			skip,
-			limit,
+			limit + 1,
+			decoded,
 		)
-		res.status(200).json({
-			success: true,
-			data: { templates, total, page, limit },
-		})
+
+		const hasMore = templates.length > limit
+		const items = hasMore ? templates.slice(0, limit) : templates
+		const lastItem = items.length > 0 ? items[items.length - 1] : undefined
+		const nextCursor = hasMore && lastItem
+			? encodeCursor({ id: lastItem.id, createdAt: lastItem.createdAt.toISOString() })
+			: null
+
+		sendPaginated(req, res, items, nextCursor, hasMore, total)
 	} catch (err) {
 		next(err)
 	}
@@ -61,7 +66,7 @@ export const getById = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -70,14 +75,10 @@ export const getById = async (
 			req.params.templateId as string,
 		)
 		if (!template) {
-			res.status(404).json({
-				success: false,
-				message: "Template not found",
-			})
-			return
+			throw new NotFoundError("Template not found")
 		}
 
-		res.status(200).json({ success: true, data: template })
+		sendSuccess(req, res, template)
 	} catch (err) {
 		next(err)
 	}
@@ -89,7 +90,7 @@ export const update = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -98,11 +99,7 @@ export const update = async (
 			req.params.templateId as string,
 		)
 		if (!existing) {
-			res.status(404).json({
-				success: false,
-				message: "Template not found",
-			})
-			return
+			throw new NotFoundError("Template not found")
 		}
 
 		const template = await templateService.update(
@@ -110,7 +107,7 @@ export const update = async (
 			req.params.templateId as string,
 			req.body,
 		)
-		res.status(200).json({ success: true, data: template })
+		sendSuccess(req, res, template)
 	} catch (err) {
 		next(err)
 	}
@@ -122,7 +119,7 @@ export const remove = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
@@ -131,18 +128,14 @@ export const remove = async (
 			req.params.templateId as string,
 		)
 		if (!existing) {
-			res.status(404).json({
-				success: false,
-				message: "Template not found",
-			})
-			return
+			throw new NotFoundError("Template not found")
 		}
 
 		await templateService.delete(
 			workspaceId,
 			req.params.templateId as string,
 		)
-		res.status(200).json({ success: true, message: "Template deleted" })
+		sendSuccess(req, res, null)
 	} catch (err) {
 		next(err)
 	}
@@ -154,27 +147,21 @@ export const preview = async (
 	next: NextFunction,
 ): Promise<void> => {
 	try {
-		const userId = req.user!.id
+		const userId = requireWorkspaceCapability(req).actorId
 		const workspaceId = req.params.workspaceId as string
 		await workspaceService.assertMembership(workspaceId, userId)
 
 		const { content, payload } = req.body
 
-		// Step 1: Compile Handlebars template and render with payload
-		const render = Handlebars.compile(content, { strict: false })
-		const rawHtml = render(payload)
+		const render = Handlebars.compile(content || "", { strict: false })
+		const rawHtml = render(payload || {})
 
-		// Step 2: Sanitize to prevent XSS in rendered output
 		const sanitizedHtml = DOMPurify.sanitize(rawHtml)
 
-		res.status(200).json({ success: true, data: { html: sanitizedHtml } })
+		sendSuccess(req, res, { html: sanitizedHtml })
 	} catch (err: unknown) {
 		const message =
 			err instanceof Error ? err.message : "Template preview failed"
-		res.status(400).json({
-			success: false,
-			message: "Failed to preview template",
-			error: message,
-		})
+		next(new BadRequestError(message))
 	}
 }

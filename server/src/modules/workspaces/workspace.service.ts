@@ -2,6 +2,8 @@ import { workspaceRepository } from "./workspace.repository.ts"
 import { NotFoundError, ForbiddenError } from "@/common/errors/app-error.ts"
 import type { Prisma } from "@prisma/client"
 
+import crypto from "node:crypto"
+
 function slugify(name: string): string {
 	return name
 		.toLowerCase()
@@ -11,9 +13,11 @@ function slugify(name: string): string {
 
 export const workspaceService = {
 	async create(name: string, ownerId: string) {
-		// Append random suffix to avoid slug collisions without a DB round-trip
-		const slug = `${slugify(name)}-${Math.random().toString(36).slice(2, 6)}`
-		return workspaceRepository.create({ name, slug, ownerId })
+		// Append cryptographically random suffix to avoid slug collisions
+		const randomSuffix = crypto.randomBytes(4).toString("hex")
+		const slug = `${slugify(name)}-${randomSuffix}`
+		const workspace = await workspaceRepository.create({ name, slug, ownerId })
+		return { ...workspace, role: "OWNER" as const }
 	},
 
 	async findById(workspaceId: string) {
@@ -22,8 +26,8 @@ export const workspaceService = {
 		return workspace
 	},
 
-	async listByUser(userId: string) {
-		const memberships = await workspaceRepository.listByUser(userId)
+	async listByUser(userId: string, skip = 0, take = 101) {
+		const memberships = await workspaceRepository.listByUser(userId, skip, take)
 		return memberships.map((m) => ({ ...m.workspace, role: m.role }))
 	},
 
@@ -49,7 +53,7 @@ export const workspaceService = {
 		return member
 	},
 
-	async listMembers(workspaceId: string) {
-		return workspaceRepository.listMembers(workspaceId)
+	async listMembers(workspaceId: string, skip = 0, take = 101) {
+		return workspaceRepository.listMembers(workspaceId, skip, take)
 	},
 }

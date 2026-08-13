@@ -1,1 +1,5 @@
-export { AnalyticsDashboard as default } from '@/features/analytics/components/AnalyticsDashboard';
+import { AnalyticsDashboard } from "@/features/analytics/components/AnalyticsDashboard"
+
+export default function AnalyticsPage() {
+	return <AnalyticsDashboard />
+}

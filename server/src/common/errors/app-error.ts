@@ -50,7 +50,10 @@ export class IdempotentTriggerError extends AppError {
 }
 
 export class TooManyRequestsError extends AppError {
-	constructor(message = "Too many requests") {
+	constructor(
+		message = "Too many requests",
+		public readonly retryAfterSeconds = 60,
+	) {
 		super(message, 429, "TOO_MANY_REQUESTS")
 	}
 }

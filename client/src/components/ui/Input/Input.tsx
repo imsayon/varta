@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { forwardRef, useId, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import styles from './Input.module.css';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -10,16 +10,22 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, mono, className, ...props }, ref) => {
+  ({ label, error, mono, className, id, 'aria-describedby': describedBy, ...props }, ref) => {
+    const generatedId = useId();
+    const inputId = id ?? generatedId;
+    const errorId = `${inputId}-error`;
     return (
       <div className={styles.wrapper}>
-        {label && <label className={styles.label}>{label}</label>}
+        {label && <label className={styles.label} htmlFor={inputId}>{label}</label>}
         <input
+          id={inputId}
           ref={ref}
+          aria-describedby={[describedBy, error ? errorId : undefined].filter(Boolean).join(' ') || undefined}
+          aria-invalid={error ? true : undefined}
           className={`${styles.input} ${error ? styles.error : ''} ${mono ? styles.mono : ''} ${className || ''}`}
           {...props}
         />
-        {error && <span className={styles.errorText}>{error}</span>}
+        {error && <span id={errorId} className={styles.errorText}>{error}</span>}
       </div>
     );
   }
@@ -35,16 +41,22 @@ interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 }
 
 export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
-  ({ label, error, mono, className, ...props }, ref) => {
+  ({ label, error, mono, className, id, 'aria-describedby': describedBy, ...props }, ref) => {
+    const generatedId = useId();
+    const inputId = id ?? generatedId;
+    const errorId = `${inputId}-error`;
     return (
       <div className={styles.wrapper}>
-        {label && <label className={styles.label}>{label}</label>}
+        {label && <label className={styles.label} htmlFor={inputId}>{label}</label>}
         <textarea
+          id={inputId}
           ref={ref}
+          aria-describedby={[describedBy, error ? errorId : undefined].filter(Boolean).join(' ') || undefined}
+          aria-invalid={error ? true : undefined}
           className={`${styles.input} ${styles.textarea} ${error ? styles.error : ''} ${mono ? styles.mono : ''} ${className || ''}`}
           {...props}
         />
-        {error && <span className={styles.errorText}>{error}</span>}
+        {error && <span id={errorId} className={styles.errorText}>{error}</span>}
       </div>
     );
   }

@@ -2,17 +2,21 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { 
-  BarChart3, 
-  FileCode, 
-  GitBranch, 
-  Users, 
-  Rocket, 
-  Settings, 
+import {
+  Activity,
+  Bell,
+  Braces,
+  GitBranch,
+  KeyRound,
+  Send,
+  Settings,
+  Users,
   LogOut, 
   ChevronRight,
-  Plus
+  Plus,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/shared/auth/auth-context';
 import { useState, useEffect } from 'react';
@@ -30,13 +34,17 @@ export function Sidebar() {
   const [isCreatingWs, setIsCreatingWs] = useState(false);
 
   const navItems = [
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Templates', href: '/templates', icon: FileCode },
-    { name: 'Workflows', href: '/workflows', icon: GitBranch },
-    { name: 'Routing Rules', href: '/rules', icon: FileCode }, // Just changing icon here or keeping it
+    { name: 'Analytics', href: '/analytics', icon: Activity },
+    { name: 'Notifications', href: '/notifications', icon: Bell },
+    { name: 'Studio', href: '/studio', icon: Send },
     { name: 'Subscribers', href: '/subscribers', icon: Users },
-    { name: 'Trigger Studio', href: '/studio', icon: Rocket },
+    { name: 'Templates', href: '/templates', icon: Braces },
+    { name: 'Routing Rules', href: '/rules', icon: GitBranch },
+    { name: 'API Keys', href: '/api-keys', icon: KeyRound },
     { name: 'Settings', href: '/settings', icon: Settings },
+    ...(workspace?.role === 'OWNER'
+      ? [{ name: 'Billing', href: '/settings/billing', icon: CreditCard }]
+      : []),
   ];
 
   // Fetch workspaces list
@@ -47,7 +55,7 @@ export function Sidebar() {
         setWorkspaces(res.data);
         // If no active workspace is selected, but workspaces exist, select the first one
         if (!workspace && res.data.length > 0) {
-          setActiveWorkspace({ id: res.data[0].id, name: res.data[0].name });
+          setActiveWorkspace({ id: res.data[0].id, name: res.data[0].name, role: res.data[0].role });
         }
       }
     }
@@ -61,7 +69,7 @@ export function Sidebar() {
     const res = await apiClient.post<IWorkspace>('/api/v1/workspaces', { name: newWsName });
     if (res.success && res.data) {
       setWorkspaces(prev => [...prev, res.data!]);
-      setActiveWorkspace({ id: res.data.id, name: res.data.name });
+      setActiveWorkspace({ id: res.data.id, name: res.data.name, role: res.data.role });
       setNewWsName('');
       setIsCreatingWs(false);
       setIsDropdownOpen(false);
@@ -72,8 +80,8 @@ export function Sidebar() {
     <aside className={styles.sidebar}>
       {/* Brand Header */}
       <div className={styles.brand}>
-        <div className={styles.logoIcon}>
-          <span>V</span>
+        <div className={styles.logoWrap}>
+          <Image src="/varta-logo.png" alt="Varta" width={32} height={32} />
         </div>
         <h1 className={styles.logoText}>
           Varta<span>.</span>
@@ -103,10 +111,10 @@ export function Sidebar() {
                   key={ws.id}
                   className={`${styles.dropdownItem} ${workspace?.id === ws.id ? styles.dropdownItemActive : ''}`}
                   onClick={() => {
-                    setActiveWorkspace({ id: ws.id, name: ws.name });
+                    setActiveWorkspace({ id: ws.id, name: ws.name, role: ws.role });
                     setIsDropdownOpen(false);
                     // Force refresh or redirect to reset state for new workspace context
-                    router.push('/analytics');
+                    router.push('/settings');
                   }}
                 >
                   {ws.name}

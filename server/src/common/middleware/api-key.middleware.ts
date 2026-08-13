@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from "express"
 import { apiKeyService } from "@/modules/api-keys/api-key.service.ts"
 import { UnauthorizedError } from "@/common/errors/app-error.ts"
+import { sendError } from "@/common/utils/response.ts"
+import { workspaceContextFor, type ApiKeyPrincipal } from "@/common/auth/principal.ts"
 
 export async function apiKeyAuth(
 	req: Request,
@@ -8,11 +10,9 @@ export async function apiKeyAuth(
 	next: NextFunction,
 ) {
 	try {
-		const apiKey =
-			(req.headers["x-api-key"] as string) ||
-			req.headers.authorization?.replace("Bearer ", "")
+		const apiKey = req.headers["x-api-key"]
 
-		if (!apiKey || !apiKey.startsWith("vt_live_")) {
+		if (typeof apiKey !== "string" || !apiKey.startsWith("vt_live_")) {
 			throw new UnauthorizedError("Valid API key required")
 		}
 
@@ -21,13 +21,46 @@ export async function apiKeyAuth(
 			throw new UnauthorizedError("Invalid or revoked API key")
 		}
 
-		req.apiKey = {
-			id: keyRecord.id,
+		const scopes = Array.isArray(keyRecord.permissions)
+			? keyRecord.permissions.filter((scope): scope is string => typeof scope === "string")
+			: []
+		const principal: ApiKeyPrincipal = {
+			kind: "api_key",
+			actorId: keyRecord.id,
 			workspaceId: keyRecord.workspaceId,
+			keyId: keyRecord.id,
+			scopes,
+			verification: "not_applicable",
+		}
+		req.capability = {
+			principal,
+			workspace: workspaceContextFor(principal, "API_KEY"),
 		}
 
 		next()
 	} catch (err) {
 		next(err)
+	}
+}
+
+export function requireApiKeyScope(requiredScope: string) {
+	return (req: Request, res: Response, next: NextFunction) => {
+		if (req.capability?.principal.kind !== "api_key") {
+			return next(
+				new UnauthorizedError("API key authentication required"),
+			)
+		}
+		const scopes = req.capability.principal.scopes
+		if (!scopes.includes(requiredScope) && !scopes.includes("*")) {
+			sendError(
+				req,
+				res,
+				403,
+				"INSUFFICIENT_PERMISSIONS",
+				`API key lacks required permission scope '${requiredScope}'`,
+			)
+			return
+			}
+		next()
 	}
 }
