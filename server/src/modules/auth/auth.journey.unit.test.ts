@@ -54,7 +54,7 @@ describe("C3 Browser Authentication Journey Unit Suite", () => {
 	})
 
 	it("rejects token verification for invalid or tampered signatures", async () => {
-		const tamperedToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+		const tamperedToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" // gitleaks:allow -- public jwt.io example, intentionally invalid here
 		await assert.rejects(() => verifyAccessToken(tamperedToken))
 		await assert.rejects(() => verifyRefreshToken(tamperedToken))
 	})

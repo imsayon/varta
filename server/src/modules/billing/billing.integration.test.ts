@@ -19,7 +19,7 @@ test.after(async () => {
 
 test("Razorpay Client: HMAC webhook signature verification", () => {
 	const rawPayload = JSON.stringify({ event: "subscription.charged", entity: { id: "sub_123" } })
-	const secret = "whsec_test_secret_key_12345"
+	const secret = "test-webhook-secret-not-a-secret"
 
 	const validSignature = crypto
 		.createHmac("sha256", secret)

@@ -171,7 +171,7 @@ jobs:
           JWT_REFRESH_SECRET: 'ci-refresh-secret-at-least-32-characters'
           JWT_WS_SECRET: 'ci-websocket-secret-at-least-32-characters'
           METRICS_AUTH_TOKEN: 'ci-metrics-token-at-least-32-characters'
-          ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef'
+          ENCRYPTION_KEY: 'ci-encryption-key-not-secret-0000'
           METRICS_AUTH_TOKEN_FILE: '/tmp/varta-ci-metrics-token'
         run: |
           touch "$METRICS_AUTH_TOKEN_FILE"
@@ -207,7 +207,7 @@ jobs:
           JWT_REFRESH_SECRET: 'ci-refresh-secret-at-least-32-characters'
           JWT_WS_SECRET: 'ci-websocket-secret-at-least-32-characters'
           METRICS_AUTH_TOKEN: 'ci-metrics-token-at-least-32-characters'
-          ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef'
+          ENCRYPTION_KEY: 'ci-encryption-key-not-secret-0000'
           METRICS_AUTH_TOKEN_FILE: '/tmp/varta-ci-metrics-token-observability'
         run: |
           install -Dm600 /dev/null "$METRICS_AUTH_TOKEN_FILE"
