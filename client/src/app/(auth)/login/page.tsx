@@ -9,6 +9,7 @@ import { validateRedirectUrl } from "@/proxy"
 import { Card } from "@/components/ui/Card/Card"
 import { Input } from "@/components/ui/Input/Input"
 import { Button } from "@/components/ui/Button/Button"
+import { OAuthProviderIcon } from "@/components/auth/OAuthProviderIcon"
 import styles from "./LoginPage.module.css"
 
 function LoginForm() {
@@ -66,15 +67,17 @@ function LoginForm() {
 			<div className={styles.oauthProviders}>
 				<a
 					href={`/api/v1/auth/oauth/google?returnTo=${oauthReturnTo}`}
-					className={styles.oauthBtn}
+					className={`${styles.oauthBtn} ${styles.googleBtn}`}
 				>
-					Continue with Google
+					<OAuthProviderIcon provider="google" />
+					<span>Continue with Google</span>
 				</a>
 				<a
 					href={`/api/v1/auth/oauth/github?returnTo=${oauthReturnTo}`}
-					className={styles.oauthBtn}
+					className={`${styles.oauthBtn} ${styles.githubBtn}`}
 				>
-					Continue with GitHub
+					<OAuthProviderIcon provider="github" />
+					<span>Continue with GitHub</span>
 				</a>
 			</div>
 

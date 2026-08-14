@@ -8,6 +8,7 @@ import { useAuth } from '@/shared/auth/auth-context';
 import { Card } from '@/components/ui/Card/Card';
 import { Input } from '@/components/ui/Input/Input';
 import { Button } from '@/components/ui/Button/Button';
+import { OAuthProviderIcon } from '@/components/auth/OAuthProviderIcon';
 import styles from './SignupPage.module.css';
 
 export default function SignupPage() {
@@ -65,11 +66,13 @@ export default function SignupPage() {
         <span>or continue with</span>
       </div>
       <div className={styles.oauthProviders}>
-        <a href="/api/v1/auth/oauth/google" className={styles.oauthBtn}>
-          Continue with Google
+        <a href="/api/v1/auth/oauth/google" className={`${styles.oauthBtn} ${styles.googleBtn}`}>
+          <OAuthProviderIcon provider="google" />
+          <span>Continue with Google</span>
         </a>
-        <a href="/api/v1/auth/oauth/github" className={styles.oauthBtn}>
-          Continue with GitHub
+        <a href="/api/v1/auth/oauth/github" className={`${styles.oauthBtn} ${styles.githubBtn}`}>
+          <OAuthProviderIcon provider="github" />
+          <span>Continue with GitHub</span>
         </a>
       </div>
 

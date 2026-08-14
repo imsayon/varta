@@ -80,8 +80,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.65rem;
   flex: 1;
-  min-height: 2.75rem;
+  min-height: 3rem;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-2);
   border-radius: var(--radius-md);
@@ -90,15 +91,32 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   text-decoration: none;
-  transition: border-color var(--transition-base), background var(--transition-base), color var(--transition-base);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+  transition: transform var(--transition-fast), border-color var(--transition-base), background var(--transition-base), box-shadow var(--transition-base);
 }
 
 .oauthBtn:hover {
   border-color: var(--color-primary-400);
   background: var(--surface-3);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%), inset 0 1px 0 rgb(255 255 255 / 7%);
+  transform: translateY(-1px);
 }
 
 .oauthBtn:focus-visible {
   outline: 2px solid var(--color-primary-400);
   outline-offset: 2px;
+}
+
+.googleBtn:hover {
+  border-color: #4285f4;
+}
+
+.githubBtn:hover {
+  border-color: #8b949e;
+}
+
+@media (max-width: 36rem) {
+  .oauthProviders {
+    flex-direction: column;
+  }
 }
