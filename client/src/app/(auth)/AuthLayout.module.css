@@ -1,4 +1,7 @@
 .loadingContainer {
+  --font-body: var(--font-auth), "IBM Plex Sans", sans-serif;
+  --font-heading: var(--font-auth), "IBM Plex Sans", sans-serif;
+  --font-mono: var(--font-auth), "IBM Plex Sans", sans-serif;
   min-height: 100vh;
   background: var(--surface-base);
   display: flex;
@@ -20,6 +23,9 @@
 }
 
 .container {
+  --font-body: var(--font-auth), "IBM Plex Sans", sans-serif;
+  --font-heading: var(--font-auth), "IBM Plex Sans", sans-serif;
+  --font-mono: var(--font-auth), "IBM Plex Sans", sans-serif;
   min-height: 100vh;
   background: var(--surface-base);
   display: flex;
@@ -28,6 +34,7 @@
   padding: var(--space-6);
   position: relative;
   overflow: hidden;
+  font-family: var(--font-body);
 }
 
 .meshBg {
