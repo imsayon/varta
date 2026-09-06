@@ -20,8 +20,9 @@ export function compactLogIdentifiers(
 	identifiers: Partial<Record<keyof LogIdentifiers, string | undefined>>,
 ): LogIdentifiers {
 	return Object.fromEntries(
-		Object.entries(identifiers).filter((entry): entry is [string, string] =>
-			typeof entry[1] === "string"),
+		Object.entries(identifiers).filter(
+			(entry): entry is [string, string] => typeof entry[1] === "string",
+		),
 	) as LogIdentifiers
 }
 
@@ -29,8 +30,5 @@ export function withLogContext<T>(
 	identifiers: LogIdentifiers,
 	callback: () => T,
 ): T {
-	return storage.run(
-		{ ...currentLogContext(), ...identifiers },
-		callback,
-	)
+	return storage.run({ ...currentLogContext(), ...identifiers }, callback)
 }

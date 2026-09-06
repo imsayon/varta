@@ -50,7 +50,8 @@ export async function rateLimitAuth(
 	next: NextFunction,
 ) {
 	try {
-		const key = `${req.ip}_${req.body.email?.toLowerCase() ?? "unknown"}`
+		const email = typeof req.body?.email === "string" ? req.body.email.toLowerCase() : "unknown"
+		const key = `${req.ip}_${email}`
 		await authLimiter.consume(key)
 		next()
 	} catch (error) {

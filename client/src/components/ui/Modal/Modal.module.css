@@ -12,20 +12,18 @@
   position: absolute;
   inset: 0;
   background: rgba(6, 6, 14, 0.8);
-  backdrop-filter: blur(8px);
 }
 
 .modal {
   position: relative;
   width: 100%;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-2xl);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   max-height: 85vh;
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .header {
@@ -52,6 +50,12 @@
   border-radius: var(--radius-md);
   color: var(--text-muted);
   transition: all var(--transition-fast);
+}
+
+.closeBtn:focus-visible,
+.modal:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
 }
 
 .closeBtn:hover {

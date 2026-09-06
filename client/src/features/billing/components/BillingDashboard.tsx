@@ -81,7 +81,6 @@ export function BillingDashboard() {
 	const [data, setData] = useState<BillingStatusResponse | null>(null)
 	const [loading, setLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
-	const [checkoutPlanId, setCheckoutPlanId] = useState<string | null>(null)
 	const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null)
 	const [reconciling, setReconciling] = useState(false)
 	const [cancelling, setCancelling] = useState(false)
@@ -111,7 +110,6 @@ export function BillingDashboard() {
 
 	const handleCheckout = async (planId: string) => {
 		if (!workspace?.id) return
-		setCheckoutPlanId(planId)
 		setCheckoutMessage(null)
 
 		const operationId = crypto.randomUUID()
@@ -158,7 +156,6 @@ export function BillingDashboard() {
 			setCheckoutMessage(res.error.message)
 		}
 
-		setCheckoutPlanId(null)
 	}
 
 	const handleReconcile = async () => {
@@ -306,17 +303,14 @@ export function BillingDashboard() {
 								</li>
 							</ul>
 
-							{p.id !== currentPlan?.id ? (
-								<button
-									className={styles.upgradeBtn}
-									onClick={() => void handleCheckout(p.id)}
-									disabled={checkoutPlanId === p.id}
-								>
-									{checkoutPlanId === p.id ? "Processing..." : `Upgrade to ${p.name}`}
-								</button>
-							) : (
-								<div className={styles.currentPlanLabel}>Current Plan</div>
-							)}
+							<button
+								className={styles.upgradeBtn}
+								onClick={() => void handleCheckout(p.id)}
+								disabled
+								aria-disabled="true"
+							>
+								Coming soon
+							</button>
 						</div>
 					))}
 				</div>

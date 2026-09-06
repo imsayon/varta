@@ -10,7 +10,7 @@ RUN pnpm install --frozen-lockfile --filter @varta/server...
 
 COPY server/ ./server/
 WORKDIR /app/server
-RUN pnpm prisma:generate \
+RUN DIRECT_URL='postgresql://generate:generate@localhost:5432/generate?schema=varta' pnpm prisma:generate \
   && pnpm build \
   && PNPM_CONFIG_AUTO_INSTALL_PEERS=false PNPM_CONFIG_STRICT_PEER_DEPENDENCIES=false \
     pnpm --filter @varta/server deploy --prod --legacy /prod/server \

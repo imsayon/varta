@@ -9,7 +9,9 @@ RUN pnpm install --frozen-lockfile --filter @varta/web...
 
 COPY client/ ./client/
 WORKDIR /app/client
-ARG NEXT_PUBLIC_API_URL=http://api:5000
+ARG API_URL=http://api:5000
+ENV API_URL=$API_URL
+ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN pnpm build
 

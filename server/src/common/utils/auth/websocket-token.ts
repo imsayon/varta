@@ -29,23 +29,6 @@ export async function generateSubscriberWebSocketToken(
 		.sign(websocketSecret)
 }
 
-export async function verifySubscriberWebSocketToken(
-	token: string,
-): Promise<SubscriberWebSocketTokenPayload> {
-	const { payload } = await jwtVerify(token, websocketSecret, {
-		issuer: "varta",
-		audience: "varta-ws",
-	})
-	if (
-		payload.type !== "subscriber_ws" ||
-		typeof payload.sub !== "string" ||
-		typeof payload.workspaceId !== "string"
-	) {
-		throw new Error("Invalid subscriber WebSocket token")
-	}
-	return payload as SubscriberWebSocketTokenPayload
-}
-
 export async function generateWorkspaceWebSocketToken(
 	payload: Omit<WorkspaceWebSocketTokenPayload, "iat" | "exp" | "type">,
 ): Promise<string> {

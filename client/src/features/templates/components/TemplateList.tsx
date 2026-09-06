@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { Modal } from "@/components/ui/Modal/Modal"
 import { TemplateForm } from "./TemplateForm"
 import type { ITemplate, TemplateUpsertInput } from "@/shared/types/domain"
+import styles from "./TemplateList.module.css"
 
 export function TemplateList() {
 	const { workspace } = useAuth()
@@ -129,13 +130,13 @@ export function TemplateList() {
 	}
 
 	return (
-		<div className="dashboard-page" style={{ padding: "1.5rem", maxWidth: "1200px", margin: "0 auto" }}>
-			<div className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+		<div className={styles.page}>
+			<header className={styles.header}>
 				<div>
-					<h1 className="dashboard-title" style={{ fontSize: "1.75rem", fontWeight: 600, color: "#f8fafc", margin: 0 }}>
+					<h1 className="dashboard-title">
 						Templates
 					</h1>
-					<p className="dashboard-subtitle" style={{ color: "#94a3b8", fontSize: "0.875rem", marginTop: "0.25rem" }}>
+					<p className="dashboard-subtitle">
 						Reusable multi-channel content definitions for event-driven workflows.
 					</p>
 				</div>
@@ -143,10 +144,10 @@ export function TemplateList() {
 					<Plus size={16} />
 					<span>New Template</span>
 				</Button>
-			</div>
+				</header>
 
 			{loading ? (
-				<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+				<div className={styles.grid}>
 					<Skeleton height={180} />
 					<Skeleton height={180} />
 					<Skeleton height={180} />
@@ -158,77 +159,56 @@ export function TemplateList() {
 					icon={<FileText size={32} />}
 				/>
 			) : (
-				<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1rem" }}>
+				<div className={styles.grid}>
 					{templates.map((template) => {
 						const channelsList = Object.keys(template.channels || {})
 						return (
-							<div
-								key={template.id}
-								style={{
-									backgroundColor: "#1e293b",
-									borderRadius: "0.5rem",
-									border: "1px solid #334155",
-									padding: "1.25rem",
-									display: "flex",
-									flexDirection: "column",
-									justifyContent: "space-between",
-									gap: "1rem",
-								}}
-							>
+							<article key={template.id} className={styles.card}>
 								<div>
-									<div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-										<h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "#f8fafc", margin: 0 }}>
+									<div className={styles.cardHeader}>
+										<h2 className={styles.templateName}>
 											{template.name}
-										</h3>
-										<div style={{ display: "flex", gap: "6px" }}>
+										</h2>
+										<div className={styles.cardActions}>
 											<button
+												type="button"
 												onClick={() => handlePreview(template)}
-												style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
-												title="Preview rendered template"
+												className={styles.iconButton}
+												aria-label={`Preview ${template.name}`}
 											>
-												<Eye size={16} />
+												<Eye size={16} aria-hidden="true" />
 											</button>
 											<button
+												type="button"
 												onClick={() => openEditModal(template)}
-												style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
-												title="Edit Template"
+												className={styles.iconButton}
+												aria-label={`Edit ${template.name}`}
 											>
-												<Edit2 size={16} />
+												<Edit2 size={16} aria-hidden="true" />
 											</button>
 											<button
+												type="button"
 												onClick={() => handleDelete(template)}
-												style={{ background: "transparent", border: "none", color: "#ef4444", cursor: "pointer", padding: "4px" }}
-												title="Delete Template"
+												className={`${styles.iconButton} ${styles.deleteButton}`}
+												aria-label={`Delete ${template.name}`}
 											>
-												<Trash2 size={16} />
+												<Trash2 size={16} aria-hidden="true" />
 											</button>
 										</div>
 									</div>
 
 									{template.description && (
-										<p style={{ color: "#94a3b8", fontSize: "0.875rem", margin: "0 0 0.75rem 0" }}>
+										<p className={styles.description}>
 											{template.description}
 										</p>
 									)}
 
-									<div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+									<div className={styles.channels}>
 										{channelsList.length === 0 ? (
-											<span style={{ fontSize: "0.75rem", color: "#64748b" }}>No active channels</span>
+											<span className={styles.noChannels}>No active channels</span>
 										) : (
 											channelsList.map((ch) => (
-												<span
-													key={ch}
-													style={{
-														fontSize: "0.75rem",
-														padding: "2px 8px",
-														backgroundColor: "#0f172a",
-														border: "1px solid #334155",
-														borderRadius: "0.25rem",
-														color: "#38bdf8",
-														textTransform: "uppercase",
-														fontWeight: 500,
-													}}
-												>
+													<span key={ch} className={styles.channel}>
 													{ch}
 												</span>
 											))
@@ -236,23 +216,23 @@ export function TemplateList() {
 									</div>
 								</div>
 
-								<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "0.75rem", borderTop: "1px solid #334155", fontSize: "0.75rem", color: "#64748b" }}>
-									<div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+								<div className={styles.cardFooter}>
+									<div className={`${styles.status} ${template.isActive ? styles.statusActive : styles.statusInactive}`}>
 										{template.isActive ? (
 											<>
-												<CheckCircle size={14} style={{ color: "#10b981" }} />
-												<span style={{ color: "#10b981" }}>Active</span>
+												<CheckCircle size={14} aria-hidden="true" />
+												<span>Active</span>
 											</>
 										) : (
 											<>
-												<XCircle size={14} style={{ color: "#ef4444" }} />
-												<span style={{ color: "#ef4444" }}>Inactive</span>
+												<XCircle size={14} aria-hidden="true" />
+												<span>Inactive</span>
 											</>
 										)}
 									</div>
-									<span>Updated {new Date(template.updatedAt).toLocaleDateString()}</span>
+									<span className={styles.updated}>Updated {new Date(template.updatedAt).toLocaleDateString()}</span>
 								</div>
-							</div>
+							</article>
 						)
 					})}
 				</div>
@@ -280,18 +260,10 @@ export function TemplateList() {
 					title={`Preview: ${previewTemplate.name}`}
 				>
 					{previewLoading ? (
-						<p style={{ color: "#94a3b8" }}>Rendering preview...</p>
+						<p className={styles.previewLoading}>Rendering preview...</p>
 					) : (
 						<div
-							style={{
-								padding: "1rem",
-								backgroundColor: "#0f172a",
-								borderRadius: "0.375rem",
-								border: "1px solid #334155",
-								maxHeight: "400px",
-								overflowY: "auto",
-								color: "#f8fafc",
-							}}
+							className={styles.preview}
 							dangerouslySetInnerHTML={{ __html: previewHtml }}
 						/>
 					)}

@@ -11,6 +11,7 @@ import { authorize } from "@/common/auth/route-policy.ts"
 const router = Router({ mergeParams: true })
 router.post("/compile", authenticate, authorize("routing.compile"), validate(compileRoutingRuleSchema), controller.compile)
 router.use(authenticate)
+router.get("/availability", authorize("routing.list"), controller.availability)
 router.get("/", authorize("routing.list"), controller.list)
 router.post("/", authorize("routing.create"), validate(createRoutingRuleSchema), controller.create)
 router.patch("/:ruleId", authorize("routing.update"), validate(updateRoutingRuleSchema), controller.update)

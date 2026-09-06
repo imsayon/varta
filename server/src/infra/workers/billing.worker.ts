@@ -1,12 +1,15 @@
-import { Worker } from "bullmq"
-import { getQueueConnection, getQueuePrefix } from "@/infra/queues/queue.connection.ts"
-import { billingQueue, type BillingWebhookJobDto } from "@/infra/queues/billing.queue.ts"
-import { BillingWebhookJobSchema } from "@/infra/queues/payloads.ts"
+import { createWorker } from "@/infra/queues/queue.factory.ts"
+import { billingQueue } from "@/infra/queues/queues.ts"
+import { QueueNames } from "@/infra/queues/queue.constants.ts"
+import {
+	BillingWebhookJobSchema,
+	type BillingWebhookJob,
+} from "@/infra/queues/payloads.ts"
 import { billingService } from "@/modules/billing/billing.service.ts"
 import { logger } from "@/infra/observability/logger.ts"
 
-export const billingWorker = new Worker<BillingWebhookJobDto>(
-	"billing-queue",
+export const worker = createWorker<BillingWebhookJob>(
+	QueueNames.BILLING,
 	async (job) => {
 		const payload = BillingWebhookJobSchema.parse(job.data)
 		if (payload.kind === "recover") {
@@ -15,14 +18,14 @@ export const billingWorker = new Worker<BillingWebhookJobDto>(
 		}
 		await billingService.processWebhookEvent(payload.inboxRecordId)
 	},
-	{ connection: getQueueConnection(), prefix: getQueuePrefix(), concurrency: 2 },
+	{ concurrency: 2 },
 )
 
-billingWorker.on("failed", (job, error) =>
+worker.on("failed", (job, error) =>
 	logger.error({ jobId: job?.id, err: error }, "Billing webhook job failed"),
 )
 
-export async function startWorkerModule(): Promise<void> {
+export async function start(): Promise<void> {
 	await billingQueue.upsertJobScheduler(
 		"billing-inbox-recovery",
 		{ every: 60_000 },

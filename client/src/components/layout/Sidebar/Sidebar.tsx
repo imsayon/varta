@@ -24,7 +24,7 @@ import { apiClient } from '@/shared/api/api';
 import type { IWorkspace } from '@/shared/types/domain';
 import styles from './Sidebar.module.css';
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { workspace, setActiveWorkspace, logout } = useAuth();
@@ -77,7 +77,9 @@ export function Sidebar() {
   };
 
   return (
-    <aside className={styles.sidebar}>
+    <>
+    {mobileOpen && <button type="button" className={styles.mobileBackdrop} aria-label="Close navigation" onClick={onClose} />}
+    <aside className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ''}`}>
       {/* Brand Header */}
       <div className={styles.brand}>
         <div className={styles.logoWrap}>
@@ -93,6 +95,8 @@ export function Sidebar() {
         <button 
           className={styles.workspaceTrigger}
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          aria-expanded={isDropdownOpen}
+          aria-label="Select workspace"
         >
           <div className={styles.workspaceInfo}>
             <span className={styles.workspaceLabel}>Workspace</span>
@@ -165,6 +169,7 @@ export function Sidebar() {
               key={item.href} 
               href={item.href}
               className={`${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
+              onClick={onClose}
             >
               {isActive && (
                 <motion.div 
@@ -188,5 +193,6 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

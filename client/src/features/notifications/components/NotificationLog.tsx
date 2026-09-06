@@ -54,8 +54,8 @@ export function NotificationLog() {
     else setError(res.error.message);
   };
 
-  const retry = async (notification: INotification) => {
-    if (!workspace) return;
+  const resend = async (notification: INotification) => {
+    if (!workspace || !window.confirm("Resend creates a new notification and consumes one run from your quota. Continue?")) return;
     const res = await apiClient.post(`/api/v1/workspaces/${workspace.id}/notifications/${notification.id}/retry`);
     if (res.success) await load();
     else setError(res.error.message);
@@ -64,7 +64,7 @@ export function NotificationLog() {
   return (
     <div className="dashboard-page">
       <div className="dashboard-header">
-        <div><h1 className="dashboard-title">Notifications</h1><p className="dashboard-subtitle">Durably accepted notifications and their actual delivery outcomes.</p></div>
+        <div><h1 className="dashboard-title">Notifications</h1><p className="dashboard-subtitle">Durably accepted notifications and their delivery outcomes. Resend creates a new notification and consumes quota.</p></div>
       </div>
       <div className="dashboard-toolbar">
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -79,7 +79,7 @@ export function NotificationLog() {
             <thead><tr><th>Template</th><th>Subscriber</th><th>Channels</th><th>Status</th><th>Accepted</th><th>Action</th></tr></thead>
             <tbody>{items.map((item) => <tr key={item.id}>
               <td>{item.template?.name || item.templateId}</td><td>{item.subscriber?.externalId || item.subscriberId}</td><td>{item.channels.join(', ')}</td><td>{item.status}</td><td>{new Date(item.createdAt).toLocaleString()}</td>
-              <td><Button size="sm" variant="secondary" onClick={() => void openDetail(item.id)}>Details</Button>{item.status === 'FAILED' && <Button size="sm" onClick={() => void retry(item)}>Retry</Button>}</td>
+              <td><Button size="sm" variant="secondary" onClick={() => void openDetail(item.id)}>Details</Button>{item.status === 'FAILED' && <Button size="sm" onClick={() => void resend(item)}>Resend</Button>}</td>
             </tr>)}</tbody>
           </table>
           {cursor && <div style={{ padding: 16 }}><Button variant="secondary" loading={loading} onClick={() => void load(true, cursor)}>Load more</Button></div>}

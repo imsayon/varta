@@ -68,9 +68,9 @@ for name in ("varta-api", "varta-client"):
         or service.get("region") != "singapore"
         or service.get("repo") != "https://github.com/imsayon/varta"
         or service.get("branch") != "main"
-        or service.get("autoDeploy") is not False
+        or service.get("autoDeployTrigger") != "off"
     ):
-        raise SystemExit(f"{name} must be Singapore/free/node, explicit main repo, autoDeploy false")
+        raise SystemExit(f"{name} must be Singapore/free/node, explicit main repo, autoDeployTrigger off")
     for key in ("buildCommand", "startCommand", "healthCheckPath", "envVars"):
         if key not in service:
             raise SystemExit(f"{name} is missing {key}")
@@ -98,7 +98,7 @@ if api_env.get("REDIS_QUEUE_PREFIX", {}).get("value") != "varta_public_beta":
     raise SystemExit("REDIS_QUEUE_PREFIX must use the public-beta namespace")
 
 secret_keys = (
-    "DATABASE_URL", "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "JWT_WS_SECRET",
+    "DATABASE_URL", "DIRECT_URL", "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "JWT_WS_SECRET",
     "CORS_ORIGIN", "CLIENT_URL", "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET",
     "GITHUB_CALLBACK_URL", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CALLBACK_URL", "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "EMAIL_FROM",
@@ -112,8 +112,8 @@ for key in secret_keys:
         raise SystemExit(f"API secret/provider key {key} must use sync: false")
 if client_env.get("NEXT_PUBLIC_API_URL", {}).get("sync") is not False:
     raise SystemExit("Client API URL must use sync: false")
-if api_env.get("RAZORPAY_MODE", {}).get("value") != "test":
-    raise SystemExit("Razorpay must be explicitly configured for test mode")
+if api_env.get("RAZORPAY_MODE", {}).get("value") != "disabled":
+    raise SystemExit("Public Razorpay billing must fail closed")
 for key in ("AI_ENABLED", "AI_LOG_PROMPT_CONTENT", "AI_SEND_TIME_OPTIMIZATION_ENABLED", "AI_USAGE_TRACKING_ENABLED"):
     if api_env.get(key, {}).get("value") != "false":
         raise SystemExit(f"{key} must initially be false")

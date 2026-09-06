@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
 	},
 	async rewrites() {
 		const apiUrl =
-			process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5000"
+			process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:5000"
 
 		return [
 			{
@@ -21,8 +21,8 @@ const nextConfig: NextConfig = {
 				destination: `${apiUrl}/api/v1/:path*`,
 			},
 			{
-				source: "/api/health",
-				destination: `${apiUrl}/api/health`,
+				source: "/api/health/:path*",
+				destination: `${apiUrl}/api/health/:path*`,
 			},
 		]
 	},

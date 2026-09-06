@@ -18,7 +18,7 @@ projects:
                   runtime: node
                   repo: https://github.com/imsayon/varta
                   branch: main
-                  autoDeploy: false
+                  autoDeployTrigger: off
                   region: singapore
                   plan: free
                   buildCommand: corepack pnpm@11.20.0 install --frozen-lockfile && corepack pnpm@11.20.0 --filter @varta/server prisma:generate && corepack pnpm@11.20.0 --filter @varta/server build
@@ -40,6 +40,8 @@ projects:
                       - key: LOG_DEBUG_TTL_SECONDS
                         value: "900"
                       - key: DATABASE_URL
+                        sync: false
+                      - key: DIRECT_URL
                         sync: false
                       - key: REDIS_URL
                         fromService:
@@ -131,7 +133,7 @@ projects:
                       - key: OTEL_SAMPLE_RATIO
                         value: "0.1"
                       - key: RAZORPAY_MODE
-                        value: test
+                        value: disabled
                       - key: RAZORPAY_KEY_ID
                         sync: false
                       - key: RAZORPAY_KEY_SECRET
@@ -152,7 +154,7 @@ projects:
                   runtime: node
                   repo: https://github.com/imsayon/varta
                   branch: main
-                  autoDeploy: false
+                  autoDeployTrigger: off
                   region: singapore
                   plan: free
                   buildCommand: corepack pnpm@11.20.0 install --frozen-lockfile && corepack pnpm@11.20.0 --filter @varta/web build

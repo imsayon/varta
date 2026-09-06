@@ -15,15 +15,13 @@ test(
 		const [
 			{ closeQueues },
 			{ connectRedis, disconnectRedis },
-			{ inAppQueue },
-			{ digestQueue },
+			{ inAppQueue, digestQueue },
 			{ dispatchOutboxBatch },
 			{ digestService },
 		] = await Promise.all([
 			import("@/infra/queues/queue.factory.ts"),
 			import("@/infra/redis/redis.connection.ts"),
-			import("@/infra/queues/inapp.queue.ts"),
-			import("@/infra/queues/digest.queue.ts"),
+			import("@/infra/queues/queues.ts"),
 			import("./outbox-dispatcher.service.ts"),
 			import("./digest.service.ts"),
 		])
@@ -103,6 +101,18 @@ test(
 			})
 			digestJobId = `digest-${digestItem.batchId}`
 			assert.ok(await digestQueue.getJob(digestJobId))
+			await (await digestQueue.getJob(digestJobId))!.remove()
+			await prisma.digestBatch.update({ where: { id: digestItem.batchId }, data: {
+				status: "PROCESSING", claimedBy: "interrupted-worker", leaseUntil: new Date(0),
+			} })
+			const { reconciliationService } = await import("./reconciliation.service.ts")
+			await reconciliationService.reconcileStuckNotifications()
+			assert.ok(await digestQueue.getJob(digestJobId), "expired processing digest is rescheduled")
+			await digestService.processBatch(digestItem.batchId, "recovery-worker")
+			await prisma.digestBatch.update({ where: { id: digestItem.batchId }, data: { leaseUntil: new Date(0) } })
+			await digestService.processBatch(digestItem.batchId, "recovery-worker-again")
+			assert.equal(await prisma.notification.count({ where: { workspaceId: workspace.id, idempotencyKey: `digest:${digestItem.batchId}` } }), 1)
+			assert.equal(await prisma.usageLedger.count({ where: { workspaceId: workspace.id } }), 2, "digest aggregate and recovery do not add usage")
 		} finally {
 			if (jobId) await (await inAppQueue.getJob(jobId))?.remove()
 			if (digestJobId) await (await digestQueue.getJob(digestJobId))?.remove()

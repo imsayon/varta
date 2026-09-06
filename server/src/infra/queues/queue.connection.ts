@@ -8,7 +8,7 @@ import {
 import { env } from "@/common/config/env.ts"
 import { redisReconnectStrategy } from "@/infra/redis/redis.connection.ts"
 
-export interface QueueConnectionConfig {
+interface QueueConnectionConfig {
 	redisUrl: string
 	serviceName: string
 }
@@ -16,8 +16,12 @@ export interface QueueConnectionConfig {
 function createNodeRedisUrl(options: RedisOptions): string {
 	if (options.url) return options.url
 	const protocol = options.tls ? "rediss:" : "redis:"
-	const username = options.username ? encodeURIComponent(options.username) : ""
-	const password = options.password ? `:${encodeURIComponent(options.password)}` : ""
+	const username = options.username
+		? encodeURIComponent(options.username)
+		: ""
+	const password = options.password
+		? `:${encodeURIComponent(options.password)}`
+		: ""
 	const auth = username || password ? `${username}${password}@` : ""
 	return `${protocol}//${auth}${options.host ?? "localhost"}:${options.port ?? 6379}`
 }
@@ -36,7 +40,9 @@ RedisConnection.clientFactory = (options) => {
 	return createNodeRedisClient(raw)
 }
 
-export function createQueueConnection(config: QueueConnectionConfig): ConnectionOptions {
+function createQueueConnection(
+	config: QueueConnectionConfig,
+): ConnectionOptions {
 	const redisUrl = new URL(config.redisUrl)
 	if (redisUrl.protocol !== "redis:" && redisUrl.protocol !== "rediss:") {
 		throw new Error("REDIS_URL must use redis:// or rediss://")
@@ -58,7 +64,10 @@ export function createQueueConnection(config: QueueConnectionConfig): Connection
 }
 
 export function getQueueConnection(): ConnectionOptions {
-	return createQueueConnection({ redisUrl: env.REDIS_URL, serviceName: env.SERVICE_NAME })
+	return createQueueConnection({
+		redisUrl: env.REDIS_URL,
+		serviceName: env.SERVICE_NAME,
+	})
 }
 
 export function getQueuePrefix(): string {

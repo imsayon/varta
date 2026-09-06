@@ -149,20 +149,6 @@ export const realtimeEvents = new Counter({
 	registers: [metricsRegistry],
 })
 
-export const aiRequests = new Counter({
-	name: "varta_ai_requests_total",
-	help: "AI requests by feature and outcome",
-	labelNames: ["feature", "outcome"] as const,
-	registers: [metricsRegistry],
-})
-
-export const aiDuration = new Histogram({
-	name: "varta_ai_request_duration_seconds",
-	help: "AI request duration by feature",
-	labelNames: ["feature"] as const,
-	registers: [metricsRegistry],
-})
-
 export const aiTokens = new Counter({
 	name: "varta_ai_tokens_total",
 	help: "AI tokens by direction",
@@ -173,7 +159,13 @@ export const aiTokens = new Counter({
 export const aiGatewayRequests = new Counter({
 	name: "varta_ai_gateway_requests_total",
 	help: "AI gateway requests by bounded production contract",
-	labelNames: ["provider", "model", "feature", "prompt_version", "outcome"] as const,
+	labelNames: [
+		"provider",
+		"model",
+		"feature",
+		"prompt_version",
+		"outcome",
+	] as const,
 	registers: [metricsRegistry],
 })
 
@@ -211,7 +203,8 @@ export const billingSubscriptionDrift = new Gauge({
 	registers: [metricsRegistry],
 })
 
-const IDENTIFIER_SEGMENT = /^(?:\d+|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|(?:req|ws|sub|tpl|notif|del|evt|key)_[A-Za-z0-9_-]+)$/i
+const IDENTIFIER_SEGMENT =
+	/^(?:\d+|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|(?:req|ws|sub|tpl|notif|del|evt|key)_[A-Za-z0-9_-]+)$/i
 const PROVIDER_LABELS = new Set(["resend", "inapp", "webhook"])
 
 export function boundedProviderLabel(provider: string): string {
@@ -223,7 +216,7 @@ export function normalizeHttpRoute(path: string): string {
 	const normalized = path
 		.split("?")[0]!
 		.split("/")
-		.map((segment) => IDENTIFIER_SEGMENT.test(segment) ? ":id" : segment)
+		.map((segment) => (IDENTIFIER_SEGMENT.test(segment) ? ":id" : segment))
 		.join("/")
 	return normalized.length <= 160 ? normalized : "/__oversized__"
 }
@@ -246,13 +239,17 @@ export function observeHttp(
 ): void {
 	const normalizedMethod = method.toUpperCase().slice(0, 12)
 	const normalizedRoute = normalizeHttpRoute(route)
-	const statusClass = status >= 100 && status <= 599
-		? `${Math.floor(status / 100)}xx`
-		: "unknown"
+	const statusClass =
+		status >= 100 && status <= 599
+			? `${Math.floor(status / 100)}xx`
+			: "unknown"
 	httpRequests.inc({
 		method: normalizedMethod,
 		route: normalizedRoute,
 		status_class: statusClass,
 	})
-	httpDuration.observe({ method: normalizedMethod, route: normalizedRoute }, seconds)
+	httpDuration.observe(
+		{ method: normalizedMethod, route: normalizedRoute },
+		seconds,
+	)
 }

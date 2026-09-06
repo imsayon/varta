@@ -1,9 +1,6 @@
 import pino from "pino"
 import { env } from "@/common/config/env.ts"
-import {
-	currentLogContext,
-	type LogIdentifiers,
-} from "./log-context.ts"
+import { currentLogContext, type LogIdentifiers } from "./log-context.ts"
 
 export const LOG_COMPONENTS = [
 	"api",
@@ -37,7 +34,7 @@ export function logEvent(
 	}
 }
 
-export const LOGGER_REDACTION_PATHS = [
+const LOGGER_REDACTION_PATHS = [
 	"req.headers.authorization",
 	"req.headers.cookie",
 	"req.headers['x-api-key']",
@@ -86,7 +83,7 @@ export const LOGGER_REDACTION_PATHS = [
 	"*.from",
 ] as const
 
-export function resolveLogLevel(
+function resolveLogLevel(
 	nodeEnv = env.NODE_ENV,
 	requestedLevel: pino.LevelWithSilent = env.LOG_LEVEL,
 	debugEnabled = env.LOG_DEBUG_ENABLED,

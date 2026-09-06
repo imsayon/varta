@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/auth/auth-context';
 import { Sidebar } from '@/components/layout/Sidebar/Sidebar';
@@ -11,6 +11,7 @@ import styles from './DashboardLayout.module.css';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -41,10 +42,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className={styles.shell}>
-      <Sidebar />
+      <Sidebar mobileOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
 
       <div className={styles.mainWrap}>
-        <Header />
+        <Header onOpenMenu={() => setIsMobileNavOpen(true)} />
 
         <main className={styles.main}>
           {children}

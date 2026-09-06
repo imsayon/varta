@@ -24,7 +24,7 @@ const workspaceRoles = ["OWNER", "ADMIN", "MEMBER"] as const
 const adminRoles = ["OWNER", "ADMIN"] as const
 const triggerRoles = ["OWNER", "ADMIN", "MEMBER", "API_KEY"] as const
 
-export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
+const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 	{ id: "health.read", method: "GET", path: "/api/health", public: true },
 	{ id: "health.live", method: "GET", path: "/api/health/live", public: true },
 	{ id: "health.startup", method: "GET", path: "/api/health/startup", public: true },
@@ -110,8 +110,6 @@ export const ROUTE_POLICY_MATRIX: readonly RoutePolicy[] = [
 	{ id: "websocket.subscriber", method: "GET", path: "/ws", principalKinds: ["subscriber_websocket"] },
 	{ id: "websocket.workspace", method: "GET", path: "/ws", principalKinds: browser },
 ] as const
-
-export const MOUNTED_ROUTE_POLICY_IDS = ROUTE_POLICY_MATRIX.map((policy) => policy.id)
 
 const policyById = new Map(ROUTE_POLICY_MATRIX.map((policy) => [policy.id, policy]))
 

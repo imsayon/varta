@@ -2,4 +2,4 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-"$repo_root/ops/scripts/compose.sh" run --rm api npx prisma migrate deploy
+"$repo_root/ops/scripts/compose.sh" run --rm migrate

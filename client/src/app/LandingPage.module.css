@@ -151,8 +151,7 @@
   border: 1px solid rgba(192,57,43,0.28);
   border-radius: 4px;
   padding: 5px 12px;
-  /* Alumni Sans for label/badge text — condensed and architectural */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase;
   color: #ff6b35;
   margin-bottom: 40px;
@@ -234,8 +233,8 @@
 }
 
 .heroStatValue {
-  /* Alumni Sans — numbers feel structural, precise, large */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-variant-numeric: tabular-nums;
   font-size: 32px; font-weight: 700;
   letter-spacing: -0.01em;
   color: #f0ede8;
@@ -243,8 +242,7 @@
 }
 
 .heroStatLabel {
-  /* Alumni Sans for compact uppercase data labels */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 13px; letter-spacing: 0.12em;
   color: #5a5750;
   text-transform: uppercase;
@@ -455,8 +453,7 @@
 
 /* ── SHARED TYPOGRAPHY ── */
 .sectionOverline {
-  /* Alumni Sans for section labels — condensed, airy, uppercase */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 14px; letter-spacing: 0.18em;
   text-transform: uppercase; color: #e74c3c;
   margin-bottom: 24px;
@@ -616,16 +613,15 @@
 }
 
 .journeyNodeLabel {
-  /* Alumni Sans — compact uppercase node label */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
   color: #5a5750; text-align: center; font-weight: 600;
 }
 .journeyNodeActive .journeyNodeLabel { color: #ff6b35; }
 
 .journeyNodeCount {
-  /* Alumni Sans — data count feels architectural */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-variant-numeric: tabular-nums;
   font-size: 13px; font-weight: 600;
   color: #f39c12; background: rgba(243,156,18,0.1);
   border: 1px solid rgba(243,156,18,0.2); border-radius: 4px; padding: 2px 8px;
@@ -827,8 +823,7 @@
   border-radius: 8px; padding: 10px;
 }
 .workerName {
-  /* Alumni Sans — worker ID as a compact data label */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
   color: #5a5750; margin-bottom: 8px; font-weight: 600;
 }
@@ -841,8 +836,8 @@
   background: linear-gradient(90deg, #c0392b, #d35400);
 }
 .workerRate {
-  /* Alumni Sans for throughput rate number */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-variant-numeric: tabular-nums;
   font-size: 16px; font-weight: 600; color: #f0ede8; letter-spacing: 0.02em;
 }
 
@@ -883,14 +878,13 @@
 }
 
 .scaleMetricUnit {
-  /* Alumni Sans for metric labels — matches the number rhythm */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase;
   color: #5a5750; margin-bottom: 12px; font-weight: 600;
 }
 .scaleMetricValue {
-  /* Alumni Sans — tall condensed numbers feel monumental at large sizes */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-variant-numeric: tabular-nums;
   font-size: 72px; font-weight: 700;
   letter-spacing: -0.02em; line-height: 1; margin-bottom: 8px;
 }
@@ -928,8 +922,7 @@
 
 .pricingTierTag {
   display: inline-block;
-  /* Alumni Sans for tier badge label */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
   padding: 4px 10px; border-radius: 4px;
   background: rgba(192,57,43,0.12); border: 1px solid rgba(192,57,43,0.28);
@@ -937,22 +930,21 @@
 }
 
 .pricingTierName {
-  /* Alumni Sans — tier names as uppercase data labels */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase;
   color: #9c9890; margin-bottom: 12px; font-weight: 600;
 }
 
 .pricingPrice {
-  /* Alumni Sans — pricing numbers should feel exact and architectural */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
+  font-variant-numeric: tabular-nums;
   font-size: 72px; font-weight: 700;
   letter-spacing: -0.02em; line-height: 1; margin-bottom: 4px;
   color: #f0ede8;
 }
 
 .pricingPriceSub {
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase;
   color: #5a5750; margin-bottom: 20px; font-weight: 500;
 }
@@ -980,14 +972,16 @@
   text-decoration: none; display: flex; align-items: center; justify-content: center;
   letter-spacing: 0.01em;
 }
-.pricingCta:hover { border-color: rgba(255,255,255,0.22); color: #f0ede8; }
+.pricingCta:hover:not(:disabled) { border-color: rgba(255,255,255,0.22); color: #f0ede8; }
+.pricingCta:disabled { cursor: not-allowed; opacity: 0.6; }
 
 .pricingCtaFeatured {
   background: linear-gradient(135deg, #c0392b, #d35400);
   border-color: transparent; color: #fff;
   box-shadow: 0 4px 20px rgba(192,57,43,0.35);
 }
-.pricingCtaFeatured:hover { box-shadow: 0 6px 28px rgba(192,57,43,0.5); color: #fff; transform: translateY(-1px); }
+.pricingCtaFeatured:hover:not(:disabled) { box-shadow: 0 6px 28px rgba(192,57,43,0.5); color: #fff; transform: translateY(-1px); }
+.pricingCtaFeatured:disabled { box-shadow: 0 4px 20px rgba(192,57,43,0.35); transform: none; }
 
 .selfHostBanner {
   background: rgba(192,57,43,0.05); border: 1px solid rgba(192,57,43,0.18);
@@ -1038,8 +1032,7 @@
 }
 
 .ctaEyebrow {
-  /* Alumni Sans for pre-headline labels */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase;
   color: #ff6b35; margin-bottom: 28px; position: relative; z-index: 2;
   font-weight: 600;
@@ -1079,8 +1072,7 @@
   font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: #f0ede8;
 }
 .footerTagline {
-  /* Alumni Sans for a compact architectural footer descriptor */
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 13px; color: #5a5750; letter-spacing: 0.12em;
   text-transform: uppercase; font-weight: 500;
 }
@@ -1094,7 +1086,7 @@
 .footerLink:hover { color: #9c9890; }
 
 .footerRight {
-  font-family: var(--font-data, 'Alumni Sans', sans-serif);
+  font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
   color: #5a5750; display: flex; align-items: center; gap: 8px; font-weight: 500;
 }

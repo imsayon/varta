@@ -1,7 +1,4 @@
 .loadingContainer {
-  --font-body: var(--font-auth), "IBM Plex Sans", sans-serif;
-  --font-heading: var(--font-auth), "IBM Plex Sans", sans-serif;
-  --font-mono: var(--font-auth), "IBM Plex Sans", sans-serif;
   min-height: 100vh;
   background: var(--surface-base);
   display: flex;
@@ -23,11 +20,8 @@
 }
 
 .container {
-  --font-body: var(--font-auth), "IBM Plex Sans", sans-serif;
-  --font-heading: var(--font-auth), "IBM Plex Sans", sans-serif;
-  --font-mono: var(--font-auth), "IBM Plex Sans", sans-serif;
   min-height: 100vh;
-  background: var(--surface-base);
+  background: radial-gradient(circle at 50% 0%, rgba(192, 57, 43, 0.08), transparent 46%), var(--surface-base);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -35,37 +29,6 @@
   position: relative;
   overflow: hidden;
   font-family: var(--font-body);
-}
-
-.meshBg {
-  position: absolute;
-  inset: 0;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(239, 68, 68, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.05) 0px, transparent 50%);
-  z-index: 1;
-}
-
-.glowOrb1 {
-  position: absolute;
-  top: 20%;
-  left: 10%;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(239, 68, 68, 0.08) 0%, transparent 70%);
-  z-index: 1;
-  filter: blur(40px);
-}
-
-.glowOrb2 {
-  position: absolute;
-  bottom: 20%;
-  right: 10%;
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, rgba(249, 115, 22, 0.05) 0%, transparent 70%);
-  z-index: 1;
-  filter: blur(50px);
 }
 
 .cardWrapper {
@@ -87,14 +50,14 @@
 .logoWrap {
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-2);
   overflow: hidden;
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+  box-shadow: none;
 }
 
 .logoWrap img {

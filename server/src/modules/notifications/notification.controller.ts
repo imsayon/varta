@@ -142,7 +142,7 @@ export const retry = async (
 		const notification = await notificationRepository.findById(workspaceId, notificationId)
 		if (!notification) throw new NotFoundError("Notification not found")
 		if (notification.status !== "FAILED") {
-			throw new BadRequestError("Only FAILED notifications can be retried")
+			throw new BadRequestError("Only FAILED notifications can be resent")
 		}
 
 		const result = await notificationOrchestrator.triggerNotification(
@@ -160,7 +160,7 @@ export const retry = async (
 			notificationId,
 			retryNotificationId: result.notificationId,
 			actorId: requireWorkspaceCapability(req).actorId,
-		}, "Notification retry accepted")
+		}, "Notification resend accepted; new quota reservation")
 
 		sendSuccess(req, res, result, 202)
 	} catch (err) {

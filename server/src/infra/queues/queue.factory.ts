@@ -1,12 +1,14 @@
-import { Queue } from "bullmq"
+import { Queue, Worker, type Processor, type WorkerOptions } from "bullmq"
 import { getQueueConnection, getQueuePrefix } from "./queue.connection.ts"
 import { DEFAULT_JOB_OPTIONS } from "./queue.options.ts"
-import type { QueueNames } from "./queue.constants.ts"
-import { queueJobs, queueOldestJobSeconds } from "@/infra/observability/metrics.ts"
+import {
+	queueJobs,
+	queueOldestJobSeconds,
+} from "@/infra/observability/metrics.ts"
 
 const queues = new Set<Queue<unknown>>()
 
-export function createQueue<T = unknown>(queueName: QueueNames): Queue<T> {
+export function createQueue<T = unknown>(queueName: string): Queue<T> {
 	const queue = new Queue<T>(queueName, {
 		connection: getQueueConnection(),
 		prefix: getQueuePrefix(),
@@ -16,6 +18,18 @@ export function createQueue<T = unknown>(queueName: QueueNames): Queue<T> {
 	return queue
 }
 
+export function createWorker<T>(
+	queueName: string,
+	processor: Processor<T>,
+	options: Omit<WorkerOptions, "connection" | "prefix"> = {},
+): Worker<T> {
+	return new Worker(queueName, processor, {
+		connection: getQueueConnection(),
+		prefix: getQueuePrefix(),
+		...options,
+	})
+}
+
 export async function closeQueues(): Promise<void> {
 	const registeredQueues = [...queues]
 	queues.clear()
@@ -23,21 +37,39 @@ export async function closeQueues(): Promise<void> {
 		registeredQueues.map((queue) => queue.close()),
 	)
 	const failures = results
-		.filter((result): result is PromiseRejectedResult => result.status === "rejected")
+		.filter(
+			(result): result is PromiseRejectedResult =>
+				result.status === "rejected",
+		)
 		.map((result) => result.reason)
-	if (failures.length > 0) throw new AggregateError(failures, "Queue shutdown failed")
+	if (failures.length > 0)
+		throw new AggregateError(failures, "Queue shutdown failed")
 }
 
 export async function snapshotQueueMetrics(): Promise<void> {
-	await Promise.all([...queues].map(async (queue) => {
-		const counts = await queue.getJobCounts("waiting", "active", "delayed", "failed")
-		for (const [state, count] of Object.entries(counts)) {
-			queueJobs.set({ queue: queue.name, state }, count)
-		}
-		const [oldest] = await queue.getJobs(["waiting", "delayed"], 0, 0, true)
-		queueOldestJobSeconds.set(
-			{ queue: queue.name },
-			oldest ? Math.max(0, (Date.now() - oldest.timestamp) / 1_000) : 0,
-		)
-	}))
+	await Promise.all(
+		[...queues].map(async (queue) => {
+			const counts = await queue.getJobCounts(
+				"waiting",
+				"active",
+				"delayed",
+				"failed",
+			)
+			for (const [state, count] of Object.entries(counts)) {
+				queueJobs.set({ queue: queue.name, state }, count)
+			}
+			const [oldest] = await queue.getJobs(
+				["waiting", "delayed"],
+				0,
+				0,
+				true,
+			)
+			queueOldestJobSeconds.set(
+				{ queue: queue.name },
+				oldest
+					? Math.max(0, (Date.now() - oldest.timestamp) / 1_000)
+					: 0,
+			)
+		}),
+	)
 }

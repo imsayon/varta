@@ -40,7 +40,6 @@ export function TriggerStudio() {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [selectedSubscriber, setSelectedSubscriber] = useState('');
   const [payloadStr, setPayloadStr] = useState('{\n  "orderId": "ORD-998877",\n  "event": "order_shipped"\n}');
-  const [smartTiming, setSmartTiming] = useState(false);
   const [channel, setChannel] = useState<'' | 'EMAIL' | 'IN_APP' | 'WEBHOOK'>('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [triggering, setTriggering] = useState(false);
@@ -121,7 +120,6 @@ export function TriggerStudio() {
       subscriberExternalId: selectedSubscriber,
       payload,
       options: {
-        smartTiming,
         ...(channel ? { channels: [channel] } : {}),
         ...(scheduledAt ? { scheduledAt: new Date(scheduledAt).toISOString() } : {}),
       },
@@ -142,11 +140,9 @@ export function TriggerStudio() {
       idempotencyKeyRef.current = crypto.randomUUID();
       if (res.data.channels && res.data.channels.length > 0) {
         addLog('success', `Resolved delivery channels: ${res.data.channels.join(', ')}`);
-        if (smartTiming) {
-          addLog('info', `Smart Timing was requested. The server may use its deterministic fallback when optimization is unavailable.`);
-        } else {
-          addLog('info', 'Immediate dispatch scheduled: enqueued to channel queues.');
-        }
+        addLog('info', scheduledAt
+          ? 'Scheduled dispatch accepted.'
+          : 'Immediate dispatch scheduled: enqueued to channel queues.');
       } else {
         addLog('warn', 'Routing result: 0 active channels. Filtered by subscriber preferences or active routing rules.');
       }
@@ -236,17 +232,17 @@ export function TriggerStudio() {
               <label className={`${styles.toggleLabel} ${styles.smartTiming}`}>
                 <input
                   type="checkbox"
-                  checked={smartTiming}
-                  onChange={e => setSmartTiming(e.target.checked)}
-                  disabled={triggering}
+                  checked={false}
+                  readOnly
+                  disabled
                 />
                 <Sparkles size={14} className={styles.sparkle} />
-                <span>Request smart timing</span>
+                <span>Smart timing — Coming soon</span>
               </label>
               <div className={styles.infoTooltip}>
                 <Info size={12} />
                 <span className={styles.tooltipText}>
-                  The server applies optimization only when enabled and sufficiently supported; otherwise it uses the normal delivery schedule.
+                  Scheduled delivery remains available.
                 </span>
               </div>
             </div>

@@ -8,10 +8,8 @@ import styles from './AuthLayout.module.css';
 
 export default function AuthLayoutClient({
   children,
-  fontClassName,
 }: {
   children: React.ReactNode;
-  fontClassName: string;
 }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
@@ -24,7 +22,7 @@ export default function AuthLayoutClient({
 
   if (isLoading) {
     return (
-      <div className={`${styles.loadingContainer} ${fontClassName}`}>
+      <div className={styles.loadingContainer}>
         <div className={styles.spinner} />
       </div>
     );
@@ -35,11 +33,7 @@ export default function AuthLayoutClient({
   }
 
   return (
-    <div className={`${styles.container} ${fontClassName}`}>
-      <div className={styles.meshBg} />
-      <div className={styles.glowOrb1} />
-      <div className={styles.glowOrb2} />
-
+    <div className={styles.container}>
       <div className={styles.cardWrapper}>
         <div className={styles.brand}>
           <div className={styles.logoWrap}>

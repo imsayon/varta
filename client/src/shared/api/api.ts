@@ -126,11 +126,10 @@ export async function refreshAccessToken(): Promise<string | null> {
 }
 
 function buildUrl(path: string, params?: RequestOptions["params"]): string {
-	const baseUrl = process.env.NEXT_PUBLIC_API_URL || ""
-	const fullPath = /^https?:\/\//.test(path) ? path : `${baseUrl}${path}`
-	if (!params) return fullPath
+	// Keep browser requests and refresh cookies on the same origin.
+	if (!params) return path
 
-	const url = new URL(fullPath, typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
+	const url = new URL(path, typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
 	Object.entries(params).forEach(([key, value]) => {
 		if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value))
 	})

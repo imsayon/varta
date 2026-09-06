@@ -9,14 +9,18 @@ import { createOwnedTestWorkspace } from "@/testing/billing-test-fixture.ts"
 const runFaultTests = process.env.RUN_NOTIFICATION_FAULT_TESTS === "true"
 
 test(
-	"Redis loss leaves committed notification intent recoverable in PostgreSQL",
+	"queue publication failure leaves committed notification intent recoverable in PostgreSQL",
 	{ skip: !runFaultTests },
-	async () => {
-		const [{ closeQueues }, { disconnectRedis }, { dispatchOutboxBatch }] = await Promise.all([
+	async (t) => {
+		const [{ closeQueues }, { disconnectRedis }, { dispatchOutboxBatch }, { queueService }] = await Promise.all([
 			import("@/infra/queues/queue.factory.ts"),
 			import("@/infra/redis/redis.connection.ts"),
 			import("./outbox-dispatcher.service.ts"),
+			import("@/infra/queues/queue.service.ts"),
 		])
+		t.mock.method(queueService, "enqueueInApp", async () => {
+			throw new Error("Redis connection lost")
+		})
 		const marker = randomUUID()
 		const fixture = await createOwnedTestWorkspace("Redis fault")
 		const { workspace } = fixture
@@ -43,7 +47,7 @@ test(
 				where: { delivery: { notificationId: accepted.notification.id } },
 			})
 			assert.equal(intent.status, "FAILED")
-			assert.match(intent.lastError ?? "", /(?:ECONNREFUSED|timed out)/i)
+			assert.match(intent.lastError ?? "", /(?:Redis connection lost|ECONNREFUSED|timed out)/i)
 			assert.ok(intent.availableAt > new Date())
 		} finally {
 			await fixture.cleanup()

@@ -5,7 +5,10 @@ import { logger } from "@/infra/observability/logger.ts"
 
 const ANALYTICS_CACHE_TTL_SECONDS = 60
 
-async function versionedCacheKey(workspaceId: string, suffix: string): Promise<string> {
+async function versionedCacheKey(
+	workspaceId: string,
+	suffix: string,
+): Promise<string> {
 	let version = "0"
 	try {
 		version = (await redis.get(`analytics:${workspaceId}:version`)) ?? "0"
@@ -15,7 +18,9 @@ async function versionedCacheKey(workspaceId: string, suffix: string): Promise<s
 	return `analytics:${workspaceId}:v${version}:${suffix}`
 }
 
-export async function invalidateAnalyticsCache(workspaceId: string): Promise<void> {
+export async function invalidateAnalyticsCache(
+	workspaceId: string,
+): Promise<void> {
 	try {
 		await redis.incr(`analytics:${workspaceId}:version`)
 	} catch (error) {
@@ -56,11 +61,9 @@ async function getCachedOrFetch<T>(
 	const data = await fetcher()
 
 	try {
-		await redis.set(
-			key,
-			JSON.stringify(data),
-			{ EX: ANALYTICS_CACHE_TTL_SECONDS },
-		)
+		await redis.set(key, JSON.stringify(data), {
+			EX: ANALYTICS_CACHE_TTL_SECONDS,
+		})
 	} catch (error) {
 		logger.warn(
 			{ err: error, cacheKey: key },
@@ -73,7 +76,10 @@ async function getCachedOrFetch<T>(
 
 export const analyticsService = {
 	async overview(workspaceId: string, query: AnalyticsQuery) {
-		const cacheKey = await versionedCacheKey(workspaceId, `overview:${query.from}:${query.to}`)
+		const cacheKey = await versionedCacheKey(
+			workspaceId,
+			`overview:${query.from}:${query.to}`,
+		)
 		return getCachedOrFetch(cacheKey, async () => {
 			const { from, to } = assertRange(query)
 			const [totals, byChannel, engagement] = await Promise.all([
@@ -175,7 +181,10 @@ export const analyticsService = {
 	},
 
 	async deliveryTimeline(workspaceId: string, query: AnalyticsQuery) {
-		const cacheKey = await versionedCacheKey(workspaceId, `timeline:${query.from}:${query.to}:${query.granularity}`)
+		const cacheKey = await versionedCacheKey(
+			workspaceId,
+			`timeline:${query.from}:${query.to}:${query.granularity}`,
+		)
 		return getCachedOrFetch(cacheKey, async () => {
 			const { from, to } = assertRange(query)
 			const bucket = query.granularity === "hour" ? "hour" : "day"
@@ -216,7 +225,10 @@ export const analyticsService = {
 	},
 
 	async channelBreakdown(workspaceId: string, query: AnalyticsQuery) {
-		const cacheKey = await versionedCacheKey(workspaceId, `breakdown:${query.from}:${query.to}`)
+		const cacheKey = await versionedCacheKey(
+			workspaceId,
+			`breakdown:${query.from}:${query.to}`,
+		)
 		return getCachedOrFetch(cacheKey, async () => {
 			const { from, to } = assertRange(query)
 			const rows = await prisma.$queryRaw<
@@ -260,7 +272,10 @@ export const analyticsService = {
 	},
 
 	async topTemplates(workspaceId: string, query: AnalyticsQuery) {
-		const cacheKey = await versionedCacheKey(workspaceId, `toptemplates:${query.from}:${query.to}:${query.limit}`)
+		const cacheKey = await versionedCacheKey(
+			workspaceId,
+			`toptemplates:${query.from}:${query.to}:${query.limit}`,
+		)
 		return getCachedOrFetch(cacheKey, async () => {
 			const { from, to } = assertRange(query)
 			const rows = await prisma.$queryRaw<

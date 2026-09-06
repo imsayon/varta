@@ -50,6 +50,16 @@
   text-decoration: underline;
 }
 
+.recoveryLink {
+  color: var(--color-primary-400);
+  font-size: 14px;
+}
+
+.recoveryLink:hover {
+  color: var(--color-primary-300);
+  text-decoration: underline;
+}
+
 .divider {
   display: flex;
   align-items: center;

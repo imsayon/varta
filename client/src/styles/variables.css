@@ -40,28 +40,15 @@
 	--text-muted: #777168;
 	--text-dim: #5a5750;
 
-	/* Typography — four-font system */
-	--font-display: var(
-		--font-display,
-		"Bricolage Grotesque",
-		sans-serif
-	); /* editorial headlines */
-	--font-data: var(
-		--font-data,
-		"Alumni Sans",
-		sans-serif
-	); /* numbers, stats, labels */
-	--font-heading: var(--font-body, "Inter", sans-serif); /* nav, UI chrome */
-	--font-body: var(--font-body, "Inter", sans-serif); /* body prose */
-	--font-mono: var(
-		--font-mono,
-		"JetBrains Mono",
-		monospace
-	); /* code, terminal, technical */
+	/* Generated font variables stay separate from semantic tokens. */
+	--font-display: var(--varta-display, "Bricolage Grotesque", sans-serif);
+	--font-body: var(--varta-body, "Inter", sans-serif);
+	--font-heading: var(--font-body);
+	--font-mono: var(--varta-mono, "JetBrains Mono", monospace);
 
 	/* Font sizes */
-	--text-xs: 11px;
-	--text-sm: 13px;
+	--text-xs: 12px;
+	--text-sm: 14px;
 	--text-base: 15px;
 	--text-lg: 17px;
 	--text-xl: 20px;
@@ -80,10 +67,13 @@
 	--tracking-wider: 0.1em;
 
 	/* Spacing (4px base) */
+	--space-0-5: 2px;
 	--space-1: 4px;
 	--space-1-5: 6px;
 	--space-2: 8px;
+	--space-2-5: 10px;
 	--space-3: 12px;
+	--space-3-5: 14px;
 	--space-4: 16px;
 	--space-5: 20px;
 	--space-6: 24px;
@@ -121,4 +111,27 @@
 	--z-header: 100;
 	--z-modal: 200;
 	--z-toast: 300;
+
+	/* Shared component aliases. */
+	--surface-input: var(--surface-2);
+	--surface-card-hover: var(--surface-3);
+	--border-color: var(--border-subtle);
+	--border-default: var(--border-2);
+	--border-strong: var(--border-3);
+	--color-primary-300: #ff9b78;
+	--color-error-400: #ff8f85;
+	--color-error-500: #e74c3c;
+	--color-error-950: rgba(192, 57, 43, 0.12);
+	--color-danger-300: #ff9b78;
+	--color-danger-400: var(--color-error-400);
+	--color-emerald-400: #70d69a;
+	--color-emerald-500: var(--color-green);
+	--shadow-glow: none;
+	--shadow-glow-strong: var(--shadow-brand);
+	--shadow-glow-error: none;
+	--transition-fast: 100ms ease;
+	--lh-normal: 1.35;
+	--lh-relaxed: 1.6;
+	--glass-bg-strong: var(--surface-raised);
+	--glass-border: var(--border-2);
 }

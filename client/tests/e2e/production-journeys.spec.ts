@@ -9,7 +9,11 @@ async function login(page: import('@playwright/test').Page, email: string) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill('Varta-e2e-password-123!');
-  await page.getByRole('button', { name: /sign in/i }).click();
+  const [loginRequest] = await Promise.all([
+    page.waitForRequest((request) => new URL(request.url()).pathname === '/api/v1/auth/login'),
+    page.getByRole('button', { name: /sign in/i }).click(),
+  ]);
+  expect(new URL(loginRequest.url()).origin).toBe(new URL(page.url()).origin);
   await expect(page).toHaveURL(/\/analytics/);
   await expect(page.getByRole('heading', { name: 'Analytics Overview' })).toBeVisible();
 }
@@ -48,10 +52,18 @@ test('all supported dashboard journeys are navigable without mock or unavailable
 });
 
 test('billing is owner-only in navigation, page state, and server authorization', async ({ page, context, request }, testInfo) => {
-  await navigateInApp(page, '/settings/billing');
+  await page.goto('/');
+  const publicPlanActions = page.getByRole('button', { name: 'Coming soon' });
+  await expect(publicPlanActions).toHaveCount(3);
+  for (const action of await publicPlanActions.all()) await expect(action).toBeDisabled();
+  await expect(page.locator('script[src*="checkout.razorpay.com"]')).toHaveCount(0);
+
+  await page.goto('/settings/billing');
   await expect(page.getByRole('heading', { name: 'Free Tier' }).first()).toBeVisible();
-  await page.getByRole('button', { name: 'Upgrade to Plus Tier' }).click();
-  await expect(page.getByText(/Razorpay billing is disabled/)).toBeVisible();
+  const planActions = page.getByRole('button', { name: 'Coming soon' });
+  await expect(planActions).toHaveCount(3);
+  for (const action of await planActions.all()) await expect(action).toBeDisabled();
+  await expect(page.locator('script[src*="checkout.razorpay.com"]')).toHaveCount(0);
 
   await context.clearCookies();
   await page.evaluate(() => localStorage.clear());
@@ -100,6 +112,7 @@ test('billing is owner-only in navigation, page state, and server authorization'
 
 test('studio reports durable acceptance and notification detail shows persisted state', async ({ page }) => {
   await navigateInApp(page, '/studio');
+  await expect(page.getByRole('checkbox', { name: /Smart timing/ })).toBeDisabled();
   await expect(page.getByLabel('Select Template')).toHaveValue(/.+/);
   await expect(page.getByLabel('Recipient Subscriber')).toHaveValue(/.+/);
   await page.getByRole('button', { name: /trigger notification/i }).click();
@@ -108,4 +121,43 @@ test('studio reports durable acceptance and notification detail shows persisted 
   await expect(page.getByRole('cell', { name: 'E2E Template' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Details' }).first().click();
   await expect(page.getByRole('heading', { name: 'Notification detail' })).toBeVisible();
+});
+
+test('guide is navigable and manual rules work while AI is disabled', async ({ page }) => {
+  await page.getByText('Start here: send your first notification').click();
+  await expect(page.getByRole('link', { name: 'Add a subscriber', exact: true })).toBeVisible();
+  await navigateInApp(page, '/rules');
+  await expect(page.getByText(/AI rule authoring is disabled/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Generate review-only proposal' })).toBeDisabled();
+  await page.getByLabel('Rule Name').fill(`Browser manual rule ${Date.now()}`);
+  await page.getByLabel('Rule AST (review before saving)').fill(JSON.stringify({ logic: 'AND', conditions: [], channels: ['IN_APP'] }));
+  await page.getByRole('button', { name: 'Save reviewed rule' }).click();
+  await expect(page.getByRole('heading', { name: /Browser manual rule/ }).first()).toBeVisible();
+});
+
+test('logout cancels a late WebSocket token and does not reconnect', async ({ page }) => {
+  // A full navigation installs the delay before the dashboard mounts its socket hook.
+  let release: () => void = () => {};
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  let intercepted: () => void = () => {};
+  const tokenRequested = new Promise<void>(resolve => { intercepted = resolve; });
+  await page.route('**/ws-token', async route => {
+    const response = await route.fetch();
+    intercepted();
+    await pending;
+    await route.fulfill({ response }).catch(() => {});
+  });
+  let connections = 0;
+  let trackConnections = false;
+  page.on('websocket', () => { if (trackConnections) connections++; });
+  await page.goto('/analytics');
+  await tokenRequested;
+  trackConnections = true;
+  const openNavigation = page.getByRole('button', { name: 'Open navigation' });
+  if (await openNavigation.isVisible()) await openNavigation.click();
+  await page.getByRole('button', { name: 'Sign Out' }).click();
+  await expect(page).toHaveURL(/\/login/);
+  release();
+  await page.waitForTimeout(5500); // Exceeds the reconnect delay to exercise cleanup.
+  expect(connections).toBe(0);
 });

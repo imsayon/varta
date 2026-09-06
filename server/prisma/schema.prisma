@@ -527,6 +527,8 @@ model Delivery {
   providerMessageId String?           @map("provider_message_id")
   scheduledAt       DateTime?         @map("scheduled_at") @db.Timestamptz
   lastError         String?           @map("last_error")
+  leaseOwner        String?           @map("lease_owner")
+  leaseUntil        DateTime?         @map("lease_until") @db.Timestamptz
   createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -537,6 +539,7 @@ model Delivery {
   @@unique([notificationId, channel])
   @@index([workspaceId, status])
   @@index([status, scheduledAt])
+  @@index([status, leaseUntil])
   @@map("deliveries")
   @@schema("varta")
 }

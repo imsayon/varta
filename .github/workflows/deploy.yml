@@ -98,6 +98,33 @@ jobs:
           test -n "$RENDER_WORKSPACE_ID"
           render blueprints validate ops/deploy/render.yaml --workspace "$RENDER_WORKSPACE_ID" -o json
 
+      - name: Install pnpm
+        if: ${{ inputs.operation == 'deploy' }}
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.20.0
+
+      - name: Setup Node.js
+        if: ${{ inputs.operation == 'deploy' }}
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: '.node-version'
+          cache: 'pnpm'
+
+      - name: Install workspace dependencies
+        if: ${{ inputs.operation == 'deploy' }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply production database migrations
+        if: ${{ inputs.operation == 'deploy' }}
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$DIRECT_URL"
+          pnpm --filter @varta/server exec prisma migrate deploy
+          pnpm --filter @varta/server exec prisma migrate status
+
       - name: Deploy exact CI-approved commit
         if: ${{ inputs.operation == 'deploy' }}
         env:

@@ -30,7 +30,9 @@ import { getDatabasePoolStats } from "@/infra/database/prisma.ts"
 import { rateLimitGlobal } from "./common/middleware/rate-limit.middleware.ts"
 import { authenticateOperatorMetrics } from "./common/middleware/operator.middleware.ts"
 import { authorize } from "./common/auth/route-policy.ts"
-import billingRouter, { razorpayWebhookRouter } from "./modules/billing/billing.routes.ts"
+import billingRouter, {
+	razorpayWebhookRouter,
+} from "./modules/billing/billing.routes.ts"
 
 import { requestIdMiddleware } from "./common/middleware/request-id.middleware.ts"
 import { traceHttpRequest } from "@/infra/observability/tracing.ts"
@@ -49,7 +51,8 @@ app.use(
 		}) => express.RequestHandler
 	)({
 		logger,
-		genReqId: (req) => (req as any).requestId || (req as any).id || "unknown",
+		genReqId: (req) =>
+			(req as any).requestId || (req as any).id || "unknown",
 	}),
 )
 app.use((req, res, next) => {
@@ -99,10 +102,17 @@ app.use(cookieParser())
 
 // Route Mounting
 app.use("/api/health", healthRouter)
-app.get("/api/metrics", authenticateOperatorMetrics, authorize("metrics.read"), async (_req, res) => {
-	observeDatabasePool(getDatabasePoolStats())
-	res.type(metricsRegistry.contentType).send(await metricsRegistry.metrics())
-})
+app.get(
+	"/api/metrics",
+	authenticateOperatorMetrics,
+	authorize("metrics.read"),
+	async (_req, res) => {
+		observeDatabasePool(getDatabasePoolStats())
+		res.type(metricsRegistry.contentType).send(
+			await metricsRegistry.metrics(),
+		)
+	},
+)
 
 import { openApiSpec } from "./common/openapi.ts"
 

@@ -19,7 +19,7 @@ export interface RefreshTokenPayload extends JWTPayload {
 	jti: string
 }
 
-export const ACCESS_TOKEN_LIFETIME = "15m" as const
+const ACCESS_TOKEN_LIFETIME = "15m" as const
 
 // short-lived token carrying user context
 export async function generateAccessToken(

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono, Bricolage_Grotesque, Alumni_Sans } from 'next/font/google';
+import { Inter, JetBrains_Mono, Bricolage_Grotesque } from 'next/font/google';
 import { AuthProvider } from '@/shared/auth/auth-context';
 
 import { Toaster } from 'sonner'
@@ -13,10 +13,6 @@ import '@/styles/globals.css';
  *   Editorial, variable-weight, distinctively modern.
  *   Used for: hero h1, section headlines, CTA headline.
  *
- * --font-data     → Alumni Sans
- *   Tall condensed proportions — makes numbers feel architectural.
- *   Used for: stat values, pricing numbers, scale metrics, overlines/labels.
- *
  * --font-body     → Inter
  *   The gold standard for readable UI prose.
  *   Used for: body copy, nav links, buttons, descriptions.
@@ -29,26 +25,19 @@ import '@/styles/globals.css';
 const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-display',
-  display: 'swap',
-});
-
-const alumniSans = Alumni_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-data',
+  variable: '--varta-display',
   display: 'swap',
 });
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-body',
+  variable: '--varta-body',
   display: 'swap',
 });
 
 const jetBrainsMono = JetBrains_Mono({
   subsets: ['latin'],
-  variable: '--font-mono',
+  variable: '--varta-mono',
   display: 'swap',
 });
 
@@ -63,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${alumniSans.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en" className={`${bricolage.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
       <body>
         <AuthProvider>
           {children}

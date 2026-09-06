@@ -13,21 +13,27 @@ const DeliveryJobSchema = z.object({
 export const SendEmailJobSchema = DeliveryJobSchema
 export const SendInAppJobSchema = DeliveryJobSchema
 export const SendWebhookJobSchema = DeliveryJobSchema
+export type DeliveryJob = z.infer<typeof DeliveryJobSchema>
 
 export const DigestJobSchema = z.object({
 	version: z.literal(1),
 	workspaceId: z.string().min(1),
 	batchId: z.string().min(1),
 })
-
-export const STOJobSchema = z.object({
-	version: z.literal(1),
-	workspaceId: z.string().min(1),
-})
+export type DigestJob = z.infer<typeof DigestJobSchema>
 
 export const OutboxTickJobSchema = z.object({ version: z.literal(1) })
+export type OutboxTickJob = z.infer<typeof OutboxTickJobSchema>
+
 export const ReconciliationJobSchema = z.object({ version: z.literal(1) })
+export type ReconciliationJob = z.infer<typeof ReconciliationJobSchema>
+
 export const BillingWebhookJobSchema = z.discriminatedUnion("kind", [
-	z.object({ version: z.literal(1), kind: z.literal("event"), inboxRecordId: z.string().uuid() }),
+	z.object({
+		version: z.literal(1),
+		kind: z.literal("event"),
+		inboxRecordId: z.string().uuid(),
+	}),
 	z.object({ version: z.literal(1), kind: z.literal("recover") }),
 ])
+export type BillingWebhookJob = z.infer<typeof BillingWebhookJobSchema>

@@ -1,8 +1,8 @@
 import { z } from "zod"
 import { AIProviderError } from "../ai.errors.ts"
 import type { AIProviderRequest, AIProviderResponse } from "../ai.types.ts"
-import type { AIProvider } from "./ai-provider.interface.ts"
-import { AI_PROVIDER_ENDPOINTS, AI_PROVIDERS } from "../ai.constants.ts"
+
+const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta"
 
 const responseSchema = z.object({
 	candidates: z
@@ -22,11 +22,9 @@ const responseSchema = z.object({
 		.optional(),
 })
 
-export class GeminiProvider implements AIProvider {
-	readonly name = AI_PROVIDERS.GEMINI
-
+export const geminiProvider = {
 	async generate(request: AIProviderRequest): Promise<AIProviderResponse> {
-		const endpoint = `${AI_PROVIDER_ENDPOINTS.GEMINI}/models/${encodeURIComponent(request.model)}:generateContent`
+		const endpoint = `${ENDPOINT}/models/${encodeURIComponent(request.model)}:generateContent`
 		const response = await fetch(endpoint, {
 			method: "POST",
 			headers: {
@@ -70,5 +68,5 @@ export class GeminiProvider implements AIProvider {
 			inputTokens: parsed.data.usageMetadata?.promptTokenCount,
 			outputTokens: parsed.data.usageMetadata?.candidatesTokenCount,
 		}
-	}
+	},
 }

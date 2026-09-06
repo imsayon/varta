@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Bell } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 import { useAuth } from '@/shared/auth/auth-context';
 import { apiClient } from '@/shared/api/api';
 import { useWebSocket } from '@/shared/realtime/websocket';
@@ -10,7 +10,7 @@ import type { INotification, IWSNotification } from '@/shared/types/domain';
 import { NotificationSidebar } from '@/components/layout/NotificationSidebar/NotificationSidebar';
 import styles from './Header.module.css';
 
-export function Header() {
+export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const pathname = usePathname();
   const { workspace, apiKey } = useAuth();
   const [isFeedOpen, setIsFeedOpen] = useState(false);
@@ -87,6 +87,9 @@ export function Header() {
   return (
     <header className={styles.header}>
       <div className={styles.left}>
+        <button type="button" className={styles.menuButton} aria-label="Open navigation" onClick={onOpenMenu}>
+          <Menu size={20} />
+        </button>
         <h2 className={styles.title}>{getTitle()}</h2>
         {workspace && (
           <span className={styles.workspaceIndicator}>

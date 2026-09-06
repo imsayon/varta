@@ -3,14 +3,20 @@ import { WebSocket, WebSocketServer } from "ws"
 import { prisma } from "@/infra/database/prisma.ts"
 import { redis } from "@/infra/redis/redis.connection.ts"
 import { logger } from "@/infra/observability/logger.ts"
-import { activeWebSockets, realtimeEvents } from "@/infra/observability/metrics.ts"
+import {
+	activeWebSockets,
+	realtimeEvents,
+} from "@/infra/observability/metrics.ts"
 import {
 	verifyWebSocketToken,
 	type SubscriberWebSocketTokenPayload,
 	type WorkspaceWebSocketTokenPayload,
 } from "@/common/utils/auth/websocket-token.ts"
 import { getRoutePolicy } from "@/common/auth/route-policy.ts"
-import type { AuthorizationCapability, SubscriberWebSocketPrincipal } from "@/common/auth/principal.ts"
+import type {
+	AuthorizationCapability,
+	SubscriberWebSocketPrincipal,
+} from "@/common/auth/principal.ts"
 import {
 	REALTIME_CHANNEL,
 	realtimeConnectionKey,
@@ -30,15 +36,23 @@ type Connection = {
 	key: string
 	alive: boolean
 	expiresAt: number
+	inFlight: Set<string>
+	flushing: boolean
 }
 
-const webSocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 })
+const webSocketServer = new WebSocketServer({
+	noServer: true,
+	maxPayload: 16 * 1024,
+})
 const pubsub = redis.duplicate()
 pubsub.on("error", (error) =>
 	logger.error({ err: error }, "Realtime Redis connection error"),
 )
 const connections = new Map<string, Connection>()
-const socketTokens = new WeakMap<WebSocket, SubscriberWebSocketTokenPayload | WorkspaceWebSocketTokenPayload>()
+const socketTokens = new WeakMap<
+	WebSocket,
+	SubscriberWebSocketTokenPayload | WorkspaceWebSocketTokenPayload
+>()
 const socketCapabilities = new WeakMap<WebSocket, AuthorizationCapability>()
 let heartbeat: NodeJS.Timeout | undefined
 let upgradeHandler:
@@ -65,14 +79,17 @@ function send(socket: WebSocket, message: unknown): boolean {
 }
 
 async function flushPending(connection: Connection): Promise<void> {
-	if (connection.kind !== "subscriber") return
+	if (connection.kind !== "subscriber" || connection.flushing || connection.inFlight.size >= 50) return
+	connection.flushing = true
+	try {
 	const pending = await prisma.pendingInApp.findMany({
 		where: {
 			workspaceId: connection.workspaceId,
 			subscriberId: connection.subscriberId,
 			deliveredAt: null,
+			notificationId: { notIn: [...connection.inFlight] },
 		},
-		take: 50,
+		take: 50 - connection.inFlight.size,
 		orderBy: { createdAt: "asc" },
 		select: {
 			id: true,
@@ -94,16 +111,23 @@ async function flushPending(connection: Connection): Promise<void> {
 			})
 		)
 			break
+		connection.inFlight.add(item.notificationId)
 	}
+	} finally { connection.flushing = false }
 }
 
 async function deliverLive(event: InAppDeliveryEvent): Promise<void> {
 	for (const connection of connections.values()) {
 		if (
 			connection.workspaceId !== event.workspaceId ||
-			(connection.kind === "subscriber" && connection.subscriberId !== event.subscriberId)
+			(connection.kind === "subscriber" &&
+				connection.subscriberId !== event.subscriberId)
 		)
 			continue
+		if (connection.kind === "subscriber") {
+			await flushPending(connection)
+			continue
+		}
 		send(connection.socket, {
 			type: "notification",
 			data: {
@@ -138,7 +162,11 @@ async function register(
 ): Promise<void> {
 	const token = socketTokens.get(socket)
 	const capability = socketCapabilities.get(socket)
-	if (!token || !token.sub || (token.type === "subscriber_ws" && !capability)) {
+	if (
+		!token ||
+		!token.sub ||
+		(token.type === "subscriber_ws" && !capability)
+	) {
 		socket.close(1008, "Invalid token")
 		return
 	}
@@ -153,12 +181,17 @@ async function register(
 		kind: token.type === "workspace_ws" ? "workspace" : "subscriber",
 		alive: true,
 		expiresAt: (token.exp ?? 0) * 1_000,
+		inFlight: new Set(),
+		flushing: false,
 	}
 	try {
 		await redis.sAdd(key, connectionId)
 		await redis.expire(key, PRESENCE_TTL_SECONDS)
 	} catch (error) {
-		logger.warn({ err: error, connectionId }, "WebSocket presence registration failed")
+		logger.warn(
+			{ err: error, connectionId },
+			"WebSocket presence registration failed",
+		)
 		socket.close(1013, "Realtime service unavailable")
 		return
 	}
@@ -174,8 +207,6 @@ async function register(
 		},
 		"WebSocket connected",
 	)
-	await flushPending(connection)
-
 	socket.on("pong", () => {
 		connection.alive = true
 		void redis.expire(key, PRESENCE_TTL_SECONDS)
@@ -193,7 +224,10 @@ async function register(
 				connection.workspaceId,
 				connection.subscriberId,
 				message.notificationId,
-			)
+			).then(async () => {
+				connection.inFlight.delete(message.notificationId!)
+				await flushPending(connection)
+			}).catch((error) => logger.warn({ err: error, connectionId }, "Realtime acknowledgement failed"))
 			return
 		}
 		if (message.type === "read" && message.notificationId) {
@@ -222,6 +256,7 @@ async function register(
 	socket.on("error", (error) =>
 		logger.warn({ connectionId, err: error }, "WebSocket error"),
 	)
+	await flushPending(connection)
 }
 
 async function upgrade(
@@ -241,12 +276,22 @@ async function upgrade(
 		const token = url.searchParams.get("token")
 		if (!token) throw new Error("Missing WebSocket token")
 		const claims = await verifyWebSocketToken(token)
-		const policy = getRoutePolicy(claims.type === "workspace_ws" ? "websocket.workspace" : "websocket.subscriber")
+		const policy = getRoutePolicy(
+			claims.type === "workspace_ws"
+				? "websocket.workspace"
+				: "websocket.subscriber",
+		)
 		if (claims.type === "workspace_ws") {
 			const membership = await prisma.workspaceMember.findUnique({
-				where: { userId_workspaceId: { userId: claims.sub, workspaceId: claims.workspaceId } },
+				where: {
+					userId_workspaceId: {
+						userId: claims.sub,
+						workspaceId: claims.workspaceId,
+					},
+				},
 			})
-			if (!membership || !policy.principalKinds?.includes("browser_jwt")) throw new Error("Workspace WebSocket access denied")
+			if (!membership || !policy.principalKinds?.includes("browser_jwt"))
+				throw new Error("Workspace WebSocket access denied")
 			webSocketServer.handleUpgrade(request, socket, head, (client) => {
 				socketTokens.set(client, claims)
 				webSocketServer.emit("connection", client, request)
@@ -292,7 +337,7 @@ export async function startWebSocketServer(server: Server): Promise<void> {
 	await pubsub.subscribe(REALTIME_CHANNEL, (message) => {
 		try {
 			const event = JSON.parse(message) as InAppDeliveryEvent
-			if (event.type === "in_app_delivery") void deliverLive(event)
+			if (event.type === "in_app_delivery") void deliverLive(event).catch((error) => logger.warn({ err: error }, "Realtime publication failed"))
 		} catch (error) {
 			logger.warn({ err: error }, "Invalid realtime event")
 		}
@@ -302,7 +347,10 @@ export async function startWebSocketServer(server: Server): Promise<void> {
 	server.on("upgrade", upgradeHandler)
 	webSocketServer.on(
 		"connection",
-		(socket, request) => void register(socket, request),
+		(socket, request) => void register(socket, request).catch((error) => {
+			logger.warn({ err: error }, "Realtime registration failed")
+			socket.close(1013, "Realtime unavailable")
+		}),
 	)
 	heartbeat = setInterval(() => {
 		for (const connection of connections.values()) {

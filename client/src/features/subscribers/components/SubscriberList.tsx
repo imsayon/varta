@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton/Skeleton"
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState"
 import { SubscriberForm } from "./SubscriberForm"
 import type { ISubscriber, SubscriberUpsertInput } from "@/shared/types/domain"
+import styles from "./SubscriberList.module.css"
 
 export function SubscriberList() {
 	const { workspace } = useAuth()
@@ -95,36 +96,29 @@ export function SubscriberList() {
 	}
 
 	return (
-		<div className="dashboard-page" style={{ padding: "1.5rem", maxWidth: "1200px", margin: "0 auto" }}>
-			<div className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+		<div className={styles.page}>
+			<header className={styles.header}>
 				<div>
-					<h1 className="dashboard-title" style={{ fontSize: "1.75rem", fontWeight: 600, color: "#f8fafc", margin: 0 }}>
+					<h1 className="dashboard-title">
 						Subscribers
-						<span style={{ fontSize: "0.875rem", padding: "2px 10px", background: "#334155", borderRadius: "9999px", color: "#38bdf8", marginLeft: "12px", verticalAlign: "middle" }}>
+						<span className={styles.count}>
 							{total}
 						</span>
 					</h1>
-					<p className="dashboard-subtitle" style={{ color: "#94a3b8", fontSize: "0.875rem", marginTop: "0.25rem" }}>
+					<p className="dashboard-subtitle">
 						Profiles available for targeting, channel delivery preferences, and runtime triggers.
 					</p>
 				</div>
-				<div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-					<label style={{ position: "relative", width: 280, maxWidth: "100%" }}>
-						<Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b" }} />
+				<div className={styles.actions}>
+					<label className={styles.searchWrap}>
+						<Search size={16} className={styles.searchIcon} aria-hidden="true" />
 						<input
 							type="text"
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 							placeholder="Search by ID or email..."
-							style={{
-								width: "100%",
-								padding: "8px 12px 8px 38px",
-								backgroundColor: "#1e293b",
-								border: "1px solid #334155",
-								borderRadius: "0.375rem",
-								color: "#f8fafc",
-								fontSize: "0.875rem",
-							}}
+							aria-label="Search subscribers"
+							className={styles.searchInput}
 						/>
 					</label>
 					<Button variant="primary" onClick={openCreateModal}>
@@ -132,10 +126,10 @@ export function SubscriberList() {
 						<span>Add Subscriber</span>
 					</Button>
 				</div>
-			</div>
+			</header>
 
 			{loading ? (
-				<div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+				<div className={styles.loadingList}>
 					<Skeleton height={60} />
 					<Skeleton height={60} />
 					<Skeleton height={60} />
@@ -147,47 +141,49 @@ export function SubscriberList() {
 					icon={<UserCheck size={32} />}
 				/>
 			) : (
-				<div style={{ backgroundColor: "#1e293b", borderRadius: "0.5rem", border: "1px solid #334155", overflow: "hidden" }}>
-					<table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+				<div className={styles.tableCard}>
+					<table className={styles.table}>
 						<thead>
-							<tr style={{ borderBottom: "1px solid #334155", backgroundColor: "#0f172a", color: "#94a3b8", fontSize: "0.75rem", textTransform: "uppercase" }}>
-								<th style={{ padding: "12px 16px" }}>External ID</th>
-								<th style={{ padding: "12px 16px" }}>Email</th>
-								<th style={{ padding: "12px 16px" }}>Name</th>
-								<th style={{ padding: "12px 16px" }}>Timezone / Locale</th>
-								<th style={{ padding: "12px 16px" }}>Created</th>
-								<th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
+							<tr>
+								<th>External ID</th>
+								<th>Email</th>
+								<th>Name</th>
+								<th>Timezone / Locale</th>
+								<th>Created</th>
+								<th className={styles.actionsCell}>Actions</th>
 							</tr>
 						</thead>
 						<tbody>
 							{subscribers.map((subscriber) => (
-								<tr key={subscriber.id} style={{ borderBottom: "1px solid #334155", color: "#cbd5e1", fontSize: "0.875rem" }}>
-									<td style={{ padding: "12px 16px", fontFamily: "monospace", color: "#f8fafc" }}>
+								<tr key={subscriber.id}>
+									<td className={styles.externalId}>
 										{subscriber.externalId}
 									</td>
-									<td style={{ padding: "12px 16px" }}>{subscriber.email || "—"}</td>
-									<td style={{ padding: "12px 16px", color: "#f8fafc" }}>{subscriber.name || "—"}</td>
-									<td style={{ padding: "12px 16px" }}>
+									<td>{subscriber.email || "—"}</td>
+									<td className={styles.primaryText}>{subscriber.name || "—"}</td>
+									<td>
 										{subscriber.timezone} ({subscriber.locale})
 									</td>
-									<td style={{ padding: "12px 16px", color: "#64748b" }}>
+									<td className={styles.timestamp}>
 										{new Date(subscriber.createdAt).toLocaleDateString()}
 									</td>
-									<td style={{ padding: "12px 16px", textAlign: "right" }}>
-										<div style={{ display: "inline-flex", gap: "8px" }}>
+									<td className={styles.actionsCell}>
+										<div className={styles.rowActions}>
 											<button
+												type="button"
 												onClick={() => openEditModal(subscriber)}
-												style={{ padding: "6px", background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer" }}
-												title="Edit Subscriber"
+												className={styles.iconButton}
+												aria-label={`Edit ${subscriber.externalId}`}
 											>
-												<Edit2 size={16} />
+												<Edit2 size={16} aria-hidden="true" />
 											</button>
 											<button
+												type="button"
 												onClick={() => handleDelete(subscriber)}
-												style={{ padding: "6px", background: "transparent", border: "none", color: "#ef4444", cursor: "pointer" }}
-												title="Delete Subscriber"
+												className={`${styles.iconButton} ${styles.deleteButton}`}
+												aria-label={`Delete ${subscriber.externalId}`}
 											>
-												<Trash2 size={16} />
+												<Trash2 size={16} aria-hidden="true" />
 											</button>
 										</div>
 									</td>

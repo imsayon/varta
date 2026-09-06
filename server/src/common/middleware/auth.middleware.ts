@@ -91,17 +91,3 @@ export async function authenticateAny(
 	}
 	await authenticate(req, res, next)
 }
-
-export function captureOAuthUser(
-	req: Request,
-	_res: Response,
-	next: NextFunction,
-): void {
-	const user = (req as Request & { user?: unknown }).user
-	if (!user || typeof user !== "object" || !("id" in user) || typeof user.id !== "string") {
-		next(new UnauthorizedError("OAuth identity missing"))
-		return
-	}
-	req.oauthUser = { id: user.id }
-	next()
-}

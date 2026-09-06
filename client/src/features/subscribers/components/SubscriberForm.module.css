@@ -22,8 +22,7 @@
   font-size: var(--text-xs);
   color: var(--text-secondary);
   font-weight: var(--weight-medium);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wider);
+  letter-spacing: 0;
 }
 
 .prefGrid {

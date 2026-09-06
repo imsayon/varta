@@ -1,253 +1,85 @@
 .container {
-	padding: 1.5rem;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-6);
+	width: 100%;
 	max-width: 1100px;
 	margin: 0 auto;
 }
 
-.header {
-	margin-bottom: 2rem;
-}
+.header { margin-bottom: var(--space-2); }
+.header h1,
+.catalogSection h2,
+.currentCard h2 { color: var(--text-primary); }
+.header h1 { font-size: var(--text-2xl); font-weight: var(--weight-semibold); }
+.header p,
+.planOverview p,
+.planDesc,
+.perMonth { color: var(--text-secondary); }
+.header p { margin-top: var(--space-1); font-size: var(--text-sm); }
 
-.header h1 {
-	font-size: 1.75rem;
-	font-weight: 700;
-	color: #f3f4f6;
-	margin-bottom: 0.25rem;
-}
-
-.header p {
-	color: #9ca3af;
-	font-size: 0.95rem;
-}
-
-.loading, .error {
-	padding: 2rem;
-	text-align: center;
-	color: #9ca3af;
-}
-
+.loading,
 .error {
-	color: #ef4444;
-}
-
-.currentCard {
-	background: #111827;
-	border: 1px solid #1f2937;
-	border-radius: 0.75rem;
-	padding: 1.5rem;
-	margin-bottom: 2rem;
-}
-
-.badgeRow {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 1rem;
-}
-
-.badgeRow h2 {
-	font-size: 1.1rem;
-	color: #f3f4f6;
-	margin: 0;
-}
-
-.statusBadge {
-	padding: 0.25rem 0.75rem;
-	border-radius: 9999px;
-	font-size: 0.8rem;
-	font-weight: 600;
-	text-transform: uppercase;
-}
-
-.statusActive {
-	background: rgba(16, 185, 129, 0.2);
-	color: #10b981;
-}
-
-.statusGrace {
-	background: rgba(245, 158, 11, 0.2);
-	color: #f59e0b;
-}
-
-.statusInactive {
-	background: rgba(239, 68, 68, 0.2);
-	color: #ef4444;
-}
-
-.planOverview {
-	margin-bottom: 1.5rem;
-}
-
-.planOverview h3 {
-	font-size: 1.5rem;
-	font-weight: 700;
-	color: #3b82f6;
-	margin: 0 0 0.25rem 0;
-}
-
-.planOverview p {
-	color: #9ca3af;
-	margin: 0 0 0.5rem 0;
-}
-
-.priceTag {
-	font-size: 1.1rem;
-	font-weight: 600;
-	color: #e5e7eb;
-}
-
-.quotaGrid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-	gap: 1rem;
-	padding-top: 1rem;
-	border-top: 1px solid #1f2937;
-}
-
-.quotaItem {
-	display: flex;
-	flex-direction: column;
-}
-
-.quotaLabel {
-	font-size: 0.8rem;
-	color: #9ca3af;
-	margin-bottom: 0.25rem;
-}
-
-.quotaValue {
-	font-size: 1.1rem;
-	font-weight: 600;
-	color: #f3f4f6;
-}
-
-.alertMessage {
-	padding: 1rem;
-	background: rgba(59, 130, 246, 0.15);
-	border: 1px solid #3b82f6;
-	border-radius: 0.5rem;
-	color: #60a5fa;
-	margin-bottom: 2rem;
-	font-size: 0.95rem;
-}
-
-.catalogSection h2 {
-	font-size: 1.25rem;
-	color: #f3f4f6;
-	margin-bottom: 1rem;
-}
-
-.catalogGrid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-	gap: 1.5rem;
-}
-
-.planCard {
-	background: #111827;
-	border: 1px solid #1f2937;
-	border-radius: 0.75rem;
-	padding: 1.5rem;
-	display: flex;
-	flex-direction: column;
-}
-
-.planCardActive {
-	border-color: #3b82f6;
-	box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
-}
-
-.planCard h3 {
-	font-size: 1.25rem;
-	color: #f3f4f6;
-	margin: 0 0 0.5rem 0;
-}
-
-.planDesc {
-	font-size: 0.85rem;
-	color: #9ca3af;
-	margin: 0 0 1rem 0;
-	min-height: 2.5rem;
-}
-
-.cardPrice {
-	font-size: 1.75rem;
-	font-weight: 700;
-	color: #f3f4f6;
-	margin-bottom: 1.5rem;
-}
-
-.perMonth {
-	font-size: 0.9rem;
-	color: #9ca3af;
-	font-weight: 400;
-}
-
-.featureList {
-	list-style: none;
-	padding: 0;
-	margin: 0 0 1.5rem 0;
-	flex-grow: 1;
-}
-
-.featureList li {
-	font-size: 0.85rem;
-	color: #d1d5db;
-	padding: 0.4rem 0;
-	border-bottom: 1px dashed #1f2937;
-}
-
-.featureList li:last-child {
-	border-bottom: none;
-}
-
-.upgradeBtn {
-	width: 100%;
-	padding: 0.75rem;
-	background: #2563eb;
-	color: #ffffff;
-	border: none;
-	border-radius: 0.5rem;
-	font-weight: 600;
-	cursor: pointer;
-	transition: background 0.2s;
-}
-
-.upgradeBtn:hover:not(:disabled) {
-	background: #1d4ed8;
-}
-
-.upgradeBtn:disabled {
-	opacity: 0.6;
-	cursor: not-allowed;
-}
-
-.currentPlanLabel {
+	padding: var(--space-8);
 	text-align: center;
-	padding: 0.75rem;
-	background: #1f2937;
-	color: #9ca3af;
-	border-radius: 0.5rem;
-	font-weight: 600;
-	font-size: 0.9rem;
+	color: var(--text-secondary);
 }
+.error { color: var(--color-error-400); }
 
-.pendingText {
-	margin: 1rem 0;
-	color: #fbbf24;
-	font-size: 0.9rem;
+.currentCard,
+.planCard {
+	background: var(--surface-card);
+	border: 1px solid var(--border-subtle);
+	border-radius: var(--radius-lg);
 }
-
-.secondaryBtn {
-	padding: 0.65rem 0.9rem;
-	border: 1px solid #374151;
-	border-radius: 0.5rem;
-	background: #111827;
-	color: #d1d5db;
-	cursor: pointer;
+.currentCard { padding: var(--space-6); }
+.badgeRow { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); margin-bottom: var(--space-5); }
+.badgeRow h2 { margin: 0; font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.statusBadge {
+	padding: 4px 8px;
+	border: 1px solid transparent;
+	border-radius: var(--radius-md);
+	font-size: var(--text-xs);
+	font-weight: var(--weight-semibold);
 }
+.statusActive { background: rgba(39, 174, 96, 0.12); color: #70d69a; border-color: rgba(39, 174, 96, 0.25); }
+.statusGrace { background: rgba(243, 156, 18, 0.12); color: #ffc866; border-color: rgba(243, 156, 18, 0.25); }
+.statusInactive { background: rgba(231, 76, 60, 0.12); color: var(--color-error-400); border-color: rgba(231, 76, 60, 0.25); }
 
-.secondaryBtn:disabled {
-	opacity: 0.6;
-	cursor: not-allowed;
+.planOverview { margin-bottom: var(--space-6); }
+.planOverview h3 { margin: 0 0 var(--space-1); color: var(--color-primary-400); font-size: var(--text-xl); font-weight: var(--weight-semibold); }
+.planOverview p { margin: 0 0 var(--space-2); }
+.priceTag,
+.cardPrice { color: var(--text-primary); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+.priceTag { font-size: var(--text-lg); }
+
+.quotaGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); padding-top: var(--space-5); border-top: 1px solid var(--border-subtle); }
+.quotaItem { display: flex; flex-direction: column; gap: var(--space-1); }
+.quotaLabel { color: var(--text-secondary); font-size: var(--text-xs); }
+.quotaValue { color: var(--text-primary); font-size: var(--text-lg); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+.pendingText { margin: var(--space-4) 0 0; color: #ffc866; font-size: var(--text-sm); }
+
+.alertMessage { padding: var(--space-4); background: rgba(42, 168, 216, 0.1); border: 1px solid rgba(42, 168, 216, 0.25); border-radius: var(--radius-lg); color: #8fdcff; font-size: var(--text-sm); }
+.catalogSection h2 { margin-bottom: var(--space-4); font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.catalogGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+.planCard { display: flex; flex-direction: column; padding: var(--space-5); }
+.planCardActive { border-color: rgba(231, 76, 60, 0.55); }
+.planCard h3 { margin: 0 0 var(--space-2); color: var(--text-primary); font-size: var(--text-lg); }
+.planDesc { min-height: 42px; margin: 0 0 var(--space-4); font-size: var(--text-sm); }
+.cardPrice { margin-bottom: var(--space-5); font-size: 28px; }
+.perMonth { font-size: var(--text-sm); font-weight: var(--weight-normal); }
+.featureList { flex: 1; list-style: none; padding: 0; margin: 0 0 var(--space-5); }
+.featureList li { padding: var(--space-2) 0; border-bottom: 1px dashed var(--border-subtle); color: var(--text-secondary); font-size: var(--text-sm); }
+.featureList li:last-child { border-bottom: 0; }
+.upgradeBtn,
+.secondaryBtn { border-radius: var(--radius-md); font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer; }
+.upgradeBtn { width: 100%; padding: 10px 12px; border: 1px solid var(--border-2); background: var(--surface-3); color: var(--text-muted); }
+.upgradeBtn:disabled,
+.secondaryBtn:disabled { cursor: not-allowed; opacity: 0.65; }
+.secondaryBtn { align-self: flex-start; padding: 9px 12px; border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text-secondary); }
+.secondaryBtn:hover:not(:disabled) { border-color: var(--border-3); color: var(--text-primary); }
+
+@media (max-width: 560px) {
+	.currentCard { padding: var(--space-5); }
+	.badgeRow { align-items: flex-start; flex-direction: column; }
 }

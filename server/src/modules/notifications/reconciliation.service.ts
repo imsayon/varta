@@ -20,7 +20,10 @@ export const reconciliationService = {
 
 		await dispatchOutboxBatch(`reconciliation:${crypto.randomUUID()}`)
 		const expiredOpenBatches = await prisma.digestBatch.findMany({
-			where: { status: "OPEN", windowExpiresAt: { lte: new Date() } },
+			where: { OR: [
+				{ status: "OPEN", windowExpiresAt: { lte: new Date() } },
+				{ status: "PROCESSING", leaseUntil: { lt: new Date() } },
+			] },
 			take: 100,
 			select: { id: true, workspaceId: true },
 		})
@@ -76,7 +79,16 @@ export const reconciliationService = {
 		}
 
 		const retryableDeliveries = await prisma.delivery.findMany({
-			where: { status: "FAILED", updatedAt: { lte: cutoff } },
+			where: {
+				AND: [
+					{ OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }] },
+					{ OR: [
+						{ status: { in: ["PENDING", "FAILED"] }, updatedAt: { lte: cutoff } },
+						{ status: "RUNNING", OR: [{ leaseUntil: null }, { leaseUntil: { lt: new Date() } }] },
+					] },
+				],
+			},
+			orderBy: { updatedAt: "asc" },
 			take: 100,
 			select: { id: true, workspaceId: true, notificationId: true, channel: true },
 		})

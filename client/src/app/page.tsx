@@ -189,11 +189,11 @@ export default function LandingPage() {
   }, []);
 
   const queueItems = [
-    { id: 'evt-8821', event: 'user.signup', channel: 'EMAIL', priority: 'high', attempts: '1/3', status: 'processing' },
-    { id: 'evt-8820', event: 'payment.success', channel: 'PUSH', priority: 'high', attempts: '1/1', status: 'delivered' },
-    { id: 'evt-8819', event: 'order.shipped', channel: 'SMS', priority: 'medium', attempts: '2/3', status: 'retrying' },
-    { id: 'evt-8818', event: 'trial.expiring', channel: 'EMAIL', priority: 'medium', attempts: '0/3', status: 'queued' },
-    { id: 'evt-8817', event: 'workspace.invite', channel: 'WEBHOOK', priority: 'low', attempts: '1/3', status: 'processing' },
+    { id: 'evt-8821', event: 'user.signup', channel: 'EMAIL', priority: 'high', attempts: '1/5', status: 'processing' },
+    { id: 'evt-8820', event: 'payment.success', channel: 'IN_APP', priority: 'high', attempts: '1/5', status: 'delivered' },
+    { id: 'evt-8819', event: 'order.shipped', channel: 'WEBHOOK', priority: 'medium', attempts: '2/5', status: 'retrying' },
+    { id: 'evt-8818', event: 'trial.expiring', channel: 'EMAIL', priority: 'medium', attempts: '0/5', status: 'queued' },
+    { id: 'evt-8817', event: 'workspace.invite', channel: 'WEBHOOK', priority: 'low', attempts: '1/5', status: 'processing' },
   ];
 
   return (
@@ -219,7 +219,7 @@ export default function LandingPage() {
           </ul>
           <div className={styles.navActions}>
             <Link href="/login" className={styles.btnGhost}>Sign In</Link>
-            <Link href="/login" className={styles.btnPrimary}>
+            <Link href="/signup" className={styles.btnPrimary}>
               Get Started <Icons.ArrowRight size={13} />
             </Link>
           </div>
@@ -239,7 +239,7 @@ export default function LandingPage() {
           <div className={styles.heroLeft}>
             <div className={styles.heroTag}>
               <PulseDot color="#ff6b35" size={6} />
-              <span>Open-source infrastructure</span>
+              <span>Notification infrastructure</span>
             </div>
 
             <h1 className={styles.heroHeadline}>
@@ -254,7 +254,7 @@ export default function LandingPage() {
             </p>
 
             <div className={styles.heroActions}>
-              <Link href="/login" className={styles.btnLarge}>
+              <Link href="/signup" className={styles.btnLarge}>
                 Start Building Free <Icons.ArrowRight size={14} />
               </Link>
               <a href="#how-it-works" className={styles.btnOutlineLarge}>How it works</a>
@@ -273,7 +273,7 @@ export default function LandingPage() {
               </div>
               <div className={styles.heroStat}>
                 <span className={styles.heroStatValue} style={{ color: 'var(--color-amber)' }}>3</span>
-                <span className={styles.heroStatLabel}>verified channels</span>
+                <span className={styles.heroStatLabel}>delivery channels</span>
               </div>
             </div>
           </div>
@@ -291,7 +291,7 @@ export default function LandingPage() {
                 <span className={styles.panelFilename}>notification-run.ts</span>
                 <div className={styles.panelLiveBadge}>
                   <PulseDot color="#e74c3c" size={4} />
-                  LIVE
+                  EXAMPLE
                 </div>
               </div>
 
@@ -310,7 +310,7 @@ export default function LandingPage() {
                 {/* Pipeline steps */}
                 <div className={styles.pipelineSteps}>
                   {[
-                    { Icon: Icons.Bolt, color: '#e74c3c', bg: 'rgba(192,57,43,0.15)', title: 'Event ingested & normalized', desc: 'Schema validated. Workspace rules applied.', badge: '12ms', active: true },
+                    { Icon: Icons.Bolt, color: '#e74c3c', bg: 'rgba(192,57,43,0.15)', title: 'Event ingested & normalized', desc: 'Schema validated. Workspace rules applied.', badge: 'valid', active: true },
                     { Icon: Icons.GitBranch, color: '#e67e22', bg: 'rgba(211,84,0,0.15)', title: 'Rule match: dunning-v2', desc: 'Email and in-app channels selected.', badge: 'matched', active: true },
                     { Icon: Icons.Clock, color: '#f39c12', bg: 'rgba(243,156,18,0.15)', title: 'Schedule evaluated', desc: 'Requested schedule and deterministic fallback applied.', badge: 'ready', active: true },
                     { Icon: Icons.Queue, color: '#27ae60', bg: 'rgba(39,174,96,0.15)', title: 'Durably accepted', desc: 'Delivery work recorded before queue publication.', badge: 'queued', active: false },
@@ -334,8 +334,7 @@ export default function LandingPage() {
                 <div className={styles.channelRow}>
                   {[
                     { Icon: Icons.Mail, label: 'Email' },
-                    { Icon: Icons.Bell, label: 'Push' },
-                    { Icon: Icons.Phone, label: 'SMS' },
+                    { Icon: Icons.Bell, label: 'In-App' },
                     { Icon: Icons.Webhook, label: 'Webhook' },
                   ].map(({ Icon, label }) => (
                     <div key={label} className={styles.channelChip}>
@@ -347,8 +346,8 @@ export default function LandingPage() {
                 {/* Meta row */}
                 <div className={styles.panelMetaRow}>
                   <div className={styles.panelMetaCard}>
-                    <div className={styles.panelMetaLabel}>Fallback chain</div>
-                    <div className={styles.panelMetaValue}>Push → Email → SMS</div>
+                    <div className={styles.panelMetaLabel}>Channel fan-out</div>
+                    <div className={styles.panelMetaValue}>Email + In-App + Webhook</div>
                   </div>
                   <div className={styles.panelMetaCard}>
                     <div className={styles.panelMetaLabel}>Queue visibility</div>
@@ -487,7 +486,7 @@ export default function LandingPage() {
               </div>
               <div className={styles.routingBranches}>
                 {([
-                  { label: 'IF', value: "plan === 'pro'", delivery: 'Push → Email', color: 'var(--color-primary-500)' },
+                  { label: 'IF', value: "plan === 'pro'", delivery: 'Email + In-App', color: 'var(--color-primary-500)' },
                   { label: 'IF', value: 'trial_days_left < 3', delivery: 'Email + In-App', color: 'var(--color-orange)' },
                   { label: 'ELSE', value: 'default fallback', delivery: 'In-App only', color: 'var(--color-amber)' },
                 ] as { label: string; value: string; delivery: string; color: string }[]).map((branch, i) => (
@@ -515,18 +514,17 @@ export default function LandingPage() {
                   <div className={styles.panelDot} style={{ background: '#FEBC2E' }} />
                   <div className={styles.panelDot} style={{ background: '#28C840' }} />
                 </div>
-                <span className={styles.panelFilename}>routing-rule.ts</span>
+                <span className={styles.panelFilename}>routing-rule.json</span>
               </div>
-              <pre className={styles.codeBody}><code>{`defineRule({
-  event: 'user.payment_failed',
-  match: {
-    plan: 'pro',
-    attempts: { lte: 2 }
-  },
-  channels: ['EMAIL', 'IN_APP'],
-  fallback: { channels: ['WEBHOOK'] },
-  timing: 'smart',
-})`}</code></pre>
+              <pre className={styles.codeBody}><code>{`{
+  "logic": "AND",
+  "conditions": [{
+    "field": "subscriber.attributes.plan",
+    "op": "eq",
+    "value": "pro"
+  }],
+  "channels": ["EMAIL", "IN_APP"]
+}`}</code></pre>
             </div>
           </div>
 
@@ -537,17 +535,16 @@ export default function LandingPage() {
               Rules, not<br />if-else chains.
             </h2>
             <p className={styles.sectionBody} style={{ marginTop: 20, marginBottom: 28 }}>
-              Define workspace-level routing rules that match against event properties, subscriber
-              attributes, and workspace context. The engine evaluates matches in microseconds and
-              selects the right channel mix, provider chain, and timing strategy automatically.
+              Define workspace rules using subscriber attributes and preferences. The first matching
+              rule selects the channels, filtered by template support and subscriber opt-outs.
             </p>
 
             <div className={styles.featureList}>
               {[
-                ['Condition matching', 'Match on any event or subscriber property with boolean logic.'],
-                ['Channel priority', 'Define ordered channel stacks with automatic fallthrough.'],
-                ['Scoped rules', 'Per-workspace, per-tenant, or per-subscriber rule overrides.'],
-                ['Version-controlled', 'Rules live in your codebase, not a third-party dashboard.'],
+                ['Condition matching', 'Combine subscriber conditions with AND or OR.'],
+                ['Rule priority', 'Apply the first matching active rule in priority order.'],
+                ['Workspace scope', 'Manage rules within each workspace.'],
+                ['Stored configuration', 'Save validated rules through the dashboard or API.'],
               ].map(([title, desc]) => (
                 <div key={title} className={styles.featureItem}>
                   <span className={styles.featureArrow}>→</span>
@@ -572,17 +569,16 @@ export default function LandingPage() {
               Queues that<br />actually work.
             </h2>
             <p className={styles.sectionBody} style={{ marginTop: 20, marginBottom: 36 }}>
-              Events enter a durable queue before hitting any provider. Workers process with
-              configurable concurrency, backpressure, and priority lanes. Visibility into queue
-              depth, processing rate, and per-event state — without tailing logs.
+              Notification and delivery intent commit to PostgreSQL before queue publication.
+              Channel workers record attempts and retry transient failures with exponential backoff.
             </p>
 
             <div className={styles.featureList}>
               {[
-                ['Priority lanes', 'High/medium/low lanes ensure critical events process first.'],
-                ['Backpressure', 'Rate-limit per provider to avoid downstream throttling.'],
-                ['Dead letter', 'Failed events land in DLQ with full context for reprocessing.'],
-                ['Batch fan-out', 'Broadcast to thousands of subscribers in a single event.'],
+                ['Bounded retries', 'Up to five automatic attempts per delivery job.'],
+                ['Channel workers', 'Email, in-app, and webhook consumers process queued work.'],
+                ['Terminal failures', 'Exhausted or permanent failures retain a DLQ delivery status.'],
+                ['Channel fan-out', 'One trigger targets one subscriber across selected channels.'],
               ].map(([title, desc]) => (
                 <div key={title} className={styles.featureItem}>
                   <span className={styles.featureArrow} style={{ color: 'var(--color-orange)' }}>▸</span>
@@ -598,10 +594,10 @@ export default function LandingPage() {
           {/* Queue visual */}
           <div>
             <div className={styles.queueLabelRow}>
-              <span>QUEUE: notifications-primary</span>
+              <span>EXAMPLE DELIVERY QUEUE</span>
               <span className={styles.queueLabelRight}>
                 <PulseDot color="#ff6b35" size={5} />
-                142 pending
+                Illustrative states
               </span>
             </div>
 
@@ -625,10 +621,10 @@ export default function LandingPage() {
 
             <div className={styles.workerStrip}>
               {[
-                { name: 'worker-01', load: 82, rate: '314/s' },
-                { name: 'worker-02', load: 67, rate: '248/s' },
-                { name: 'worker-03', load: 91, rate: '370/s' },
-                { name: 'worker-04', load: 44, rate: '176/s' },
+                { name: 'email', load: 82, rate: 'provider calls' },
+                { name: 'in-app', load: 67, rate: 'realtime' },
+                { name: 'webhook', load: 91, rate: 'signed HTTP' },
+                { name: 'outbox', load: 44, rate: 'publication' },
               ].map((w) => (
                 <div key={w.name} className={styles.workerCard}>
                   <div className={styles.workerName}>{w.name}</div>
@@ -688,7 +684,7 @@ export default function LandingPage() {
                   </div>
                 ))}
               </div>
-              <Link href="/login" className={styles.pricingCta}>Start Free</Link>
+              <button type="button" className={styles.pricingCta} disabled aria-disabled="true">Coming soon</button>
             </div>
 
             {/* Pro — featured */}
@@ -697,16 +693,16 @@ export default function LandingPage() {
               <div className={styles.pricingTierName}>PAID PLANS</div>
               <div className={styles.pricingPrice}>—</div>
               <div className={styles.pricingPriceSub}>no checkout</div>
-              <p className={styles.pricingDesc}>Billing and paid entitlements remain disabled until their production phase is verified.</p>
+              <p className={styles.pricingDesc}>Paid upgrades are coming soon. The demo uses the free plan.</p>
               <div className={styles.pricingFeatures}>
-                {['No fabricated limits', 'No unsupported channel claims', 'No automatic entitlement', 'No payment collection'].map(f => (
+                {['Workspace billing overview', 'Account usage tracking', 'Plan comparison'].map(f => (
                   <div key={f} className={styles.pricingFeature}>
                     <Icons.Check size={12} style={{ color: '#ff6b35', flexShrink: 0, marginTop: 1 }} />
                     {f}
                   </div>
                 ))}
               </div>
-              <Link href="/login" className={`${styles.pricingCta} ${styles.pricingCtaFeatured}`}>Use the free build</Link>
+              <button type="button" className={`${styles.pricingCta} ${styles.pricingCtaFeatured}`} disabled aria-disabled="true">Coming soon</button>
             </div>
 
             {/* Enterprise */}
@@ -717,14 +713,14 @@ export default function LandingPage() {
               <div className={styles.pricingPriceSub}>out of current scope</div>
               <p className={styles.pricingDesc}>Capacity upgrades and commercial commitments will be based on measured demand.</p>
               <div className={styles.pricingFeatures}>
-                {['Measured upgrade triggers', 'Explicit service limits', 'Evidence before claims'].map(f => (
+                {['Separate API and worker processes', 'Queue and delivery metrics', 'Portable Docker deployment'].map(f => (
                   <div key={f} className={styles.pricingFeature}>
                     <Icons.Check size={12} style={{ color: '#ff6b35', flexShrink: 0, marginTop: 1 }} />
                     {f}
                   </div>
                 ))}
               </div>
-              <Link href="/login" className={styles.pricingCta}>Use Varta</Link>
+              <button type="button" className={styles.pricingCta} disabled aria-disabled="true">Coming soon</button>
             </div>
           </div>
 
@@ -735,7 +731,7 @@ export default function LandingPage() {
             </div>
             <div>
               <div className={styles.selfHostTitle}>Prefer to self-host?</div>
-              <div className={styles.selfHostDesc}>Run Varta with the included production Docker and Compose configuration.</div>
+              <div className={styles.selfHostDesc}>Run Varta locally with the included Docker Compose configuration.</div>
             </div>
             <a href="#how-it-works" className={styles.selfHostCta}>View architecture</a>
           </div>
@@ -756,7 +752,7 @@ export default function LandingPage() {
             Build a verified notification pipeline with email, in-app, webhook, routing, and analytics.
           </p>
           <div className={styles.ctaActions}>
-            <Link href="/login" className={styles.btnLarge}>
+            <Link href="/signup" className={styles.btnLarge}>
               Get Started for Free <Icons.ArrowRight size={14} />
             </Link>
             <a href="#features" className={styles.btnOutlineLarge}>Explore features</a>

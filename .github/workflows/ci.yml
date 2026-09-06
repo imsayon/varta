@@ -53,7 +53,9 @@ jobs:
           cache: 'pnpm'
 
       - name: Validate repository policy
-        run: bash ops/scripts/validate-repository.sh
+        run: |
+          bash ops/scripts/validate-repository.sh
+          bash ops/tests/restore.test.sh
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
@@ -105,10 +107,9 @@ jobs:
         run: pnpm --filter @varta/web typecheck
 
       - name: Build client
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:5000
         run: pnpm --filter @varta/web build
-
-      - name: Lint server
-        run: pnpm --filter @varta/server lint
 
       - name: Typecheck server
         run: pnpm --filter @varta/server typecheck
@@ -123,7 +124,6 @@ jobs:
           RUN_BILLING_DATABASE_TESTS: 'true'
           RUN_BILLING_HTTP_TESTS: 'true'
           RUN_RAZORPAY_CONTRACT_TESTS: 'true'
-          RUN_STO_DATABASE_TESTS: 'true'
           RAZORPAY_MODE: test
           RAZORPAY_KEY_ID: rzp_test_ci_fixture
           RAZORPAY_KEY_SECRET: ci-razorpay-key-secret

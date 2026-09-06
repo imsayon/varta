@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from "express"
 import { apiKeyService } from "@/modules/api-keys/api-key.service.ts"
 import { UnauthorizedError } from "@/common/errors/app-error.ts"
-import { sendError } from "@/common/utils/response.ts"
 import { workspaceContextFor, type ApiKeyPrincipal } from "@/common/auth/principal.ts"
 
 export async function apiKeyAuth(
@@ -40,27 +39,5 @@ export async function apiKeyAuth(
 		next()
 	} catch (err) {
 		next(err)
-	}
-}
-
-export function requireApiKeyScope(requiredScope: string) {
-	return (req: Request, res: Response, next: NextFunction) => {
-		if (req.capability?.principal.kind !== "api_key") {
-			return next(
-				new UnauthorizedError("API key authentication required"),
-			)
-		}
-		const scopes = req.capability.principal.scopes
-		if (!scopes.includes(requiredScope) && !scopes.includes("*")) {
-			sendError(
-				req,
-				res,
-				403,
-				"INSUFFICIENT_PERMISSIONS",
-				`API key lacks required permission scope '${requiredScope}'`,
-			)
-			return
-			}
-		next()
 	}
 }

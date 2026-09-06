@@ -2,8 +2,8 @@ export const openApiSpec = {
 	openapi: "3.0.3",
 	info: {
 		title: "Varta API",
-		version: "0.0.0",
-		description: "Production Notification Platform API",
+		version: "1.0.0",
+		description: "Varta notification API. Acceptance is durable intent; external delivery is asynchronous and may repeat after interruption.",
 	},
 	servers: [
 		{
@@ -145,6 +145,17 @@ export const openApiSpec = {
 		},
 	},
 	paths: {
+		"/workspaces/{workspaceId}/routing-rules/availability": {
+			get: { summary: "Check optional AI rule authoring availability", security: [{ BearerAuth: [] }],
+				parameters: [{ name: "workspaceId", in: "path", required: true, schema: { type: "string" } }],
+				responses: { "200": { description: "Success envelope containing available and optional reason; no credentials are exposed" }, "403": { description: "Workspace access denied" } } },
+		},
+		"/workspaces/{workspaceId}/notifications/{notificationId}/retry": {
+			post: { summary: "Resend a failed notification", description: "Compatibility route: creates a new notification and reserves another quota run. Automatic worker retries do not create a new charge. Current template content is used at execution.",
+				security: [{ BearerAuth: [] }, { ApiKeyAuth: [] }],
+				parameters: ["workspaceId", "notificationId"].map(name => ({ name, in: "path", required: true, schema: { type: "string" } })),
+				responses: { "202": { description: "New notification durably accepted" }, "400": { description: "Only failed notifications can be resent" }, "403": { description: "Workspace access or quota denied" } } },
+		},
 		"/auth/login": {
 			post: {
 				summary: "Authenticate user and return JWT access token",
@@ -166,7 +177,7 @@ export const openApiSpec = {
 			post: {
 				summary: "Trigger a notification delivery pipeline run",
 				responses: {
-					"200": { description: "Notification accepted" },
+					"202": { description: "Notification and quota reservation committed; delivery is asynchronous" },
 					"400": { description: "Invalid trigger payload" },
 				},
 			},

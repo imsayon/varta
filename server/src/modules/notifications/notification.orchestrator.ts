@@ -2,8 +2,6 @@ import type { TriggerNotificationRequest } from "./notification.schema.ts"
 import { subscriberRepository } from "../subscribers/subscriber.repository.ts"
 import { templateRepository } from "../templates/template.repository.ts"
 import { NotFoundError } from "@/common/errors/app-error.ts"
-import { sendTimeOptimizationService } from "@/modules/ai/send-time-optimization.service.ts"
-import { logger } from "@/infra/observability/logger.ts"
 import { deliveryPreparationService } from "./delivery-preparation.service.ts"
 import { routingRuleService } from "../routing-rules/routing-rule.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
@@ -62,23 +60,6 @@ export const notificationOrchestrator = {
 			if (options?.scheduledAt) {
 				const scheduledTime = new Date(options.scheduledAt).getTime()
 				sendDelayMs = Math.max(0, scheduledTime - Date.now())
-			} else if (options?.smartTiming) {
-				try {
-					sendDelayMs = await sendTimeOptimizationService.getDelay(
-						workspaceId,
-						subscriber.id,
-						subscriber.timezone ?? "UTC",
-					)
-				} catch (error) {
-					logger.warn(
-						{
-							err: error,
-							workspaceId,
-							subscriberId: subscriber.id,
-						},
-						"STO lookup failed; sending immediately",
-					)
-				}
 			}
 
 			const scheduledAt = options?.scheduledAt

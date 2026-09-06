@@ -1,12 +1,12 @@
 .card {
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  transition: all var(--transition-base);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-base);
 }
 
-.card:hover {
-  box-shadow: var(--shadow-lg);
+.hoverable:hover {
+  border-color: var(--border-2);
 }
 
 .padding_sm { padding: var(--space-4); }

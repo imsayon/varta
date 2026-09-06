@@ -56,19 +56,24 @@ export function traceHttpRequest(
 			: {}),
 	}
 	const parent = propagation.extract(context.active(), carrier)
-	const span = trace.getTracer("varta").startSpan("http.server.request", {
-		attributes: {
-			"http.request.method": req.method,
-			"server.address": req.hostname,
+	const span = trace.getTracer("varta").startSpan(
+		"http.server.request",
+		{
+			attributes: {
+				"http.request.method": req.method,
+				"server.address": req.hostname,
+			},
 		},
-	}, parent)
+		parent,
+	)
 	const activeContext = trace.setSpan(parent, span)
 	let ended = false
 	const endSpan = () => {
 		if (ended) return
 		ended = true
 		span.setAttribute("http.response.status_code", res.statusCode)
-		if (res.statusCode >= 500) span.setStatus({ code: SpanStatusCode.ERROR })
+		if (res.statusCode >= 500)
+			span.setStatus({ code: SpanStatusCode.ERROR })
 		span.end()
 	}
 	res.once("finish", endSpan)
@@ -82,7 +87,9 @@ export async function withRemoteTrace<T>(
 	attributes: Record<string, string>,
 	operation: () => Promise<T>,
 ): Promise<T> {
-	const parent = traceparent ? propagation.extract(context.active(), { traceparent }) : context.active()
+	const parent = traceparent
+		? propagation.extract(context.active(), { traceparent })
+		: context.active()
 	return context.with(parent, () => withTrace(name, attributes, operation))
 }
 
@@ -91,15 +98,21 @@ export async function withTrace<T>(
 	attributes: Record<string, string>,
 	operation: () => Promise<T>,
 ): Promise<T> {
-	return trace.getTracer("varta").startActiveSpan(name, { attributes }, async (span) => {
-		try {
-			return await operation()
-		} catch (error) {
-			span.recordException(error instanceof Error ? error : new Error("Unknown traced failure"))
-			span.setStatus({ code: SpanStatusCode.ERROR })
-			throw error
-		} finally {
-			span.end()
-		}
-	})
+	return trace
+		.getTracer("varta")
+		.startActiveSpan(name, { attributes }, async (span) => {
+			try {
+				return await operation()
+			} catch (error) {
+				span.recordException(
+					error instanceof Error
+						? error
+						: new Error("Unknown traced failure"),
+				)
+				span.setStatus({ code: SpanStatusCode.ERROR })
+				throw error
+			} finally {
+				span.end()
+			}
+		})
 }

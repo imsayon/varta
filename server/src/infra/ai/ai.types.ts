@@ -1,8 +1,7 @@
 import type { z } from "zod"
-import type { AI_FEATURES, AI_PROVIDERS } from "./ai.constants.ts"
+import type { AI_FEATURES } from "./ai.constants.ts"
 
-export type AIFeature = typeof AI_FEATURES[keyof typeof AI_FEATURES]
-export type AIProviderName = typeof AI_PROVIDERS[keyof typeof AI_PROVIDERS]
+export type AIFeature = (typeof AI_FEATURES)[keyof typeof AI_FEATURES]
 
 export interface AIRequest<T = unknown> {
 	workspaceId: string
@@ -17,13 +16,11 @@ export interface AICredentials {
 	provider: string
 	model: string
 	apiKey: string
-	baseUrl?: string | undefined
 }
 
 export interface AIProviderRequest {
 	model: string
 	apiKey: string
-	baseUrl?: string | undefined
 	systemPrompt?: string | undefined
 	input: string
 	maxInputTokens: number

@@ -1,0 +1,32 @@
+Varta setup
+
+Local: install Git, Docker with Compose and OpenSSL. From the repository root:
+  bash ops/scripts/setup-local.sh
+  bash ops/scripts/compose.sh up -d --build
+  curl --insecure --fail https://localhost/api/health/ready
+Open https://localhost and accept the local Caddy certificate warning.
+The setup script preserves existing local configuration.
+
+Verification emails require RESEND_API_KEY and EMAIL_FROM in ops/env/local.env.
+Use your verified sending identity. Configure channel providers in Settings.
+Node development uses Node 24.18.0 and pnpm 11.20.0 with a frozen install.
+Use an explicit development DATABASE_URL, DIRECT_URL and REDIS_URL; never run
+integration tests or the E2E seeder against a live database.
+
+Hosted: use ops/deploy/render.yaml and the existing manual release workflow.
+The client service URL is the only address reviewers need. On the backend set
+CLIENT_URL and CORS_ORIGIN to that HTTPS origin. Set GOOGLE_CALLBACK_URL and
+GITHUB_CALLBACK_URL to that origin plus /api/v1/auth/oauth/<provider>/callback.
+On the client set NEXT_PUBLIC_API_URL to the HTTPS backend URL (server forwarding
+and secure WebSockets). Supply database, Redis and secrets explicitly in Render.
+Never put keys in NEXT_PUBLIC variables. Keep checkout disabled and AI disabled
+until optional credentials are configured and verified. No artificial keepalive.
+
+Deploy only the exact CI-verified revision via .github/workflows/deploy.yml;
+it applies migrations before deployment. Keep auto-deploy disabled. Free services
+can sleep and share monthly hours; see https://render.com/docs/free.
+
+Showcase: after creating an owner account, run server/scripts/seed-showcase.ts
+with SHOWCASE_OWNER_EMAIL and the intended database environment using tsx.
+This creates labelled sample configuration, never a public password or sends.
+Use Studio to generate real activity; sample configuration is not delivery proof.

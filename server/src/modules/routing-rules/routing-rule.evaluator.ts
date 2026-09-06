@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util"
 import { routingRuleAstSchema, type RoutingRuleAst } from "./routing-rule.schema.ts"
 
 type RoutingContext = {
@@ -18,10 +19,6 @@ function readPath(value: unknown, path: string): unknown {
 	return current
 }
 
-function deepEqual(left: unknown, right: unknown): boolean {
-	return JSON.stringify(left) === JSON.stringify(right)
-}
-
 function evaluateCondition(
 	condition: RoutingRuleAst["conditions"][number],
 	context: RoutingContext,
@@ -33,9 +30,9 @@ function evaluateCondition(
 
 	switch (condition.op) {
 		case "eq":
-			return deepEqual(actual, condition.value)
+			return isDeepStrictEqual(actual, condition.value)
 		case "neq":
-			return !deepEqual(actual, condition.value)
+			return !isDeepStrictEqual(actual, condition.value)
 		case "gt":
 			return typeof actual === "number" && typeof condition.value === "number" && actual > condition.value
 		case "lt":
@@ -45,15 +42,15 @@ function evaluateCondition(
 		case "lte":
 			return typeof actual === "number" && typeof condition.value === "number" && actual <= condition.value
 		case "in":
-			return Array.isArray(condition.value) && condition.value.some((value) => deepEqual(value, actual))
+			return Array.isArray(condition.value) && condition.value.some((value) => isDeepStrictEqual(value, actual))
 		case "not_in":
-			return Array.isArray(condition.value) && !condition.value.some((value) => deepEqual(value, actual))
+			return Array.isArray(condition.value) && !condition.value.some((value) => isDeepStrictEqual(value, actual))
 		case "exists":
 			return actual !== undefined && actual !== null
 		case "contains":
 			return typeof actual === "string" && typeof condition.value === "string"
 				? actual.includes(condition.value)
-				: Array.isArray(actual) && actual.some((value) => deepEqual(value, condition.value))
+				: Array.isArray(actual) && actual.some((value) => isDeepStrictEqual(value, condition.value))
 	}
 }
 

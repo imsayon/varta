@@ -25,6 +25,7 @@ export function RuleBuilder() {
   const [rules, setRules] = useState<IRoutingRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [compiling, setCompiling] = useState(false);
+  const [aiStatus, setAiStatus] = useState({ available: false, reason: 'Checking AI availability…' });
 
   // Form Fields
   const [name, setName] = useState('');
@@ -42,6 +43,8 @@ export function RuleBuilder() {
 
     void (async () => {
       setLoading(true);
+      const availability = await apiClient.get<{ available: boolean; reason?: string }>(`/api/v1/workspaces/${workspace.id}/routing-rules/availability`);
+      setAiStatus(availability.success ? { available: availability.data.available, reason: availability.data.reason || '' } : { available: false, reason: 'AI is currently unavailable. Use the JSON editor below.' });
       const res = await apiClient.get<IRoutingRule[]>(`/api/v1/workspaces/${workspace.id}/routing-rules`);
       if (res.success) {
         setRules(res.data);
@@ -53,7 +56,7 @@ export function RuleBuilder() {
   }, [workspace]);
 
   const handleCompile = async () => {
-    if (!naturalLanguage.trim() || !workspace) return;
+    if (!aiStatus.available || !naturalLanguage.trim() || !workspace) return;
     setCompiling(true);
     const res = await apiClient.post<{ ast: JsonObject; explanation?: string }>(
       `/api/v1/workspaces/${workspace.id}/routing-rules/compile`,
@@ -144,9 +147,10 @@ export function RuleBuilder() {
         <Card className={styles.compilerCard}>
           <h3 className={styles.cardTitle}>
             <Sparkles className={styles.sparkleIcon} />
-            <span>AI Rule Compiler</span>
+            <span>Rule editor</span>
           </h3>
 
+          {!aiStatus.available && <p role="status">{aiStatus.reason}</p>}
           <form onSubmit={handleSave} className={styles.form}>
             <Input
               label="Rule Name"
@@ -157,7 +161,7 @@ export function RuleBuilder() {
               disabled={compiling}
             />
 
-            <Button type="button" variant="secondary" loading={compiling} onClick={() => void handleCompile()} disabled={!naturalLanguage.trim()}>
+            <Button type="button" variant="secondary" loading={compiling} onClick={() => void handleCompile()} disabled={!naturalLanguage.trim() || !aiStatus.available}>
               <Sparkles size={16} /><span>Generate review-only proposal</span>
             </Button>
             {proposalNote && <p role="status" className={styles.nlDescription}>{proposalNote}</p>}
@@ -177,7 +181,6 @@ export function RuleBuilder() {
               placeholder="If the subscriber plan is vip, use email and in-app."
               value={naturalLanguage}
               onChange={e => setNaturalLanguage(e.target.value)}
-              required
               rows={5}
               disabled={compiling}
             />

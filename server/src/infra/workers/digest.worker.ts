@@ -1,19 +1,19 @@
 import { randomUUID } from "node:crypto"
-import { Worker } from "bullmq"
-import type { Job } from "bullmq"
-import { getQueueConnection, getQueuePrefix } from "../queues/queue.connection.ts"
-import type { ProcessDigestJobDto } from "../queues/digest.queue.ts"
+import { createWorker } from "../queues/queue.factory.ts"
+import { QueueNames } from "../queues/queue.constants.ts"
 import { digestService } from "@/modules/notifications/digest.service.ts"
 import { DigestJobSchema } from "../queues/payloads.ts"
+import type { Job } from "bullmq"
+import type { DigestJob } from "../queues/payloads.ts"
 
-export const digestWorker = new Worker(
-	"digest-queue",
-	async (job: Job<ProcessDigestJobDto>) => {
+export const worker = createWorker<DigestJob>(
+	QueueNames.DIGEST,
+	async (job: Job<DigestJob>) => {
 		const payload = DigestJobSchema.parse(job.data)
 		await digestService.processBatch(
 			payload.batchId,
 			`digest-worker:${randomUUID()}`,
 		)
 	},
-	{ connection: getQueueConnection(), prefix: getQueuePrefix(), concurrency: 5 },
+	{ concurrency: 5 },
 )

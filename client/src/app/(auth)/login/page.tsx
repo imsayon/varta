@@ -105,7 +105,7 @@ function LoginForm() {
 				/>
 
 				<div style={{ textAlign: "right", marginTop: "-0.5rem", marginBottom: "1rem" }}>
-					<Link href="/forgot-password" style={{ color: "#6366f1", fontSize: "0.875rem" }}>
+					<Link href="/forgot-password" className={styles.recoveryLink}>
 						Forgot password?
 					</Link>
 				</div>

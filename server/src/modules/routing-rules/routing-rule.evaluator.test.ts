@@ -21,3 +21,17 @@ test("routing AST rejects unbounded and unauthorized fields", () => {
 	assert.equal(routingRuleAstSchema.safeParse({ logic: "AND", conditions: [{ field: "workspace.secret", op: "exists" }], channels: ["EMAIL"] }).success, false)
 	assert.equal(routingRuleAstSchema.safeParse({ logic: "AND", conditions: Array.from({ length: 21 }, (_, i) => ({ field: `subscriber.attributes.x${i}`, op: "exists" })), channels: ["EMAIL"] }).success, false)
 })
+
+test("routing compares JSON objects independently of property order", () => {
+	const attributes = { profile: { name: "Ada", tier: 2 } }
+	const value = { tier: 2, name: "Ada" }
+	for (const [op, expected, operand] of [
+		["eq", true, value], ["neq", false, value],
+		["in", true, [value]], ["not_in", false, [value]],
+	] as const) {
+		assert.equal(matchesRoutingRule({
+			conditions: [{ field: "subscriber.attributes.profile", op, value: operand }],
+			channels: ["EMAIL"],
+		}, { attributes, preferences: {} }), expected)
+	}
+})

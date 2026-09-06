@@ -32,7 +32,8 @@ let connectionPromise: Promise<void> | undefined
 export async function connectRedis(): Promise<void> {
 	if (redis.isReady) return
 	if (!connectionPromise) {
-		connectionPromise = redis.connect()
+		connectionPromise = redis
+			.connect()
 			.then(() => undefined)
 			.finally(() => {
 				connectionPromise = undefined

@@ -1,3 +1,5 @@
+import { env } from "@/common/config/env.ts"
+import { aiCredentials } from "@/infra/ai/ai.credentials.ts"
 import type { NextFunction, Request, Response } from "express"
 import { workspaceService } from "../workspaces/workspace.service.ts"
 import { routingRuleCompiler } from "./routing-rule.compiler.ts"
@@ -65,4 +67,15 @@ export async function compile(req: Request, res: Response, next: NextFunction) {
 	} catch (error) {
 		next(error)
 	}
+}
+
+export async function availability(req: Request, res: Response, next: NextFunction) {
+	try {
+		const workspaceId = workspaceIdOf(req)
+		await workspaceService.assertMembership(workspaceId, requireWorkspaceCapability(req).actorId)
+		if (!env.AI_ENABLED) { sendSuccess(req, res, { available: false, reason: "AI rule authoring is disabled. You can still save rules using the JSON editor." }); return }
+		try { await aiCredentials.resolve(workspaceId) }
+		catch { sendSuccess(req, res, { available: false, reason: "AI credentials are unavailable. You can still save rules using the JSON editor." }); return }
+		sendSuccess(req, res, { available: true })
+	} catch (error) { next(error) }
 }

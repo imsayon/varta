@@ -10,7 +10,7 @@ export const triggerNotificationSchema = z.object({
 	payload: z.record(z.string(), z.unknown()).default({}),
 	options: z
 		.object({
-			smartTiming: z.boolean().default(false),
+			smartTiming: z.literal(false).default(false),
 			channels: z.array(z.enum(NotificationChannel)).optional(),
 			scheduledAt: z.iso.datetime().optional(),
 			priority: z
