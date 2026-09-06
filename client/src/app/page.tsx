@@ -398,7 +398,7 @@ export default function LandingPage() {
                   ['QUEUES', 'bull + redis DIY', 'Built-in worker pool'],
                   ['RETRIES', 'cron job scripts', 'Exponential backoff'],
                   ['PROVIDERS', 'per-SDK sprawl', 'Provider abstraction'],
-                  ['TIMING', 'best guess', 'ML send windows'],
+                  ['TIMING', 'best guess', 'Explicit schedules'],
                   ['OBSERVABILITY', 'logs grep', 'Delivery analytics'],
                   ['CHANNELS', 'separate code paths', 'Email, in-app, webhook'],
                 ] as [string, string, string][]).map(([label, before, after]) => (
@@ -430,7 +430,7 @@ export default function LandingPage() {
             <div>
               <p className={styles.sectionBody}>
                 Drop an event into Varta. Watch it get normalized, routed through your rule engine,
-                scheduled against subscriber timing windows, fanned out across workers, and delivered
+                scheduled at your requested time, fanned out across workers, and delivered
                 to supported channels with bounded retries and analytics.
               </p>
               <div className={styles.statusRow} style={{ marginTop: 24 }}>
