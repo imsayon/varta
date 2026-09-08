@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono, Bricolage_Grotesque } from 'next/font/google';
+import { Inter, JetBrains_Mono, Montserrat } from 'next/font/google';
 import { AuthProvider } from '@/shared/auth/auth-context';
 
 import { Toaster } from 'sonner'
@@ -9,29 +9,30 @@ import '@/styles/globals.css';
 /**
  * Typography stack:
  *
- * --font-display  → Bricolage Grotesque
- *   Editorial, variable-weight, distinctively modern.
- *   Used for: hero h1, section headlines, CTA headline.
+ * --font-display  → Inter
+ *   Direct, high-impact marketing display voice.
+ *   Used for: launch page headlines, strong labels, and CTA moments.
  *
- * --font-body     → Inter
- *   The gold standard for readable UI prose.
- *   Used for: body copy, nav links, buttons, descriptions.
+ * --font-body     → Montserrat
+ *   Geometric, compact product UI voice.
+ *   Used for: dashboard copy, forms, navigation, and controls.
  *
  * --font-mono     → JetBrains Mono
  *   Purpose-built for code and terminals.
  *   Used for: code blocks, event names, badges, technical tags, queue items.
  */
 
-const bricolage = Bricolage_Grotesque({
+const montserrat = Montserrat({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
-  variable: '--varta-display',
+  variable: '--varta-ui',
   display: 'swap',
 });
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--varta-body',
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--varta-display',
   display: 'swap',
 });
 
@@ -52,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en" className={`${montserrat.variable} ${inter.variable} ${jetBrainsMono.variable}`}>
       <body>
         <AuthProvider>
           {children}

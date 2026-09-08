@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    Varta Landing — Design System
-   Ember industrial theme: Syne + JetBrains Mono + Inter
+   Ember industrial theme: Inter + JetBrains Mono + Montserrat
    Inspired by varta-landing-design.jsx & page2.jsx
    ═══════════════════════════════════════════════════════════════ */
 
@@ -55,13 +55,13 @@
   background: linear-gradient(135deg, #c0392b, #d35400);
   border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
+  font-family: var(--font-display, 'Inter', sans-serif);
   font-size: 13px; font-weight: 800; color: #fff;
   flex-shrink: 0;
 }
 
 .logoText {
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
+  font-family: var(--font-display, 'Inter', sans-serif);
   font-size: 17px; font-weight: 700;
   letter-spacing: -0.02em; color: #f0ede8;
 }
@@ -161,8 +161,8 @@
 }
 
 .heroHeadline {
-  /* Bricolage Grotesque — editorial weight for the hero statement */
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
+  /* Inter — direct, high-impact voice for the launch statement */
+  font-family: var(--font-display, 'Inter', sans-serif);
   font-size: clamp(52px, 5.5vw, 80px);
   font-weight: 800;
   line-height: 0.95;
@@ -467,8 +467,8 @@
 }
 
 .sectionHeadline {
-  /* Bricolage Grotesque — the editorial voice of each section */
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
+  /* Inter — the display voice of each launch section */
+  font-family: var(--font-display, 'Inter', sans-serif);
   font-size: clamp(36px, 4vw, 60px);
   font-weight: 800;
   line-height: 1.0;
@@ -853,7 +853,7 @@
 .scaleBgNumber {
   position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  font-family: var(--font-display, 'Syne', sans-serif);
+  font-family: var(--font-display, 'Inter', sans-serif);
   font-size: 40vw; font-weight: 800;
   color: rgba(255,255,255,0.015);
   letter-spacing: -0.08em; pointer-events: none; white-space: nowrap;
@@ -995,7 +995,7 @@
   color: #ff6b35; flex-shrink: 0;
 }
 .selfHostTitle {
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
+  font-family: var(--font-display, 'Inter', sans-serif);
   font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 3px;
   color: #f0ede8;
 }
@@ -1039,7 +1039,7 @@
 }
 
 .ctaHeadline {
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
+  font-family: var(--font-display, 'Inter', sans-serif);
   font-size: clamp(48px, 6vw, 84px);
   font-weight: 800; letter-spacing: -0.025em; line-height: 0.95;
   margin-bottom: 32px; color: #f0ede8;
@@ -1068,7 +1068,7 @@
 
 .footerLeft { display: flex; align-items: center; gap: 10px; }
 .footerBrand {
-  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
+  font-family: var(--font-display, 'Inter', sans-serif);
   font-size: 16px; font-weight: 700; letter-spacing: -0.02em; color: #f0ede8;
 }
 .footerTagline {

@@ -41,9 +41,9 @@
 	--text-dim: #5a5750;
 
 	/* Generated font variables stay separate from semantic tokens. */
-	--font-display: var(--varta-display, "Bricolage Grotesque", sans-serif);
-	--font-body: var(--varta-body, "Inter", sans-serif);
-	--font-heading: var(--font-body);
+	--font-display: var(--varta-display, "Inter", sans-serif);
+	--font-body: var(--varta-ui, "Montserrat", sans-serif);
+	--font-heading: var(--varta-ui, "Montserrat", sans-serif);
 	--font-mono: var(--varta-mono, "JetBrains Mono", monospace);
 
 	/* Font sizes */
