@@ -6,6 +6,7 @@ import {
 	UnauthorizedError,
 } from "@/common/errors/app-error.ts"
 import type { CapabilityRole, PrincipalKind } from "./principal.ts"
+import { prisma } from "@/infra/database/prisma.ts"
 
 export type RoutePolicy = {
 	id: string
@@ -121,7 +122,7 @@ export function getRoutePolicy(id: string): RoutePolicy {
 
 export function authorize(policyId: string): RequestHandler {
 	const policy = getRoutePolicy(policyId)
-	return (req: Request, _res: Response, next: NextFunction): void => {
+	return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
 		if (policy.public) {
 			next()
 			return
@@ -146,6 +147,22 @@ export function authorize(policyId: string): RequestHandler {
 		}
 
 		const workspaceId = req.params.workspaceId
+		// Browser users can select any workspace they belong to. Resolve the
+		// selected workspace's role; never carry the token workspace's role across.
+		if (typeof workspaceId === "string" && capability.principal.kind === "browser_jwt" && capability.workspace?.workspaceId !== workspaceId) {
+			try {
+				const membership = await prisma.workspaceMember.findUnique({
+					where: { userId_workspaceId: { userId: capability.principal.actorId, workspaceId } },
+					select: { role: true },
+				})
+				if (membership && capability.workspace) {
+					capability.workspace = { ...capability.workspace, workspaceId, role: membership.role }
+				}
+			} catch (error) {
+				next(error)
+				return
+			}
+		}
 		if (workspaceId && capability.workspace?.workspaceId !== workspaceId) {
 			next(
 				policy.hideWorkspaceMismatch

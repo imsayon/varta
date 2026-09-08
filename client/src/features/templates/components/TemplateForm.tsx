@@ -25,7 +25,6 @@ function getInitialTemplateFormState(initialData?: ITemplate | null) {
 	return {
 		name: initialData?.name ?? "",
 		active: initialData?.isActive ?? true,
-		aiPersonalize: initialData?.aiPersonalize ?? false,
 		emailSubject: initialData?.channels.email?.subject ?? "",
 		emailBody: initialData?.channels.email?.htmlBody ?? "",
 		inAppTitle: initialData?.channels.inapp?.title ?? "",
@@ -46,9 +45,6 @@ export function TemplateForm({
 	const initialState = getInitialTemplateFormState(initialData)
 	const [name, setName] = useState(initialState.name)
 	const [active, setActive] = useState(initialState.active)
-	const [aiPersonalize, setAiPersonalize] = useState(
-		initialState.aiPersonalize,
-	)
 	const [activeTab, setActiveTab] = useState<ChannelTab>("email")
 	const [loading, setLoading] = useState(false)
 
@@ -93,7 +89,7 @@ export function TemplateForm({
 		const payload: TemplateUpsertInput = {
 			name,
 			isActive: active,
-			aiPersonalize,
+			aiPersonalize: false,
 			channels,
 		}
 
@@ -150,14 +146,11 @@ export function TemplateForm({
 						>
 							<input
 								type="checkbox"
-								checked={aiPersonalize}
-								onChange={(e) =>
-									setAiPersonalize(e.target.checked)
-								}
-								disabled={loading}
+								checked={false}
+								disabled
 							/>
 							<Sparkles size={14} className={styles.sparkle} />
-							<span>AI Personalization</span>
+							<span>AI Personalization — coming soon</span>
 						</label>
 					</div>
 				</div>
