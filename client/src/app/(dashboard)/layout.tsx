@@ -6,6 +6,7 @@ import { useAuth } from '@/shared/auth/auth-context';
 import { Sidebar } from '@/components/layout/Sidebar/Sidebar';
 import { Header } from '@/components/layout/Header/Header';
 import { Skeleton } from '@/components/ui/Skeleton/Skeleton';
+import { SignalRail, SignalScene } from '@/components/motion/SignalMotion';
 import styles from './DashboardLayout.module.css';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -48,7 +49,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Header onOpenMenu={() => setIsMobileNavOpen(true)} />
 
         <main className={styles.main}>
-          {children}
+          <SignalRail compact label="ROUTE GRAPH // LIVE" />
+          <SignalScene>{children}</SignalScene>
         </main>
       </div>
     </div>

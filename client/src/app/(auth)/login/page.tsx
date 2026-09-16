@@ -32,6 +32,8 @@ function LoginForm() {
 			nextErrors.password = "Password must be at least 6 characters"
 
 		setErrors(nextErrors)
+		const firstError = Object.keys(nextErrors)[0]
+		if (firstError) window.requestAnimationFrame(() => document.getElementById(`login-${firstError}`)?.focus())
 		return Object.keys(nextErrors).length === 0
 	}
 
@@ -81,9 +83,12 @@ function LoginForm() {
 				</a>
 			</div>
 
-			<form onSubmit={handleSubmit} className={styles.form}>
-				<Input
-					type="email"
+				<form onSubmit={handleSubmit} className={styles.form} noValidate aria-live="polite">
+					<Input
+						id="login-email"
+						type="email"
+						name="email"
+						autoComplete="email"
 					label="Email Address"
 					placeholder="name@company.com"
 					value={email}
@@ -93,8 +98,11 @@ function LoginForm() {
 					required
 				/>
 
-				<Input
-					type="password"
+					<Input
+						id="login-password"
+						type="password"
+						name="password"
+						autoComplete="current-password"
 					label="Password"
 					placeholder="••••••••"
 					value={password}
@@ -133,7 +141,7 @@ function LoginForm() {
 
 export default function LoginPage() {
 	return (
-		<Suspense fallback={<Card padding="lg">Loading...</Card>}>
+			<Suspense fallback={<Card padding="lg">Loading…</Card>}>
 			<LoginForm />
 		</Suspense>
 	)

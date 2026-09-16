@@ -49,7 +49,7 @@
   height: 32px;
   border-radius: var(--radius-md);
   color: var(--text-muted);
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
 }
 
 .closeBtn:focus-visible,

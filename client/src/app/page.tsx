@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { SignalRail, useSignalReveal } from '@/components/motion/SignalMotion';
 import styles from './LandingPage.module.css';
 
 // ─── SVG ICONS ─────────────────────────────────────────────────────────────
@@ -161,31 +162,38 @@ function Waveform({ bars = 12 }: { bars?: number }) {
 // ─── SECTION REVEAL ────────────────────────────────────────────────────────
 
 function Reveal({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { el.classList.add(styles.revealed); observer.disconnect(); }
-    }, { threshold: 0.1, rootMargin: '-60px' });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const ref = useSignalReveal<HTMLDivElement>();
   return <div ref={ref} className={`${styles.reveal} ${className}`}>{children}</div>;
 }
 
 // ─── MAIN APP ──────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const [mousePos, setMousePos] = useState({ x: -9999, y: -9999 });
   const [navScrolled, setNavScrolled] = useState(false);
+  const cursorGlowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onMouse = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY });
+    let raf = 0;
+    let x = -9999;
+    let y = -9999;
+    const onMouse = (e: MouseEvent) => {
+      x = e.clientX;
+      y = e.clientY;
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        cursorGlowRef.current?.style.setProperty('--cursor-x', `${x}px`);
+        cursorGlowRef.current?.style.setProperty('--cursor-y', `${y}px`);
+        raf = 0;
+      });
+    };
     const onScroll = () => setNavScrolled(window.scrollY > 20);
     window.addEventListener('mousemove', onMouse);
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => { window.removeEventListener('mousemove', onMouse); window.removeEventListener('scroll', onScroll); };
+    return () => {
+      window.removeEventListener('mousemove', onMouse);
+      window.removeEventListener('scroll', onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
   }, []);
 
   const queueItems = [
@@ -198,13 +206,9 @@ export default function LandingPage() {
 
   return (
     <div className={styles.container}>
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       {/* CURSOR GLOW */}
-      <div
-        className={styles.cursorGlow}
-        style={{
-          background: `radial-gradient(600px circle at ${mousePos.x}px ${mousePos.y}px, rgba(192,57,43,0.04), transparent 60%)`,
-        }}
-      />
+      <div ref={cursorGlowRef} className={styles.cursorGlow} />
 
       {/* ─── NAV ─── */}
       <nav className={`${styles.nav} ${navScrolled ? styles.navScrolled : ''}`}>
@@ -226,6 +230,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      <main id="main-content">
       {/* ─── HERO ─── */}
       <section className={styles.hero}>
         {/* Grid background */}
@@ -244,8 +249,8 @@ export default function LandingPage() {
 
             <h1 className={styles.heroHeadline}>
               <span className={styles.heroAccent}>Varta.</span><br />
-              Notification infra<br />
-              built for ops.
+              Every signal<br />
+              routed with evidence.
             </h1>
 
             <p className={styles.heroSub}>
@@ -296,6 +301,7 @@ export default function LandingPage() {
               </div>
 
               <div className={styles.panelBody}>
+                <SignalRail label="LIVE EVENT ROUTE" />
                 {/* Incoming event */}
                 <div className={styles.eventBlock}>
                   <div className={styles.eventLabel}>▸ INCOMING EVENT</div>
@@ -759,6 +765,7 @@ export default function LandingPage() {
           </div>
         </Reveal>
       </section>
+      </main>
 
       {/* ─── FOOTER ─── */}
       <footer className={styles.footer}>

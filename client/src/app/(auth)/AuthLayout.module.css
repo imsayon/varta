@@ -31,6 +31,16 @@
   font-family: var(--font-body);
 }
 
+.container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at 50% 15%, black, transparent 70%);
+}
+
 .cardWrapper {
   width: 100%;
   max-width: 420px;

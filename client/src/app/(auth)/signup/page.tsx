@@ -36,6 +36,8 @@ export default function SignupPage() {
     if (password !== confirmPassword) nextErrors.confirmPassword = 'Passwords do not match';
 
     setErrors(nextErrors);
+    const firstError = Object.keys(nextErrors)[0];
+    if (firstError) window.requestAnimationFrame(() => document.getElementById(`signup-${firstError}`)?.focus());
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -76,9 +78,12 @@ export default function SignupPage() {
         </a>
       </div>
 
-      <form onSubmit={handleSubmit} className={styles.form}>
+      <form onSubmit={handleSubmit} className={styles.form} noValidate aria-live="polite">
         <Input
+          id="signup-name"
           type="text"
+          name="name"
+          autoComplete="name"
           label="Full Name"
           placeholder="Jane Doe"
           value={name}
@@ -89,7 +94,10 @@ export default function SignupPage() {
         />
 
         <Input
+          id="signup-email"
           type="email"
+          name="email"
+          autoComplete="email"
           label="Email Address"
           placeholder="name@company.com"
           value={email}
@@ -100,7 +108,10 @@ export default function SignupPage() {
         />
 
         <Input
+          id="signup-password"
           type="password"
+          name="password"
+          autoComplete="new-password"
           label="Password"
           placeholder="••••••••"
           value={password}
@@ -111,7 +122,10 @@ export default function SignupPage() {
         />
 
         <Input
+          id="signup-confirmPassword"
           type="password"
+          name="confirmPassword"
+          autoComplete="new-password"
           label="Confirm Password"
           placeholder="••••••••"
           value={confirmPassword}

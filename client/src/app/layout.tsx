@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono, Montserrat } from 'next/font/google';
 import { AuthProvider } from '@/shared/auth/auth-context';
 
@@ -45,6 +45,11 @@ const jetBrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Varta — Notification Infrastructure',
   description: 'Queue, route, fan-out, retry, and deliver across every channel. Self-hostable notification infrastructure.',
+};
+
+export const viewport: Viewport = {
+  colorScheme: 'dark',
+  themeColor: '#0a0908',
 };
 
 export default function RootLayout({

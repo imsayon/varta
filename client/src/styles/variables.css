@@ -61,10 +61,11 @@
 	--weight-bold: 700;
 
 	/* Letter spacing */
-	--tracking-tight: 0em;
-	--tracking-normal: 0em;
+	--tracking-tight: -0.025em;
+	--tracking-normal: 0.01em;
 	--tracking-wide: 0.05em;
 	--tracking-wider: 0.1em;
+	--font-feature-default: 'ss01' 1, 'cv11' 1;
 
 	/* Spacing (4px base) */
 	--space-0-5: 2px;

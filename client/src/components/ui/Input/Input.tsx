@@ -25,7 +25,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           className={`${styles.input} ${error ? styles.error : ''} ${mono ? styles.mono : ''} ${className || ''}`}
           {...props}
         />
-        {error && <span id={errorId} className={styles.errorText}>{error}</span>}
+        {error && <span id={errorId} className={styles.errorText} role="alert" aria-live="polite">{error}</span>}
       </div>
     );
   }
@@ -56,7 +56,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
           className={`${styles.input} ${styles.textarea} ${error ? styles.error : ''} ${mono ? styles.mono : ''} ${className || ''}`}
           {...props}
         />
-        {error && <span id={errorId} className={styles.errorText}>{error}</span>}
+        {error && <span id={errorId} className={styles.errorText} role="alert" aria-live="polite">{error}</span>}
       </div>
     );
   }

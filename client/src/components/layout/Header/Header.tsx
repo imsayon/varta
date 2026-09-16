@@ -99,7 +99,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       </div>
 
       <div className={styles.right}>
-        <span className={`${styles.statusBadge} ${isConnected ? styles.connected : styles.disconnected}`}>{isConnected ? 'Live' : 'Reconnecting'}</span>
+        <span role="status" aria-live="polite" className={`${styles.statusBadge} ${isConnected ? styles.connected : styles.disconnected}`}>{isConnected ? 'Live' : 'Reconnecting'}</span>
         <button type="button" className={styles.bellButton} aria-label={`Notifications, ${unreadCount} unread`} onClick={() => setIsFeedOpen(true)}>
           <Bell size={18} />{unreadCount > 0 && <span className={styles.unreadBadge}>{Math.min(unreadCount, 99)}</span>}
         </button>

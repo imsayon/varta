@@ -15,11 +15,13 @@
 
 /* ── CURSOR GLOW ── */
 .cursorGlow {
-  position: fixed;
+	--cursor-x: -9999px;
+	--cursor-y: -9999px;
+	position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  transition: background 0.1s ease;
+	background: radial-gradient(600px circle at var(--cursor-x) var(--cursor-y), rgba(192,57,43,0.05), transparent 60%);
 }
 
 /* ─────────────────────── NAV ─────────────────────── */
@@ -84,7 +86,7 @@
   color: #9c9890; padding: 7px 16px; border-radius: 6px;
   font-size: 13px; font-weight: 500; cursor: pointer;
   font-family: var(--font-body, 'Inter', sans-serif);
-  transition: all 0.2s; text-decoration: none; display: inline-flex; align-items: center;
+	transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease; text-decoration: none; display: inline-flex; align-items: center;
 }
 .btnGhost:hover { color: #f0ede8; border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.03); }
 
@@ -95,7 +97,7 @@
   font-family: var(--font-body, 'Inter', sans-serif);
   letter-spacing: 0.01em;
   box-shadow: 0 2px 16px rgba(192,57,43,0.35);
-  transition: all 0.2s;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
   text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
 }
 .btnPrimary:hover { transform: translateY(-1px); box-shadow: 0 4px 24px rgba(192,57,43,0.5); }
@@ -204,8 +206,8 @@
   font-size: 14px; font-weight: 600; cursor: pointer;
   font-family: var(--font-body, 'Inter', sans-serif);
   box-shadow: 0 4px 24px rgba(192,57,43,0.4);
-  transition: all 0.2s;
-  text-decoration: none;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	text-decoration: none;
   letter-spacing: 0.01em;
 }
 .btnLarge:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(192,57,43,0.55); }
@@ -217,7 +219,7 @@
   padding: 12px 22px; border-radius: 8px;
   font-size: 14px; font-weight: 500; cursor: pointer;
   font-family: var(--font-body, 'Inter', sans-serif);
-  transition: all 0.2s;
+	transition: color 0.2s ease, border-color 0.2s ease;
   text-decoration: none;
 }
 .btnOutlineLarge:hover { color: #f0ede8; border-color: rgba(255,255,255,0.28); }
@@ -331,7 +333,7 @@
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: 7px;
   padding: 10px 12px;
-  transition: all 0.3s;
+	transition: background 0.3s ease, border-color 0.3s ease;
 }
 .stepActive {
   background: rgba(192,57,43,0.06);
@@ -368,7 +370,7 @@
   border-radius: 6px; padding: 7px 10px;
   font-size: 12px; color: #9c9890;
   flex: 1; justify-content: center;
-  transition: all 0.2s;
+	transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 .channelChip:hover {
   background: rgba(192,57,43,0.07);
@@ -420,6 +422,7 @@
 
 /* ── PACKET TRACK ── */
 .packetTrack {
+	--packet-distance: calc(100% + 16px);
   position: relative; height: 2px;
   background: rgba(255,255,255,0.04);
   border-radius: 1px; overflow: hidden;
@@ -428,14 +431,18 @@
 .packet {
   position: absolute; top: -2px;
   width: 6px; height: 6px; border-radius: 50%;
+	left: 0;
+	will-change: transform, opacity;
   animation: packetMove 2.5s linear infinite;
 }
 
 /* ── WAVEFORM ── */
 .waveform { display: flex; align-items: center; gap: 2px; height: 18px; }
 .waveBar {
-  width: 2px; border-radius: 1px;
+	width: 2px; height: 16px; border-radius: 1px;
   background: #27ae60; opacity: 0.6;
+	transform: scaleY(0.25); transform-origin: center;
+	will-change: transform;
   animation: waveformAnim 1.2s ease-in-out infinite;
 }
 
@@ -601,7 +608,7 @@
   background: #111210;
   color: #5a5750;
   position: relative;
-  transition: all 0.3s;
+	transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 .journeyIconActive {
@@ -772,7 +779,7 @@
   display: flex; align-items: center;
   background: #111210; border: 1px solid rgba(255,255,255,0.09);
   border-radius: 6px; overflow: hidden; height: 42px;
-  transition: all 0.25s;
+	transition: background 0.25s ease, border-color 0.25s ease;
 }
 .queueItem:hover { border-color: rgba(192,57,43,0.28); background: #1e1e1b; }
 
@@ -968,7 +975,7 @@
   border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
   background: none; color: #9c9890;
   font-family: var(--font-body, 'Inter', sans-serif); font-size: 13px; font-weight: 500;
-  cursor: pointer; transition: all 0.2s;
+	cursor: pointer; transition: border-color 0.2s ease, color 0.2s ease;
   text-decoration: none; display: flex; align-items: center; justify-content: center;
   letter-spacing: 0.01em;
 }
@@ -1006,7 +1013,7 @@
   color: #ff6b35; padding: 10px 20px; border-radius: 7px;
   font-size: 13px; font-weight: 500; cursor: pointer;
   font-family: var(--font-body, 'Inter', sans-serif);
-  transition: all 0.2s; white-space: nowrap; text-decoration: none;
+	transition: background 0.2s ease, border-color 0.2s ease; white-space: nowrap; text-decoration: none;
 }
 .selfHostCta:hover { background: rgba(192,57,43,0.1); border-color: rgba(192,57,43,0.5); }
 
@@ -1115,20 +1122,20 @@
 }
 
 @keyframes packetMove {
-  0% { left: -8px; opacity: 0; }
+  0% { transform: translate3d(-8px, 0, 0); opacity: 0; }
   8% { opacity: 1; }
   92% { opacity: 1; }
-  100% { left: calc(100% + 8px); opacity: 0; }
+  100% { transform: translate3d(var(--packet-distance), 0, 0); opacity: 0; }
 }
 
 @keyframes waveformAnim {
-  0%, 100% { height: 3px; }
-  50% { height: 16px; }
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(192,57,43,0.3), 0 0 20px rgba(192,57,43,0.1); }
-  50% { box-shadow: 0 0 16px rgba(192,57,43,0.6), 0 0 40px rgba(192,57,43,0.25); }
+  0%, 100% { transform: scale(1); opacity: 0.86; }
+  50% { transform: scale(1.015); opacity: 1; }
 }
 
 @keyframes scrollPulse {
@@ -1192,4 +1199,117 @@
   .workerStrip { grid-template-columns: 1fr 1fr; }
   .channelRow { flex-wrap: wrap; }
   .journeyPipeline { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─────────────────────── SIGNAL CONSOLE PASS ─────────────────────── */
+.container {
+  background:
+    radial-gradient(ellipse 70% 35% at 78% 10%, rgba(192, 57, 43, 0.12), transparent 64%),
+    #090a08;
+}
+
+.hero {
+  min-height: 820px;
+  background: linear-gradient(180deg, rgba(18, 19, 15, 0.42), transparent 72%);
+}
+
+.heroInner {
+  grid-template-columns: minmax(0, 0.88fr) minmax(460px, 1.12fr);
+  min-height: 760px;
+}
+
+.heroHeadline,
+.sectionHeadline,
+.ctaHeadline {
+  text-wrap: balance;
+}
+
+.heroHeadline {
+  max-width: 720px;
+  font-size: clamp(58px, 6.25vw, 94px);
+  letter-spacing: -0.045em;
+}
+
+.heroSub {
+  max-width: 510px;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.heroTag,
+.sectionOverline,
+.queueLabelRow,
+.pricingTierTag,
+.pricingTierName {
+  letter-spacing: 0.14em;
+}
+
+.orchestrationPanel {
+  border-color: rgba(255, 107, 53, 0.22);
+  background: rgba(19, 20, 16, 0.92);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 107, 53, 0.04);
+}
+
+.panelBody {
+  padding: 16px;
+}
+
+.sectionProblem,
+.sectionRouting,
+.sectionPricing {
+  background: rgba(9, 10, 8, 0.86);
+}
+
+.sectionJourney,
+.sectionQueue {
+  background: #12130f;
+}
+
+.sectionScale {
+  background: #0f100d;
+}
+
+.scaleGrid,
+.pricingGrid,
+.problemStack {
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+}
+
+.scaleMetricValue,
+.pricingPrice,
+.heroStatValue,
+.workerRate {
+  font-variant-numeric: tabular-nums;
+}
+
+.reveal {
+  will-change: opacity, transform;
+}
+
+@media (max-width: 992px) {
+  .heroInner {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+    min-height: auto;
+  }
+
+  .heroInner {
+    min-height: auto;
+  }
+
+  .heroHeadline {
+    font-size: clamp(46px, 12vw, 68px);
+  }
+
+  .heroRight {
+    padding-bottom: 100px;
+  }
+
+  .cursorGlow {
+    display: none;
+  }
 }
