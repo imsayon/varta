@@ -71,9 +71,6 @@ jobs:
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&head_sha=${RELEASE_SHA}&status=completed&per_page=100")"
           test "$(jq --arg sha "$RELEASE_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .conclusion == "success")] | length' <<< "$runs")" -gt 0
 
-      - name: Validate local Render Blueprint policy
-        run: bash ops/scripts/validate-render-blueprint.sh
-
       - name: Install Render CLI 2.22.0
         env:
           RENDER_CLI_SHA256: 6cdcd11897b7bd7e673317e6f4aaf041b654d818444f3b1efec7240a835f79ec
@@ -114,6 +111,10 @@ jobs:
       - name: Install workspace dependencies
         if: ${{ inputs.operation == 'deploy' }}
         run: pnpm install --frozen-lockfile
+
+      - name: Validate local Render Blueprint policy
+        if: ${{ inputs.operation == 'deploy' }}
+        run: bash ops/scripts/validate-render-blueprint.sh
 
       - name: Apply production database migrations
         if: ${{ inputs.operation == 'deploy' }}
