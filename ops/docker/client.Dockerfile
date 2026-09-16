@@ -26,7 +26,11 @@ WORKDIR /app
 
 COPY --from=build /app/client/.next/standalone ./
 
-RUN addgroup -S varta && adduser -S varta -G varta && chown -R varta:varta /app
+RUN apk upgrade --no-cache \
+  && addgroup -S varta \
+  && adduser -S varta -G varta \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+  && chown -R varta:varta /app
 
 USER varta
 EXPOSE 3000
