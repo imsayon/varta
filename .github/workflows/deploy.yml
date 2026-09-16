@@ -136,8 +136,8 @@ jobs:
           set -euo pipefail
           test -n "$API_DEPLOY_HOOK"
           test -n "$CLIENT_DEPLOY_HOOK"
-          curl --fail --silent --show-error --request POST "${API_DEPLOY_HOOK}?ref=${RELEASE_SHA}"
-          curl --fail --silent --show-error --request POST "${CLIENT_DEPLOY_HOOK}?ref=${RELEASE_SHA}"
+          curl --fail --silent --show-error --request POST "${API_DEPLOY_HOOK}&ref=${RELEASE_SHA}"
+          curl --fail --silent --show-error --request POST "${CLIENT_DEPLOY_HOOK}&ref=${RELEASE_SHA}"
 
       - name: Roll back to retained Render artifacts
         if: ${{ inputs.operation == 'rollback' }}
