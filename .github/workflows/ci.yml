@@ -146,15 +146,18 @@ jobs:
         run: pnpm --filter @varta/server build
 
       - name: Prove isolated backup restore
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
         run: |
-          pg_dump "$DATABASE_URL" --format=custom --no-owner --no-acl --file=artifacts/ci-restore.dump
-          psql postgresql://varta:varta-ci-password@localhost:5432/postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE varta_restore;'
-          pg_restore --dbname=postgresql://varta:varta-ci-password@localhost:5432/varta_restore --no-owner --no-acl artifacts/ci-restore.dump
-          source_count=$(psql "$DATABASE_URL" --tuples-only --no-align -c 'SELECT COUNT(*) FROM varta._prisma_migrations WHERE finished_at IS NOT NULL;')
-          restore_count=$(psql postgresql://varta:varta-ci-password@localhost:5432/varta_restore --tuples-only --no-align -c 'SELECT COUNT(*) FROM varta._prisma_migrations WHERE finished_at IS NOT NULL;')
+          # Use the pinned server's client tools to avoid runner/server version drift.
+          docker exec "$POSTGRES_CONTAINER" pg_dump -U varta -d varta --format=custom --no-owner --no-acl > artifacts/ci-restore.dump
+          docker exec "$POSTGRES_CONTAINER" psql -U varta -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE varta_restore;'
+          docker exec -i "$POSTGRES_CONTAINER" pg_restore -U varta --dbname=varta_restore --exit-on-error --no-owner --no-acl < artifacts/ci-restore.dump
+          source_count=$(docker exec "$POSTGRES_CONTAINER" psql -U varta -d varta --tuples-only --no-align -c 'SELECT COUNT(*) FROM varta._prisma_migrations WHERE finished_at IS NOT NULL;')
+          restore_count=$(docker exec "$POSTGRES_CONTAINER" psql -U varta -d varta_restore --tuples-only --no-align -c 'SELECT COUNT(*) FROM varta._prisma_migrations WHERE finished_at IS NOT NULL;')
           test "$source_count" = "$restore_count"
           test "$restore_count" -gt 0
-          psql postgresql://varta:varta-ci-password@localhost:5432/varta_restore -v ON_ERROR_STOP=1 -c 'SELECT COUNT(*) FROM varta.workspaces;' -c 'SELECT COUNT(*) FROM varta.notifications;' -c 'SELECT COUNT(*) FROM varta.billing_accounts;'
+          docker exec "$POSTGRES_CONTAINER" psql -U varta -d varta_restore -v ON_ERROR_STOP=1 -c 'SELECT COUNT(*) FROM varta.workspaces;' -c 'SELECT COUNT(*) FROM varta.notifications;' -c 'SELECT COUNT(*) FROM varta.billing_accounts;'
 
       - name: Seed disposable browser environment
         run: NODE_ENV=test pnpm --dir server exec tsx scripts/e2e-seed.ts
