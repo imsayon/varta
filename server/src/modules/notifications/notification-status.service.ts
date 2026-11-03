@@ -17,6 +17,8 @@ export async function recomputeAggregateStatus(
 	notificationId: string,
 ): Promise<NotificationStatus> {
 	const status = await prisma.$transaction(async (tx) => {
+		// Serialize snapshots and writes so a slower channel cannot restore stale status.
+		await tx.$queryRaw`SELECT id FROM varta.notifications WHERE id = ${notificationId}::uuid AND workspace_id = ${workspaceId}::uuid FOR UPDATE`
 		const notification = await tx.notification.findFirst({
 			where: { id: notificationId, workspaceId },
 			select: {

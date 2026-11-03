@@ -5,7 +5,7 @@
 	"type": "module",
 	"packageManager": "pnpm@11.20.0",
 	"engines": {
-		"node": "24.18.0",
+		"node": "24.22.2",
 		"pnpm": "11.20.0"
 	},
 	"scripts": {
@@ -35,13 +35,13 @@
 		"@prisma/client": "7.9.1",
 		"argon2": "0.45.1",
 		"bullmq": "6.0.7",
-		"compression": "1.8.1",
+		"compression": "1.8.2",
 		"cookie-parser": "1.4.7",
 		"cors": "2.8.6",
 		"dotenv": "17.4.2",
 		"express": "5.2.1",
 		"express-rate-limit": "8.6.2",
-		"handlebars": "4.7.9",
+		"handlebars": "4.7.10",
 		"helmet": "8.3.0",
 		"ioredis": "6.0.0",
 		"isomorphic-dompurify": "3.21.0",
@@ -56,7 +56,7 @@
 		"resend": "6.18.1",
 		"slugify": "1.6.9",
 		"ws": "8.21.2",
-		"zod": "4.4.3"
+		"zod": "4.6.6"
 	},
 	"devDependencies": {
 		"@types/compression": "1.8.1",

@@ -19,7 +19,17 @@ export function validate(schema: ZodType, target: ValidationTarget = "body") {
 			)
 			return
 		}
-		;(req as unknown as Record<string, unknown>)[target] = result.data
+		if (target === "query") {
+			// Express 5 exposes query through a getter on the request prototype.
+			Object.defineProperty(req, "query", {
+				value: result.data,
+				writable: true,
+				enumerable: true,
+				configurable: true,
+			})
+		} else {
+			;(req as unknown as Record<string, unknown>)[target] = result.data
+		}
 		next()
 	}
 }

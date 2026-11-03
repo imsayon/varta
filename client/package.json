@@ -4,7 +4,7 @@
 	"private": true,
 	"packageManager": "pnpm@11.20.0",
 	"engines": {
-		"node": "24.18.0",
+		"node": "24.22.2",
 		"pnpm": "11.20.0"
 	},
 	"scripts": {
@@ -19,7 +19,7 @@
 		"animejs": "4.5.0",
 		"framer-motion": "12.43.0",
 		"lucide-react": "1.28.0",
-		"next": "16.3.3",
+		"next": "16.4.3",
 		"react": "19.2.8",
 		"react-dom": "19.2.8",
 		"recharts": "3.10.1",
@@ -33,7 +33,7 @@
 		"@types/react": "19.2.18",
 		"@types/react-dom": "19.2.4",
 		"eslint": "9.39.5",
-		"eslint-config-next": "16.3.3",
+		"eslint-config-next": "16.4.3",
 		"tailwindcss": "4.3.3",
 		"typescript": "6.0.3"
 	}

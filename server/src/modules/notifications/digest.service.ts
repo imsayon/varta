@@ -36,7 +36,7 @@ export const digestService = {
 			Math.floor(configValue(input.digestConfig, "maxItems") ?? DEFAULT_MAX_ITEMS),
 		)
 		try {
-			const result = await prisma.$transaction(
+			const accept = () => prisma.$transaction(
 				async (tx) => {
 					await reserveNotificationQuotaTx(tx, input.workspaceId, input.idempotencyKey, 1)
 					const notification = await tx.notification.create({
@@ -102,6 +102,18 @@ export const digestService = {
 				},
 				{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
 			)
+			let result: Awaited<ReturnType<typeof accept>>
+			for (let attempt = 0; ; attempt++) {
+				try {
+					result = await accept()
+					break
+				} catch (error) {
+					// Advisory locks do not refresh a Serializable snapshot. Restart all
+					// quota, notification and batch writes together after a conflict.
+					if (!(error instanceof Prisma.PrismaClientKnownRequestError)
+						|| error.code !== "P2034" || attempt >= 2) throw error
+				}
+			}
 			for (const batch of result.batches) {
 				try {
 					await queueService.enqueueDigest(
@@ -157,7 +169,11 @@ export const digestService = {
 		try {
 			const channel = batch.channel as NotificationChannel
 			if (!Object.values(NotificationChannel).includes(channel)) {
-				throw new Error(`Unsupported digest channel: ${batch.channel}`)
+				await prisma.digestBatch.updateMany({
+					where: { id: batch.id, status: "PROCESSING", claimedBy: workerId, leaseUntil: { gt: new Date() } },
+					data: { status: "FAILED", leaseUntil: null, claimedBy: null },
+				})
+				return
 			}
 			const accepted = await acceptNotification({
 				workspaceId: batch.workspaceId,
@@ -185,7 +201,8 @@ export const digestService = {
 		} catch (error) {
 			await prisma.digestBatch.updateMany({
 				where: { id: batch.id, status: "PROCESSING", claimedBy: workerId, leaseUntil: { gt: new Date() } },
-				data: { status: "FAILED", leaseUntil: null },
+				// Keep the sealed batch reclaimable, including after queue retry exhaustion.
+				data: { leaseUntil: new Date(0), claimedBy: null },
 			})
 			throw error
 		}

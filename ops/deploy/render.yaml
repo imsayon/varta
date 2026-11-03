@@ -26,7 +26,7 @@ projects:
                   healthCheckPath: /api/health/combined/ready
                   envVars:
                       - key: NODE_VERSION
-                        value: 24.18.0
+                        value: 24.22.2
                       - key: NODE_ENV
                         value: production
                       - key: PORT
@@ -162,7 +162,7 @@ projects:
                   healthCheckPath: /
                   envVars:
                       - key: NODE_VERSION
-                        value: 24.18.0
+                        value: 24.22.2
                       - key: NODE_ENV
                         value: production
                       - key: PORT

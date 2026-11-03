@@ -8,13 +8,13 @@ if [[ -n "$tracked_env_files" ]]; then
 	exit 1
 fi
 
-if [[ "$(cat .node-version)" != "24.18.0" ]]; then
-	printf '%s\n' 'ERROR: .node-version must remain pinned to 24.18.0.' >&2
+if [[ "$(cat .node-version)" != "24.22.2" ]]; then
+	printf '%s\n' 'ERROR: .node-version must remain pinned to 24.22.2.' >&2
 	exit 1
 fi
 
-if ! grep -q 'node:24\.18\.0' ops/docker/server.Dockerfile ops/docker/client.Dockerfile; then
-	printf '%s\n' 'ERROR: production Dockerfiles must use Node 24.18.0.' >&2
+if ! grep -q 'node:24\.22\.2' ops/docker/server.Dockerfile ops/docker/client.Dockerfile; then
+	printf '%s\n' 'ERROR: production Dockerfiles must use Node 24.22.2.' >&2
 	exit 1
 fi
 

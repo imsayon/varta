@@ -9,7 +9,7 @@ The setup script preserves existing local configuration.
 
 Verification emails require RESEND_API_KEY and EMAIL_FROM in ops/env/local.env.
 Use your verified sending identity. Configure channel providers in Settings.
-Node development uses Node 24.18.0 and pnpm 11.20.0 with a frozen install.
+Node development uses Node 24.22.2 and pnpm 11.20.0 with a frozen install.
 Use an explicit development DATABASE_URL, DIRECT_URL and REDIS_URL; never run
 integration tests or the E2E seeder against a live database.
 

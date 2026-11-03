@@ -28,23 +28,23 @@ export const resendProvider: EmailProvider = {
 			})
 			const data = (await response.json().catch(() => null)) as {
 				id?: unknown
-				message?: unknown
+				name?: unknown
 			} | null
+			controller.signal.throwIfAborted()
 			if (!response.ok) {
 				return {
 					success: false,
 					error: `Resend rejected the request with HTTP ${response.status}`,
-					retryable: response.status === 408 || response.status === 429 || response.status >= 500,
+					retryable: response.status === 408 || response.status === 429 || response.status >= 500 ||
+						(response.status === 409 && data?.name === "concurrent_idempotent_requests"),
 				}
 			}
 			if (typeof data?.id !== "string" || !data.id) {
 				return { success: false, error: "Resend response did not include a message ID", retryable: true }
 			}
 			return { success: true, messageId: data.id }
-		} catch (err: unknown) {
-			const message =
-				err instanceof Error ? err.message : "Unknown Resend error"
-			return { success: false, error: message.slice(0, 500), retryable: true }
+		} catch {
+			return { success: false, error: "Resend request failed or timed out", retryable: true }
 		} finally {
 			clearTimeout(timeout)
 		}

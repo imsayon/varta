@@ -5,8 +5,10 @@ import { NotFoundError } from "@/common/errors/app-error.ts"
 import { deliveryPreparationService } from "./delivery-preparation.service.ts"
 import { routingRuleService } from "../routing-rules/routing-rule.service.ts"
 import { NotificationChannel } from "./notification.types.ts"
-import { acceptNotification } from "./notification-acceptance.service.ts"
+import { acceptNotification, type AcceptanceResult } from "./notification-acceptance.service.ts"
 import { digestService } from "./digest.service.ts"
+import { notificationRepository } from "./notification.repository.ts"
+import { notificationAcceptance } from "@/infra/observability/metrics.ts"
 
 function normalizeChannels(
 	channels: string[] | undefined,
@@ -17,12 +19,28 @@ function normalizeChannels(
 	return [...new Set(resolved)]
 }
 
+function triggerResponse({ notification, created }: AcceptanceResult) {
+	return {
+		notificationId: notification.id,
+		status: notification.status,
+		channels: notification.channels,
+		scheduledAt: notification.scheduledAt?.toISOString() ?? null,
+		delayMs: notification.scheduledAt ? Math.max(0, notification.scheduledAt.getTime() - Date.now()) : 0,
+		duplicate: !created,
+	}
+}
+
 export const notificationOrchestrator = {
 	async triggerNotification(
 		workspaceId: string,
 		idempotencyKey: string,
 		request: TriggerNotificationRequest,
 	) {
+		const existing = await notificationRepository.findByIdempotencyKey(workspaceId, idempotencyKey)
+		if (existing) {
+			notificationAcceptance.inc({ outcome: "duplicate" })
+			return triggerResponse({ created: false, notification: existing })
+		}
 		const { templateId, subscriberExternalId, payload, options } = request
 		{
 			const template = await templateRepository.findById(
@@ -56,17 +74,9 @@ export const notificationOrchestrator = {
 				),
 			)
 
-			let sendDelayMs = 0
-			if (options?.scheduledAt) {
-				const scheduledTime = new Date(options.scheduledAt).getTime()
-				sendDelayMs = Math.max(0, scheduledTime - Date.now())
-			}
-
 			const scheduledAt = options?.scheduledAt
 				? new Date(options.scheduledAt)
-				: sendDelayMs > 0
-					? new Date(Date.now() + sendDelayMs)
-					: null
+				: null
 			const acceptance = template.digestConfig
 				? await digestService.acceptNotification({
 					workspaceId,
@@ -90,14 +100,7 @@ export const notificationOrchestrator = {
 				smartTimingRequested: options?.smartTiming ?? false,
 				})
 
-			return {
-				notificationId: acceptance.notification.id,
-				status: acceptance.notification.status,
-				channels: acceptance.notification.channels,
-				scheduledAt: scheduledAt?.toISOString() ?? null,
-				delayMs: sendDelayMs,
-				duplicate: !acceptance.created,
-			}
+			return triggerResponse(acceptance)
 		}
 	},
 }

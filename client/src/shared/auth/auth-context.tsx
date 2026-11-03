@@ -53,11 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const accessToken = await refreshAccessToken();
         if (accessToken) {
-          useAuthStore.getState().setAuth(
-            user || { id: '', email: '' },
-            accessToken
-          );
-          const meRes = await apiClient.get<IUser>('/api/v1/auth/me');
+          const meRes = await apiClient.get<IUser>('/api/v1/auth/me', {
+            skipAuth: true,
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
           if (meRes.success) {
             setAuth(meRes.data, accessToken);
           } else {

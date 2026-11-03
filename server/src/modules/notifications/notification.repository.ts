@@ -24,7 +24,7 @@ export const notificationRepository = {
 	async findByIdempotencyKey(workspaceId: string, idempotencyKey: string) {
 		return prisma.notification.findFirst({
 			where: { workspaceId, idempotencyKey },
-			select: { id: true, status: true },
+			select: { id: true, status: true, channels: true, scheduledAt: true },
 		})
 	},
 

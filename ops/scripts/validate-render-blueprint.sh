@@ -123,11 +123,11 @@ if api_env.get("AI_PLATFORM_MODEL", {}).get("value") != "gemini-3.6-flash":
     raise SystemExit("AI platform model must be the supported Gemini launch model")
 
 for service in (api, client):
-    if service["envVars"][0].get("key") != "NODE_VERSION" or service["envVars"][0].get("value") != "24.18.0":
-        raise SystemExit(f"{service['name']} must pin Node 24.18.0")
+    if service["envVars"][0].get("key") != "NODE_VERSION" or service["envVars"][0].get("value") != "24.22.2":
+        raise SystemExit(f"{service['name']} must pin Node 24.22.2")
 with open(os.path.join(repo_root, ".node-version"), encoding="utf-8") as version_file:
-    if version_file.read().strip() != "24.18.0":
-        raise SystemExit(".node-version must remain 24.18.0")
+    if version_file.read().strip() != "24.22.2":
+        raise SystemExit(".node-version must remain 24.22.2")
 
 print("Render Blueprint validation passed: Varta Public Beta / Varta Public Beta / varta-valkey, varta-api, varta-client")
 PY

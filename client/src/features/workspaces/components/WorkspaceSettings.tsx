@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/shared/auth/auth-context"
 import { apiClient } from "@/shared/api/api"
 import { Card } from "@/components/ui/Card/Card"
@@ -41,7 +41,7 @@ interface WorkspaceDetails extends Omit<IWorkspace, "settings"> {
 }
 
 interface EmailProviderConfig {
-	apiKey: string
+	hasApiKey: boolean
 	fromAddress: string
 }
 
@@ -60,14 +60,25 @@ function readEmailProviderConfig(
 	const config = providerRecord?.config as JsonObject | undefined
 
 	return {
-		apiKey: typeof config?.apiKey === "string" ? config.apiKey : "",
+		hasApiKey: typeof config?.apiKey === "string" && config.apiKey.length > 0,
 		fromAddress:
 			typeof config?.fromAddress === "string" ? config.fromAddress : "",
 	}
 }
 
 export function WorkspaceSettings() {
-	const { workspace, user, setActiveWorkspace } = useAuth()
+	const { workspace } = useAuth()
+	return <WorkspaceSettingsForm key={workspace?.id ?? "none"} />
+}
+
+function WorkspaceSettingsForm() {
+	const { workspace, user, setActiveWorkspace, getAbortSignal } = useAuth()
+	const workspaceId = workspace?.id
+	const mounted = useRef(true)
+	useEffect(() => {
+		mounted.current = true
+		return () => { mounted.current = false }
+	}, [])
 
 	const [workspaceData, setWorkspaceData] = useState<WorkspaceDetails | null>(
 		null,
@@ -82,6 +93,10 @@ export function WorkspaceSettings() {
 	const [defaultTimezone, setDefaultTimezone] = useState("UTC")
 	const [emailLimit, setEmailLimit] = useState(1000)
 	const [emailApiKey, setEmailApiKey] = useState("")
+	const [hasEmailApiKey, setHasEmailApiKey] = useState(false)
+	const [providerLoaded, setProviderLoaded] = useState(false)
+	const [apiKeysLoaded, setApiKeysLoaded] = useState(false)
+	const [loadErrors, setLoadErrors] = useState<string[]>([])
 	const [emailFromAddress, setEmailFromAddress] = useState("")
 	const [revealEmail, setRevealEmail] = useState(false)
 
@@ -90,74 +105,66 @@ export function WorkspaceSettings() {
 	const [copiedKey, setCopiedKey] = useState(false)
 
 	const fetchSettings = useCallback(async () => {
-		if (!workspace) {
-			return
-		}
-
+		if (!workspaceId) return
+		const signal = getAbortSignal()
 		setLoading(true)
-
+		setSaving(false)
+		setTestingProvider(false)
+		setGeneratingKey(false)
+		setWorkspaceData(null)
+		setProviderLoaded(false)
+		setApiKeysLoaded(false)
+		setEmailApiKey("")
+		setHasEmailApiKey(false)
+		setEmailFromAddress("")
+		setApiKeys([])
+		setLoadErrors([])
 		const [workspaceRes, apiKeysRes, providerRes] = await Promise.all([
-			apiClient.get<WorkspaceDetails>(
-				`/api/v1/workspaces/${workspace.id}`,
-			),
-			apiClient.get<IApiKey[]>(
-				`/api/v1/workspaces/${workspace.id}/api-keys`,
-			),
-			apiClient.get<IProviderConfig[]>(
-				`/api/v1/workspaces/${workspace.id}/providers`,
-			),
+			apiClient.get<WorkspaceDetails>(`/api/v1/workspaces/${workspaceId}`),
+			apiClient.get<IApiKey[]>(`/api/v1/workspaces/${workspaceId}/api-keys`),
+			apiClient.get<IProviderConfig[]>(`/api/v1/workspaces/${workspaceId}/providers`),
 		])
+		if (signal.aborted || !mounted.current) return
 
-		if (!workspaceRes.success) {
-			toast.error(
-				workspaceRes.error?.message ||
-					"Failed to load workspace settings",
-			)
-			setLoading(false)
-			return
-		}
+		const errors: string[] = []
+		if (workspaceRes.success) {
+			setWorkspaceData(workspaceRes.data)
+			setName(workspaceRes.data.name)
+			setDefaultTimezone(workspaceRes.data.settings?.defaultTimezone || "UTC")
+			setEmailLimit(workspaceRes.data.settings?.rateLimits?.emailPerHour ?? 1000)
+		} else errors.push("Failed to load workspace settings.")
 
-		setWorkspaceData(workspaceRes.data)
-		setName(workspaceRes.data.name)
-		setDefaultTimezone(workspaceRes.data.settings?.defaultTimezone || "UTC")
-		setEmailLimit(
-			workspaceRes.data.settings?.rateLimits?.emailPerHour || 1000,
-		)
-
-		if (apiKeysRes.success && apiKeysRes.data) {
-			setApiKeys(apiKeysRes.data)
-		} else {
-			setApiKeys([])
-		}
+		if (apiKeysRes.success) {
+			setApiKeys(apiKeysRes.data ?? [])
+			setApiKeysLoaded(true)
+		} else errors.push("Failed to load API integration keys.")
 
 		if (providerRes.success) {
-			const emailProvider = readEmailProviderConfig(
-				providerRes.data ?? null,
-			)
-			setEmailApiKey(emailProvider.apiKey)
+			const emailProvider = readEmailProviderConfig(providerRes.data ?? null)
+			setHasEmailApiKey(emailProvider.hasApiKey)
 			setEmailFromAddress(emailProvider.fromAddress)
-		}
-
+			setProviderLoaded(true)
+		} else errors.push("Failed to load email provider settings.")
+		setLoadErrors(errors)
 		setLoading(false)
-	}, [workspace])
+	}, [workspaceId, getAbortSignal])
 
 	useEffect(() => {
-		if (!workspace) {
-			return
-		}
-
+		if (!workspace) return
 		void (async () => {
 			await fetchSettings()
 		})()
 	}, [workspace, fetchSettings])
 
 	const handleTestProvider = async () => {
-		if (!workspace) return
+		if (!workspace || !providerLoaded || !hasEmailApiKey) return
+		const signal = getAbortSignal()
 		setTestingProvider(true)
 
 		const res = await apiClient.post(
 			`/api/v1/workspaces/${workspace.id}/providers/email/test`,
 		)
+		if (signal.aborted || !mounted.current) return
 		setTestingProvider(false)
 
 		if (res.success) {
@@ -169,20 +176,21 @@ export function WorkspaceSettings() {
 
 	const handleSaveWorkspace = async (event: React.FormEvent) => {
 		event.preventDefault()
-		if (!workspace) {
+		if (!workspace || !workspaceData || saving) {
 			return
 		}
 
-		if (
-			(emailApiKey && !emailFromAddress) ||
-			(!emailApiKey && emailFromAddress)
-		) {
+		if (providerLoaded && (
+			((emailApiKey || hasEmailApiKey) && !emailFromAddress) ||
+			(!emailApiKey && !hasEmailApiKey && emailFromAddress)
+		)) {
 			toast.error(
 				"Email provider requires both an API key and a from address.",
 			)
 			return
 		}
 
+		const signal = getAbortSignal()
 		setSaving(true)
 
 		const workspaceRes = await apiClient.patch<WorkspaceDetails>(
@@ -198,6 +206,7 @@ export function WorkspaceSettings() {
 			},
 		)
 
+		if (signal.aborted || !mounted.current) return
 		if (!workspaceRes.success) {
 			setSaving(false)
 			toast.error(
@@ -207,19 +216,20 @@ export function WorkspaceSettings() {
 			return
 		}
 
-		if (emailApiKey && emailFromAddress) {
+		if (providerLoaded && (emailApiKey || hasEmailApiKey) && emailFromAddress) {
 			const providerRes = await apiClient.put<IProviderConfig>(
 				`/api/v1/workspaces/${workspace.id}/providers/email`,
 				{
 					provider: "resend",
 					config: {
-						apiKey: emailApiKey,
+						...(emailApiKey ? { apiKey: emailApiKey } : {}),
 						fromAddress: emailFromAddress,
 					},
 					isActive: true,
 				},
 			)
 
+			if (signal.aborted || !mounted.current) return
 			if (!providerRes.success) {
 				setSaving(false)
 				toast.error(
@@ -230,27 +240,31 @@ export function WorkspaceSettings() {
 			}
 		}
 
+		setWorkspaceData(workspaceRes.data)
+		setHasEmailApiKey(hasEmailApiKey || Boolean(emailApiKey))
+		setEmailApiKey("")
+		setSaving(false)
 		setActiveWorkspace({
 			id: workspaceRes.data.id,
 			name: workspaceRes.data.name,
 			role: workspace.role,
 		})
 		toast.success("Workspace settings updated.")
-		await fetchSettings()
-		setSaving(false)
 	}
 
 	const handleGenerateApiKey = async (event: React.FormEvent) => {
 		event.preventDefault()
-		if (!workspace || !newKeyName.trim()) {
+		if (!workspace || !apiKeysLoaded || generatingKey || !newKeyName.trim()) {
 			return
 		}
 
+		const signal = getAbortSignal()
 		setGeneratingKey(true)
 		const response = await apiClient.post<IApiKeyCreateResponse>(
 			`/api/v1/workspaces/${workspace.id}/api-keys`,
 			{ name: newKeyName.trim() },
 		)
+		if (signal.aborted || !mounted.current) return
 		setGeneratingKey(false)
 
 		if (!response.success) {
@@ -273,8 +287,9 @@ export function WorkspaceSettings() {
 
 		try {
 			await navigator.clipboard.writeText(generatedKey)
+			if (!mounted.current) return
 			setCopiedKey(true)
-			setTimeout(() => setCopiedKey(false), 2000)
+			setTimeout(() => { if (mounted.current) setCopiedKey(false) }, 2000)
 		} catch {
 			toast.error("Failed to copy API key")
 		}
@@ -307,6 +322,13 @@ export function WorkspaceSettings() {
 				</div>
 			)}
 
+			{loadErrors.length > 0 && (
+				<div role="alert">
+					{loadErrors.map(message => <p key={message}>{message}</p>)}
+					<Button type="button" variant="secondary" onClick={() => void fetchSettings()}>Retry loading settings</Button>
+				</div>
+			)}
+
 			<div className={styles.layout}>
 				<form
 					onSubmit={handleSaveWorkspace}
@@ -325,7 +347,7 @@ export function WorkspaceSettings() {
 									setName(event.target.value)
 								}
 								required
-								disabled={saving}
+								disabled={saving || !workspaceData}
 							/>
 							<Input
 								label="Default Timezone"
@@ -334,7 +356,7 @@ export function WorkspaceSettings() {
 									setDefaultTimezone(event.target.value)
 								}
 								required
-								disabled={saving}
+								disabled={saving || !workspaceData}
 							/>
 						</div>
 						{workspaceData && (
@@ -367,10 +389,10 @@ export function WorkspaceSettings() {
 									<button
 										type="button"
 										onClick={handleTestProvider}
-										disabled={testingProvider || !emailApiKey}
+										disabled={testingProvider || saving || !providerLoaded || !hasEmailApiKey}
 										className={styles.revealBtn}
 										title="Test Resend connection"
-										style={{ opacity: emailApiKey ? 1 : 0.5 }}
+										style={{ opacity: hasEmailApiKey ? 1 : 0.5 }}
 									>
 										<Send size={14} />
 										<span style={{ marginLeft: "4px", fontSize: "0.75rem" }}>
@@ -379,9 +401,9 @@ export function WorkspaceSettings() {
 									</button>
 									<button
 										type="button"
-										onClick={() =>
-											setRevealEmail((value) => !value)
-										}
+										aria-label={revealEmail ? "Hide replacement API key" : "Show replacement API key"}
+										disabled={!providerLoaded}
+										onClick={() => setRevealEmail((value) => !value)}
 										className={styles.revealBtn}
 									>
 										{revealEmail ? (
@@ -396,12 +418,12 @@ export function WorkspaceSettings() {
 								<Input
 									type={revealEmail ? "text" : "password"}
 									label="Resend API Key"
-									placeholder="re_..."
+									placeholder={hasEmailApiKey ? "Configured; leave blank to keep current key" : "re_..."}
 									value={emailApiKey}
 									onChange={(event) =>
 										setEmailApiKey(event.target.value)
 									}
-									disabled={saving}
+									disabled={saving || !providerLoaded}
 								/>
 								<Input
 									label="From Address"
@@ -410,7 +432,7 @@ export function WorkspaceSettings() {
 									onChange={(event) =>
 										setEmailFromAddress(event.target.value)
 									}
-									disabled={saving}
+									disabled={saving || !providerLoaded}
 								/>
 							</div>
 						</div>
@@ -431,7 +453,7 @@ export function WorkspaceSettings() {
 										parseInt(event.target.value, 10) || 0,
 									)
 								}
-								disabled={saving}
+								disabled={saving || !workspaceData}
 							/>
 						</div>
 					</Card>
@@ -440,6 +462,7 @@ export function WorkspaceSettings() {
 						type="submit"
 						variant="primary"
 						loading={saving}
+						disabled={!workspaceData}
 						className={styles.saveBtn}
 					>
 						<Lock size={16} />
@@ -497,12 +520,13 @@ export function WorkspaceSettings() {
 									setNewKeyName(event.target.value)
 								}
 								required
-								disabled={generatingKey}
+								disabled={generatingKey || !apiKeysLoaded}
 							/>
 							<Button
 								type="submit"
 								variant="secondary"
 								loading={generatingKey}
+								disabled={!apiKeysLoaded}
 							>
 								<Key size={14} />
 								<span>Generate Key</span>
@@ -526,7 +550,7 @@ export function WorkspaceSettings() {
 									</span>
 								</div>
 							))}
-							{apiKeys.length === 0 && (
+							{apiKeysLoaded && apiKeys.length === 0 && (
 								<span className={styles.noKeys}>
 									No API keys generated yet.
 								</span>

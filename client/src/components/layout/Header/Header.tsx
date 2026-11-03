@@ -11,10 +11,18 @@ import { NotificationSidebar } from '@/components/layout/NotificationSidebar/Not
 import styles from './Header.module.css';
 
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
+  const { workspace } = useAuth();
+  return <WorkspaceHeader key={workspace?.id} onOpenMenu={onOpenMenu} />;
+}
+
+function WorkspaceHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   const pathname = usePathname();
-  const { workspace, apiKey } = useAuth();
+  const { workspace, apiKey, getAbortSignal } = useAuth();
   const [isFeedOpen, setIsFeedOpen] = useState(false);
   const [notifications, setNotifications] = useState<IWSNotification[]>([]);
+  const [isMarkingRead, setIsMarkingRead] = useState(false);
+  const [failedReadIds, setFailedReadIds] = useState<string[]>([]);
+  const workspaceId = workspace?.id;
 
   const onRealtimeNotification = useCallback((payload: { id?: string; [key: string]: unknown }) => {
     if (!payload.id) return;
@@ -25,38 +33,54 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       timestamp: typeof payload.createdAt === 'string' ? payload.createdAt : new Date().toISOString(),
       readAt: null,
     };
-    setNotifications((current) => [item, ...current.filter((existing) => existing.id !== item.id)].slice(0, 50));
+    setNotifications((current) => [{ ...item, readAt: current.find((existing) => existing.id === item.id)?.readAt ?? null }, ...current.filter((existing) => existing.id !== item.id)].slice(0, 50));
   }, []);
 
   const { isConnected } = useWebSocket({ workspaceId: workspace?.id, onNotification: onRealtimeNotification });
 
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = AbortSignal.any([controller.signal, getAbortSignal()]);
     const timer = window.setTimeout(() => {
-      setNotifications([]);
-      if (!workspace) return;
-      void apiClient.get<INotification[]>(`/api/v1/workspaces/${workspace.id}/notifications`, { params: { limit: 50 } }).then((res) => {
-        if (!res.success) return;
-        setNotifications(res.data.map((item) => ({
+      if (!workspaceId) return;
+      void apiClient.get<INotification[]>(`/api/v1/workspaces/${workspaceId}/notifications`, { params: { limit: 50 }, signal }).then((res) => {
+        if (!res.success || signal.aborted) return;
+        setNotifications((current) => [
+          ...current.filter((item) => !res.data.some((persisted) => persisted.id === item.id)),
+          ...res.data.map((item) => ({
           id: item.id,
           title: item.template?.name || 'Notification',
           body: `${item.subscriber?.externalId || 'Subscriber'} · ${item.status.toLowerCase()}`,
           timestamp: item.createdAt,
-          readAt: item.readAt,
-        })));
+          readAt: current.find((existing) => existing.id === item.id)?.readAt || item.readAt,
+        }))].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()).slice(0, 50));
       });
     }, 0);
-    return () => window.clearTimeout(timer);
-  }, [workspace]);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [workspaceId, isConnected, getAbortSignal]);
 
   const markAllRead = async () => {
-    if (!workspace) return;
+    if (!workspaceId || isMarkingRead) return;
+    const signal = getAbortSignal();
     const unread = notifications.filter((item) => !item.readAt);
-    await Promise.all(unread.map((item) => apiClient.patch(`/api/v1/workspaces/${workspace.id}/notifications/${item.id}/read`)));
+    setIsMarkingRead(true);
+    setFailedReadIds([]);
+    const results = await Promise.all(unread.map((item) => apiClient.patch(`/api/v1/workspaces/${workspaceId}/notifications/${item.id}/read`, undefined, { signal })));
+    setIsMarkingRead(false);
+    if (signal.aborted) return;
+    const persistedIds = new Set(unread.filter((_, index) => results[index].success).map((item) => item.id));
     const now = new Date().toISOString();
-    setNotifications((current) => current.map((item) => ({ ...item, readAt: item.readAt || now })));
+    setNotifications((current) => current.map((item) => persistedIds.has(item.id) ? { ...item, readAt: item.readAt || now } : item));
+    setFailedReadIds(unread.filter((_, index) => !results[index].success).map((item) => item.id));
   };
 
   const unreadCount = notifications.filter((item) => !item.readAt).length;
+  const readError = notifications.some((item) => !item.readAt && failedReadIds.includes(item.id))
+    ? 'Some notifications could not be marked as read. Unread badges have been kept. Try again.'
+    : null;
 
   // Get display title based on path
   const getTitle = () => {
@@ -116,7 +140,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         )}
 
       </div>
-      <NotificationSidebar isOpen={isFeedOpen} onClose={() => setIsFeedOpen(false)} notifications={notifications} isConnected={isConnected} onMarkAllRead={() => void markAllRead()} />
+      <NotificationSidebar isOpen={isFeedOpen} onClose={() => setIsFeedOpen(false)} notifications={notifications} isConnected={isConnected} onMarkAllRead={() => void markAllRead()} isMarkingRead={isMarkingRead} readError={readError} />
     </header>
   );
 }

@@ -369,9 +369,62 @@ export const authService = {
 	},
 
 	// Panic Button: kill all sessions for the user
-	async logoutAll(userId: string) {
-		await authRepository.revokeAllSessionsForUser(userId)
-		await authRepository.revokeAllRefreshTokensForUser(userId)
+	async logoutAll(refreshToken: string) {
+		let payload: RefreshTokenPayload
+		try {
+			const decoded = await verifyRefreshToken(refreshToken)
+			if (
+				typeof decoded.payload.sub !== "string" ||
+				typeof decoded.payload.sessionId !== "string" ||
+				typeof decoded.payload.jti !== "string" ||
+				decoded.payload.type !== "refresh"
+			) {
+				throw new Error("Invalid refresh claims")
+			}
+			payload = decoded.payload as RefreshTokenPayload
+		} catch {
+			throw new UnauthorizedError("Invalid refresh token")
+		}
+
+		try {
+			await prisma.$transaction(async (tx) => {
+				const storedToken = await tx.refreshToken.findUnique({
+					where: { id: payload.jti },
+					include: { session: true },
+				})
+				if (
+					!storedToken ||
+					storedToken.sessionId !== payload.sessionId ||
+					storedToken.session.userId !== payload.sub ||
+					storedToken.revokedAt ||
+					storedToken.session.revokedAt ||
+					storedToken.expiresAt <= new Date()
+				) {
+					throw new UnauthorizedError("Invalid refresh token")
+				}
+				const valid =
+					verifyToken(refreshToken, storedToken.tokenHash) ||
+					(await verifyPassword(storedToken.tokenHash, refreshToken).catch(() => false))
+				if (!valid) throw new UnauthorizedError("Invalid refresh token")
+
+				// Validate and revoke atomically so a concurrent rotation cannot leave
+				// a stale token with authority to revoke a newer session.
+				const revokedAt = new Date()
+				await tx.session.updateMany({
+					where: { userId: payload.sub, revokedAt: null },
+					data: { revokedAt },
+				})
+				await tx.refreshToken.updateMany({
+					where: { session: { userId: payload.sub }, revokedAt: null },
+					data: { revokedAt },
+				})
+			}, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+		} catch (error) {
+			if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+				throw new UnauthorizedError("Refresh token was already revoked or rotated")
+			}
+			throw error
+		}
 	},
 
 	// Email Verification

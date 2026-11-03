@@ -1,5 +1,5 @@
 # BUILD
-FROM node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS build
+FROM node:24.22.2-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS build
 
 RUN npm install --global pnpm@11.20.0
 
@@ -27,7 +27,7 @@ RUN DIRECT_URL='postgresql://generate:generate@localhost:5432/generate?schema=va
     /app/server/node_modules/.bin/prisma generate
 
 # RUN
-FROM node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS runtime
+FROM node:24.22.2-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS runtime
 
 LABEL org.opencontainers.image.authors="Sayon sayn731@gmail.com"
 LABEL org.opencontainers.image.source="https://github.com/imsayon/varta"

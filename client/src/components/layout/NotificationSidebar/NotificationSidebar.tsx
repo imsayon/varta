@@ -11,6 +11,8 @@ interface NotificationSidebarProps {
   notifications: IWSNotification[];
   isConnected: boolean;
   onMarkAllRead: () => void;
+  isMarkingRead: boolean;
+  readError: string | null;
 }
 
 export function NotificationSidebar({ 
@@ -18,7 +20,9 @@ export function NotificationSidebar({
   onClose, 
   notifications, 
   isConnected, 
-  onMarkAllRead 
+  onMarkAllRead,
+  isMarkingRead,
+  readError,
 }: NotificationSidebarProps) {
   return (
     <AnimatePresence>
@@ -50,7 +54,7 @@ export function NotificationSidebar({
                   <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
                 </div>
               </div>
-              <button onClick={onClose} className={styles.closeButton}>
+              <button type="button" aria-label="Close notifications" onClick={onClose} className={styles.closeButton}>
                 <X size={20} />
               </button>
             </div>
@@ -59,15 +63,16 @@ export function NotificationSidebar({
             {notifications.length > 0 && (
               <div className={styles.actionsBar}>
                 <span className={styles.countText}>{notifications.length} received</span>
-                <button onClick={onMarkAllRead} className={styles.markReadBtn}>
+                <button type="button" onClick={onMarkAllRead} className={styles.markReadBtn} disabled={isMarkingRead || !notifications.some((item) => !item.readAt)}>
                   <CheckCheck size={16} />
-                  <span>Clear Badge</span>
+                  <span>{isMarkingRead ? 'Saving…' : readError ? 'Retry marking as read' : 'Clear Badge'}</span>
                 </button>
               </div>
             )}
 
             {/* List Content */}
             <div className={styles.content}>
+              {readError && <p role="alert">{readError}</p>}
               {notifications.length === 0 ? (
                 <div className={styles.emptyState}>
                   <div className={styles.emptyIcon}>

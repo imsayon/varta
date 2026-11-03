@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { lookup } from "node:dns/promises"
 import { isIP } from "node:net"
-import { request as httpRequest } from "node:http"
+import { request as httpRequest, type ClientRequest } from "node:http"
 import { request as httpsRequest } from "node:https"
 import { env } from "@/common/config/env.ts"
 
@@ -90,42 +90,60 @@ export async function postSafeWebhook(
 	timeoutMs: number,
 	maxResponseBytes: number,
 ): Promise<{ status: number; body: string }> {
-	const { url, resolvedIp } = await assertSafeWebhookUrl(rawUrl)
-	const request = url.protocol === "https:" ? httpsRequest : httpRequest
 	return new Promise((resolve, reject) => {
-		const req = request(
-			{
-				protocol: url.protocol,
-				host: resolvedIp,
-				port: url.port || undefined,
-				path: `${url.pathname}${url.search}`,
-				method: "POST",
-				servername: url.protocol === "https:" ? url.hostname : undefined,
-				rejectUnauthorized: true,
-				headers: { ...headers, host: url.host, "content-length": Buffer.byteLength(body).toString() },
-			},
-			(response) => {
-				const chunks: Buffer[] = []
-				let received = 0
-				response.on("data", (chunk: Buffer) => {
-					received += chunk.length
-					if (received > maxResponseBytes) {
-						req.destroy(new Error("Webhook response exceeded size limit"))
-						return
-					}
-					chunks.push(chunk)
-				})
-				response.on("end", () =>
-					resolve({
-						status: response.statusCode ?? 0,
-						body: Buffer.concat(chunks).toString("utf8"),
-					}),
-				)
-			},
-		)
-		req.setTimeout(timeoutMs, () => req.destroy(new Error("Webhook request timed out")))
-		req.on("error", reject)
-		req.end(body)
+		let req: ClientRequest | undefined
+		let settled = false
+		const fail = (error: Error) => {
+			if (settled) return
+			settled = true
+			clearTimeout(deadline)
+			req?.destroy()
+			reject(error)
+		}
+		const deadline = setTimeout(() => fail(new Error("Webhook request timed out")), timeoutMs)
+		void (async () => {
+			const { url, resolvedIp } = await assertSafeWebhookUrl(rawUrl)
+			// DNS cannot be cancelled; a late lookup must never start a request.
+			if (settled) return
+			const request = url.protocol === "https:" ? httpsRequest : httpRequest
+			req = request(
+				{
+					protocol: url.protocol,
+					host: resolvedIp,
+					port: url.port || undefined,
+					path: `${url.pathname}${url.search}`,
+					method: "POST",
+					agent: false,
+					servername: url.protocol === "https:" ? url.hostname : undefined,
+					rejectUnauthorized: true,
+					headers: { ...headers, host: url.host, "content-length": Buffer.byteLength(body).toString() },
+				},
+				(response) => {
+					const chunks: Buffer[] = []
+					let received = 0
+					response.on("error", fail)
+					response.on("aborted", () => fail(Object.assign(
+						new Error("Webhook response aborted"), { code: "ECONNRESET" },
+					)))
+					response.on("data", (chunk: Buffer) => {
+						received += chunk.length
+						if (received > maxResponseBytes) {
+							fail(new Error("Webhook response exceeded size limit"))
+							return
+						}
+						chunks.push(chunk)
+					})
+					response.on("end", () => {
+						if (settled) return
+						settled = true
+						clearTimeout(deadline)
+						resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") })
+					})
+				},
+			)
+			req.on("error", fail)
+			req.end(body)
+		})().catch(fail)
 	})
 }
 

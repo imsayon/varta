@@ -6,7 +6,6 @@ import {
 	setRefreshTokenCookie,
 	clearRefreshTokenCookie,
 } from "@/common/utils/auth/cookies.ts"
-import { verifyRefreshToken } from "@/common/utils/auth/jwt.ts"
 import { requireCapability } from "@/common/auth/capability.ts"
 import { sendSuccess } from "@/common/utils/response.ts"
 import { UnauthorizedError, BadRequestError, NotFoundError } from "@/common/errors/app-error.ts"
@@ -66,10 +65,7 @@ export const authController = {
 		}
 
 		try {
-			const { payload } = await verifyRefreshToken(
-				req.cookies.refreshToken,
-			)
-			await authService.logoutAll(payload.sub as string)
+			await authService.logoutAll(req.cookies.refreshToken)
 
 			clearRefreshTokenCookie(res)
 			sendSuccess(req, res, null)

@@ -52,12 +52,24 @@ export const providerService = {
 				)
 			}
 		}
-		const encryptedConfig = encryptConfig(config)
-
 		const existing = await providerRepository.findByWorkspaceAndChannel(
 			workspaceId,
 			channel,
 		)
+		const encryptedConfig = encryptConfig(config)
+		if (channel.toUpperCase() === "EMAIL") {
+			// Omission means unchanged. A redacted GET value is never a credential.
+			if (config.apiKey !== undefined && (
+				typeof config.apiKey !== "string" || !config.apiKey.trim() || config.apiKey === "********"
+			)) throw new BadRequestError("Provide a new API key or omit it to keep the current key")
+			if (config.apiKey === undefined) {
+				const stored = existing?.config as Record<string, unknown> | undefined
+				if (existing?.provider !== provider || typeof stored?.apiKey !== "string") {
+					throw new BadRequestError("Email provider requires an API key")
+				}
+				encryptedConfig.apiKey = stored.apiKey
+			}
+		}
 		if (existing) {
 			return providerRepository.update(workspaceId, channel, {
 				provider,

@@ -25,6 +25,7 @@ export type AcceptanceResult = {
 		id: string
 		status: string
 		channels: string[]
+		scheduledAt: Date | null
 	}
 }
 
@@ -84,7 +85,7 @@ export async function acceptNotification(
 			return tx.notification.update({
 				where: { id: created.id },
 				data: { status: "ENQUEUED" },
-				select: { id: true, status: true, channels: true },
+				select: { id: true, status: true, channels: true, scheduledAt: true },
 			})
 		}))
 		notificationAcceptance.inc({ outcome: "created" })
@@ -101,7 +102,7 @@ export async function acceptNotification(
 						idempotencyKey: input.idempotencyKey,
 					},
 				},
-				select: { id: true, status: true, channels: true },
+				select: { id: true, status: true, channels: true, scheduledAt: true },
 			})
 			if (existing) {
 				notificationAcceptance.inc({ outcome: "duplicate" })

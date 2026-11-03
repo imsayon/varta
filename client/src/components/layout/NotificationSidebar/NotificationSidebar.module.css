@@ -105,6 +105,7 @@
 .content {
   flex: 1;
   overflow-y: auto;
+  overflow-wrap: anywhere;
   padding: var(--space-6);
 }
 
@@ -206,7 +207,9 @@
 }
 
 @media (max-width: 480px) {
-  .drawer {
-    width: 100%;
+  .popover {
+    left: var(--space-3);
+    right: var(--space-3);
+    width: auto;
   }
 }

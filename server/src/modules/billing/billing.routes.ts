@@ -48,10 +48,10 @@ const verifySchema = z.object({
 })
 
 const router = express.Router()
-router.use(authenticate)
 
 router.get(
 	"/api/v1/workspaces/:workspaceId/billing",
+	authenticate,
 	authorize("billing.read"),
 	async (req, res, next) => {
 		try {
@@ -83,6 +83,7 @@ router.get(
 
 router.post(
 	"/api/v1/workspaces/:workspaceId/billing/checkout",
+	authenticate,
 	authorize("billing.checkout"),
 	async (req, res, next) => {
 		try {
@@ -105,6 +106,7 @@ router.post(
 
 router.post(
 	"/api/v1/workspaces/:workspaceId/billing/checkout/verify",
+	authenticate,
 	authorize("billing.checkout.verify"),
 	async (req, res, next) => {
 		try {
@@ -125,6 +127,7 @@ router.post(
 
 router.post(
 	"/api/v1/workspaces/:workspaceId/billing/reconcile",
+	authenticate,
 	authorize("billing.reconcile"),
 	async (req, res, next) => {
 		try {
@@ -141,6 +144,7 @@ router.post(
 
 router.post(
 	"/api/v1/workspaces/:workspaceId/billing/cancel",
+	authenticate,
 	authorize("billing.cancel"),
 	async (req, res, next) => {
 		try {
