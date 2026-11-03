@@ -25,7 +25,7 @@ jobs:
           BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
         run: |
           mkdir -p artifacts
-          docker run --rm postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73 pg_dump "$DATABASE_URL" --format=custom --no-owner --no-acl > artifacts/varta.dump
+          docker run --rm postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73 pg_dump "$DATABASE_URL" --schema=varta --format=custom --no-owner --no-acl > artifacts/varta.dump
           sudo apt-get update -qq && sudo apt-get install -y -qq age
           age --recipient "$BACKUP_AGE_RECIPIENT" --output artifacts/varta.dump.age artifacts/varta.dump
           sha256sum artifacts/varta.dump.age > artifacts/varta.dump.age.sha256
