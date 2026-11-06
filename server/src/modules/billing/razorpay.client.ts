@@ -23,9 +23,9 @@ const customerSchema = z.object({ id: z.string().min(1) })
 const subscriptionSchema = z.object({
 	id: z.string().min(1),
 	status: z.string().min(1),
-	current_start: z.number().int().nonnegative().optional(),
-	current_end: z.number().int().nonnegative().optional(),
-	ended_at: z.number().int().nonnegative().optional(),
+	current_start: z.number().int().nonnegative().nullish(),
+	current_end: z.number().int().nonnegative().nullish(),
+	ended_at: z.number().int().nonnegative().nullish(),
 })
 
 export type RazorpaySubscription = z.infer<typeof subscriptionSchema>

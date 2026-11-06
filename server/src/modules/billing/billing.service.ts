@@ -39,9 +39,9 @@ const webhookSchema = z.object({
 			entity: z.object({
 				id: z.string().min(1),
 				status: z.string().optional(),
-				current_start: z.number().int().nonnegative().optional(),
-				current_end: z.number().int().nonnegative().optional(),
-				ended_at: z.number().int().nonnegative().optional(),
+				current_start: z.number().int().nonnegative().nullish(),
+				current_end: z.number().int().nonnegative().nullish(),
+				ended_at: z.number().int().nonnegative().nullish(),
 			}).passthrough(),
 		}).optional(),
 		payment: z.object({
@@ -56,8 +56,8 @@ function sha256(value: string): string {
 	return crypto.createHash("sha256").update(value).digest("hex")
 }
 
-function asDate(seconds: number | undefined): Date | null {
-	return seconds === undefined ? null : new Date(seconds * 1_000)
+function asDate(seconds: number | null | undefined): Date | null {
+	return seconds == null ? null : new Date(seconds * 1_000)
 }
 
 function assertPlanId(value: string): BillingPlanId {

@@ -21,7 +21,17 @@ test("Razorpay HTTP webhook preserves exact bytes, deduplicates event IDs, and r
 	const previousSecret = process.env.RAZORPAY_WEBHOOK_SECRET_PREVIOUS ?? ""
 	const eventId = `evt_${crypto.randomUUID()}`
 	const savedEventIds = [eventId]
-	const rawBody = JSON.stringify({ event: "subscription.activated", created_at: 2_000, payload: {} })
+	const rawBody = JSON.stringify({
+		event: "subscription.activated",
+		created_at: 2_000,
+		payload: { subscription: { entity: {
+			id: "sub_http_fixture",
+			status: "active",
+			current_start: null,
+			current_end: null,
+			ended_at: null,
+		} } },
+	})
 	const signature = crypto.createHmac("sha256", secret).update(rawBody).digest("hex")
 	try {
 		const send = (body: string, id: string, signed = signature) => fetch(`${origin}/api/v1/webhooks/razorpay`, {
