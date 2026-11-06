@@ -53,3 +53,17 @@ test("Razorpay cancellation is fixed to the provider subscription path and perio
 	assert.equal(observedUrl, "https://api.razorpay.com/v1/subscriptions/sub_fixture/cancel")
 	assert.deepEqual(JSON.parse(observedBody), { cancel_at_cycle_end: 1 })
 })
+
+test("Razorpay accepts unset timestamps on a new subscription", { skip: !enabled }, async () => {
+	const client = createRazorpayClient(async () => Response.json({
+		id: "sub_fixture",
+		status: "created",
+		current_start: null,
+		current_end: null,
+		ended_at: null,
+	}))
+	assert.deepEqual(await client.createSubscription({ planId: "plan_fixture" }), {
+		subscriptionId: "sub_fixture",
+		status: "created",
+	})
+})

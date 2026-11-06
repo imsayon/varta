@@ -208,7 +208,13 @@ test("Billing database: webhook projection is monotonic, auditable, and ignores 
 		const activePayload = JSON.stringify({
 			event: "subscription.activated",
 			created_at: 2_000,
-			payload: { subscription: { entity: { id: subscription.razorpaySubscriptionId, status: "active" } } },
+			payload: { subscription: { entity: {
+				id: subscription.razorpaySubscriptionId,
+				status: "active",
+				current_start: null,
+				current_end: null,
+				ended_at: null,
+			} } },
 		})
 		const activeEvent = await prisma.billingWebhookEvent.create({
 			data: {
@@ -220,7 +226,10 @@ test("Billing database: webhook projection is monotonic, auditable, and ignores 
 			},
 		})
 		await billingService.processWebhookEvent(activeEvent.id)
-		assert.equal((await prisma.subscription.findUniqueOrThrow({ where: { id: subscription.id } })).status, "ACTIVE")
+		const activated = await prisma.subscription.findUniqueOrThrow({ where: { id: subscription.id } })
+		assert.equal(activated.status, "ACTIVE")
+		assert.equal(activated.currentPeriodStart, null)
+		assert.equal(activated.currentPeriodEnd, null)
 		assert.equal(await prisma.entitlementSnapshot.count({ where: { billingAccountId: link.billingAccountId } }), 1)
 		assert.equal(await prisma.billingAuditEvent.count({ where: { billingAccountId: link.billingAccountId } }), 1)
 
