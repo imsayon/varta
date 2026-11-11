@@ -1,4 +1,5 @@
 import crypto from "node:crypto"
+import { setTimeout as delay } from "node:timers/promises"
 import { Prisma } from "@prisma/client"
 import slugify from "slugify"
 import { authRepository } from "./auth.repository.ts"
@@ -23,6 +24,7 @@ import {
 	ConflictError,
 	UnauthorizedError,
 	BadRequestError,
+	ServiceUnavailableError,
 } from "@/common/errors/app-error.ts"
 
 import type { RegisterInput, LoginInput } from "./auth.schema.ts"
@@ -240,8 +242,8 @@ export const authService = {
 			| { kind: "rotated"; accessToken: string; refreshToken: string }
 			| { kind: "reuse" }
 			| { kind: "invalid" }
-		try {
-			result = await prisma.$transaction(
+		const rotate = () =>
+			prisma.$transaction(
 				async (tx) => {
 					const storedToken = await tx.refreshToken.findUnique({
 						where: { id: payload.jti },
@@ -332,14 +334,20 @@ export const authService = {
 				},
 				{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
 			)
-		} catch (error) {
-			if (
-				error instanceof Prisma.PrismaClientKnownRequestError &&
-				error.code === "P2034"
-			) {
-				throw new UnauthorizedError("Refresh token was already rotated")
+		// Retry the whole transaction without changing the refresh race's start time.
+		for (let attempt = 0; ; attempt++) {
+			try {
+				result = await rotate()
+				break
+			} catch (error) {
+				const cause = error instanceof Error ? error.cause : null
+				const adapterConflict = cause !== null && typeof cause === "object" && "originalCode" in cause
+					&& (cause.originalCode === "40001" || cause.originalCode === "40P01")
+				const prismaConflict = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034"
+				if (!prismaConflict && !adapterConflict) throw error
+				if (attempt >= 2) throw new ServiceUnavailableError("Session refresh is temporarily unavailable")
+				await delay(50 * 2 ** attempt)
 			}
-			throw error
 		}
 
 		if (result.kind === "reuse") {

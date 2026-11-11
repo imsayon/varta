@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { createHmac, randomUUID } from "node:crypto"
 import { once } from "node:events"
 import test from "node:test"
+import { Prisma } from "@prisma/client"
 
 const enabled = process.env.RUN_AUTH_DATABASE_TESTS === "true"
 
@@ -111,6 +112,61 @@ test("full app preserves API-key, provider callback, and refresh logout authorit
 			for (const [suffix, method] of [["", "GET"], ["/checkout", "POST"], ["/checkout/verify", "POST"], ["/reconcile", "POST"], ["/cancel", "POST"]] as const) {
 				assert.equal((await request(`/api/v1/workspaces/${workspace.id}/billing${suffix}`, { method })).status, 401)
 			}
+		})
+
+		await t.test("refresh retries serialization conflicts without committing abandoned rotations", async () => {
+			const source = await createSession()
+			const transaction = prisma.$transaction
+			const runTransaction = transaction.bind(prisma)
+			let attempts = 0
+			prisma.$transaction = (async (callback: (tx: Prisma.TransactionClient) => Promise<unknown>, options?: { isolationLevel?: Prisma.TransactionIsolationLevel }): Promise<unknown> => runTransaction(async (tx) => {
+				const result = await callback(tx)
+				if (++attempts === 1) throw new Prisma.PrismaClientKnownRequestError("Injected serialization conflict", { code: "P2034", clientVersion: Prisma.prismaVersion.client })
+				if (attempts === 2) throw new Error("Injected commit conflict", { cause: { originalCode: "40001", kind: "TransactionWriteConflict" } })
+				return result
+			}, options)) as typeof prisma.$transaction
+			try {
+				const response = await request("/api/v1/auth/refresh", { method: "POST", headers: { origin: env.CLIENT_URL, cookie: `refreshToken=${source.token}` } })
+				assert.equal(response.status, 200)
+				assert.equal(attempts, 3)
+				const cookie = response.headers.get("set-cookie")
+				assert.ok(cookie && !cookie.includes("refreshToken=;"))
+				assert.notEqual((await prisma.refreshToken.findUniqueOrThrow({ where: { id: source.id } })).revokedAt, null)
+				assert.equal(await prisma.refreshToken.count({ where: { sessionId: source.session.id } }), 2)
+				assert.equal(await prisma.refreshToken.count({ where: { sessionId: source.session.id, revokedAt: null } }), 1)
+				assert.equal((await request("/api/v1/auth/refresh", { method: "POST", headers: { origin: env.CLIENT_URL, cookie: cookie.split(";")[0]! } })).status, 200)
+			} finally { prisma.$transaction = transaction }
+		})
+
+		await t.test("exhausted refresh conflicts preserve the cookie and the original credential", async () => {
+			const source = await createSession()
+			const transaction = prisma.$transaction
+			const runTransaction = transaction.bind(prisma)
+			let attempts = 0
+			prisma.$transaction = (async (callback: (tx: Prisma.TransactionClient) => Promise<unknown>, options?: { isolationLevel?: Prisma.TransactionIsolationLevel }): Promise<unknown> => runTransaction(async (tx) => {
+				await callback(tx)
+				attempts++
+				throw new Prisma.PrismaClientKnownRequestError("Injected serialization conflict", { code: "P2034", clientVersion: Prisma.prismaVersion.client })
+			}, options)) as typeof prisma.$transaction
+			try {
+				const response = await request("/api/v1/auth/refresh", { method: "POST", headers: { origin: env.CLIENT_URL, cookie: `refreshToken=${source.token}` } })
+				assert.equal(response.status, 503)
+				assert.equal(response.headers.get("set-cookie"), null)
+				assert.equal(attempts, 3)
+				assert.equal((await prisma.refreshToken.findUniqueOrThrow({ where: { id: source.id } })).revokedAt, null)
+				assert.equal(await prisma.refreshToken.count({ where: { sessionId: source.session.id } }), 1)
+			} finally { prisma.$transaction = transaction }
+			assert.equal((await request("/api/v1/auth/refresh", { method: "POST", headers: { origin: env.CLIENT_URL, cookie: `refreshToken=${source.token}` } })).status, 200)
+		})
+
+		await t.test("independent sessions can refresh together and invalid credentials still clear cookies", async () => {
+			const sessions = await Promise.all([createSession(), createSession()])
+			const responses = await Promise.all(sessions.map((source) => request("/api/v1/auth/refresh", { method: "POST", headers: { origin: env.CLIENT_URL, cookie: `refreshToken=${source.token}` } })))
+			for (const response of responses) assert.equal(response.status, 200)
+			for (const source of sessions) assert.equal(await prisma.refreshToken.count({ where: { sessionId: source.session.id, revokedAt: null } }), 1)
+			const invalid = await request("/api/v1/auth/refresh", { method: "POST", headers: { origin: env.CLIENT_URL, cookie: "refreshToken=invalid" } })
+			assert.equal(invalid.status, 401)
+			assert.ok(invalid.headers.get("set-cookie")?.includes("refreshToken=;"))
 		})
 
 		const analyticsSession = await createSession()

@@ -45,9 +45,8 @@ export const authController = {
 			setRefreshTokenCookie(res, result.refreshToken)
 			sendSuccess(req, res, { accessToken: result.accessToken })
 		} catch (error) {
-			clearRefreshTokenCookie(res)
-			if (error instanceof UnauthorizedError) throw error
-			throw new UnauthorizedError("Invalid refresh token")
+			if (error instanceof UnauthorizedError) clearRefreshTokenCookie(res)
+			throw error
 		}
 	},
 
