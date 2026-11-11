@@ -26,5 +26,6 @@ firebase-debug.log
 .DS_Store
 .vscode/
 
-# Project policy: Markdown is local working material and is never committed.
+# Keep working notes local; publish the project overview.
 *.md
+!/README.md
